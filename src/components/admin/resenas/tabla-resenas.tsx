@@ -15,7 +15,7 @@ interface Resena {
   comentario: string | null
   es_visible: boolean
   creado_en: string
-  productos: { nombre: string; slug: string } | null
+  productos: { nombre: string; slug: string }[] | null
 }
 
 interface Props {
@@ -80,14 +80,14 @@ function TarjetaResena({
             )} />
           ))}
         </div>
-        {resena.productos && (
+        {resena.productos?.[0] && (
           <Link
-            href={`/producto/${resena.productos.slug}`}
+            href={`/producto/${resena.productos[0].slug}`}
             target="_blank"
             className="flex items-center gap-1 text-[11px] text-primary hover:underline"
           >
             <ExternalLink className="w-3 h-3" />
-            <span className="truncate max-w-[140px]">{resena.productos.nombre}</span>
+            <span className="truncate max-w-[140px]">{resena.productos[0].nombre}</span>
           </Link>
         )}
       </div>
