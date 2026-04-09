@@ -82,7 +82,7 @@ export function ListaProductosAdmin({ productos, categorias }: Props) {
         <select
           value={categoriaFiltro}
           onChange={e => setCategoriaFiltro(e.target.value)}
-          className="h-10 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full sm:w-auto h-10 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="todas">Todas las categorías</option>
           {categorias.map(c => (
@@ -92,7 +92,7 @@ export function ListaProductosAdmin({ productos, categorias }: Props) {
         <select
           value={estadoFiltro}
           onChange={e => setEstadoFiltro(e.target.value)}
-          className="h-10 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full sm:w-auto h-10 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="todos">Todos</option>
           <option value="activos">Activos</option>
@@ -117,64 +117,70 @@ export function ListaProductosAdmin({ productos, categorias }: Props) {
               <div
                 key={producto.id}
                 className={cn(
-                  'flex items-center gap-3 p-3 rounded-2xl border bg-card transition-all',
+                  'p-3 rounded-2xl border bg-card transition-all',
                   producto.esta_activo ? 'border-card-border' : 'border-border opacity-60'
                 )}
               >
-                {/* Imagen */}
-                <div className="w-14 h-14 rounded-xl overflow-hidden bg-background-subtle flex-shrink-0 border border-border">
-                  {img ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={img} alt={producto.nombre} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Package className="w-5 h-5 text-foreground-muted/40" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{producto.nombre}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {producto.precio_descuento ? (
-                      <>
-                        <span className="text-sm font-bold text-primary">{formatearPrecio(producto.precio_descuento)}</span>
-                        <span className="text-xs text-foreground-muted line-through">{formatearPrecio(producto.precio)}</span>
-                      </>
+                {/* Fila superior: imagen + info */}
+                <div className="flex items-center gap-3">
+                  {/* Imagen */}
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-background-subtle flex-shrink-0 border border-border">
+                    {img ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={img} alt={producto.nombre} className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-sm font-bold text-foreground">{formatearPrecio(producto.precio)}</span>
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Package className="w-4 h-4 text-foreground-muted/40" />
+                      </div>
                     )}
                   </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground leading-tight line-clamp-2">{producto.nombre}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {producto.precio_descuento ? (
+                        <>
+                          <span className="text-sm font-bold text-primary">{formatearPrecio(producto.precio_descuento)}</span>
+                          <span className="text-xs text-foreground-muted line-through">{formatearPrecio(producto.precio)}</span>
+                        </>
+                      ) : (
+                        <span className="text-sm font-bold text-foreground">{formatearPrecio(producto.precio)}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fila inferior: estado + acciones */}
+                <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-border/50">
                   <span className={cn(
-                    'inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full mt-1',
+                    'inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full',
                     producto.esta_activo
                       ? 'bg-success/10 text-success'
                       : 'bg-foreground-muted/10 text-foreground-muted'
                   )}>
                     {producto.esta_activo ? 'Activo' : 'Inactivo'}
                   </span>
-                </div>
 
-                {/* Acciones */}
-                <div className="flex items-center gap-2 flex-shrink-0 mr-2">
-                  <Switch 
-                    activo={producto.esta_activo} 
-                    alCambiar={() => toggleActivo(producto.id, producto.esta_activo)}
-                    cargando={isPending}
-                  />
-                  <Link
-                    href={`/admin/dashboard/productos/${producto.id}`}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-background-subtle transition-all"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Link>
-                  <button
-                    onClick={() => eliminar(producto.id, producto.nombre)}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-all"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      activo={producto.esta_activo}
+                      alCambiar={() => toggleActivo(producto.id, producto.esta_activo)}
+                      cargando={isPending}
+                    />
+                    <Link
+                      href={`/admin/dashboard/productos/${producto.id}`}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-background-subtle transition-all"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Link>
+                    <button
+                      onClick={() => eliminar(producto.id, producto.nombre)}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             )

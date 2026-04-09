@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, SlidersHorizontal, X, Package, ChevronDown, Loader2 } from 'lucide-react'
 import { TarjetaProducto } from '@/components/tienda/tarjeta-producto'
 import { formatearPrecio } from '@/lib/utils'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
+import { cn } from '@/lib/utils'
 
 interface Producto {
   id: string; nombre: string; slug: string; precio: number
@@ -34,9 +35,13 @@ export function TiendaPrincipal({
   const [cargandoMas, setCargandoMas] = useState(false)
   const [offset, setOffset] = useState(0)
   const [hayMas, setHayMas] = useState(true)
+  const [inputBusqueda, setInputBusqueda] = useState(q)
   const LIMITE = 20
 
   const hayFiltros = min > precioMinGlobal || max < precioMaxGlobal
+
+  // Sincronizar input cuando q cambia por URL
+  useEffect(() => { setInputBusqueda(q) }, [q])
 
   // Carga inicial y cuando cambian los filtros
   useEffect(() => {
@@ -91,6 +96,26 @@ export function TiendaPrincipal({
 
     setCargando(false)
     setCargandoMas(false)
+  }
+
+  function buscar(texto: string) {
+    const url = new URLSearchParams(searchParams.toString())
+    if (texto.trim()) url.set('q', texto.trim())
+    else url.delete('q')
+    router.push(`/?${url.toString()}`, { scroll: false })
+  }
+
+  function limpiarBusqueda() {
+    const url = new URLSearchParams(searchParams.toString())
+    url.delete('q')
+    router.push(`/?${url.toString()}`, { scroll: false })
+  }
+
+  function toggleFiltros() {
+    const url = new URLSearchParams(searchParams.toString())
+    if (mostrarFiltros) url.delete('filtros')
+    else url.set('filtros', 'true')
+    router.push(`/?${url.toString()}`, { scroll: false })
   }
 
   function aplicarFiltros(params: { min?: number; max?: number }) {
@@ -169,19 +194,67 @@ export function TiendaPrincipal({
         </div>
       )}
 
-      {/* Título y Resultados */}
+      {/* Barra de búsqueda inline + filtros */}
+      <form
+        onSubmit={e => { e.preventDefault(); buscar(inputBusqueda) }}
+        className="flex gap-2 mb-4"
+      >
+        <div className="flex-1 flex items-center bg-card border border-card-border rounded-xl px-3 h-10 gap-2">
+          <Search className="w-4 h-4 text-foreground-muted flex-shrink-0" />
+          <input
+            type="text"
+            value={inputBusqueda}
+            onChange={e => setInputBusqueda(e.target.value)}
+            placeholder="Buscar productos..."
+            className="flex-1 bg-transparent text-foreground text-sm focus:outline-none"
+          />
+          {inputBusqueda && (
+            <button type="button" onClick={() => { setInputBusqueda(''); limpiarBusqueda() }}>
+              <X className="w-3.5 h-3.5 text-foreground-muted" />
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={toggleFiltros}
+          className={cn(
+            'w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 transition-all relative',
+            mostrarFiltros || hayFiltros
+              ? 'bg-primary border-primary text-white'
+              : 'bg-card border-card-border text-foreground-muted'
+          )}
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          {hayFiltros && !mostrarFiltros && (
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary rounded-full border-2 border-background" />
+          )}
+        </button>
+      </form>
+
+      {/* Título y contador */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-extrabold text-foreground flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h2 className="text-sm font-extrabold text-foreground">
             {q ? (
-                <>Buscando: <span className="text-primary">"{q}"</span></>
+              <>Resultados para <span className="text-primary">"{q}"</span></>
             ) : (
-                'Todos los productos'
+              'Todos los productos'
             )}
-        </h2>
+          </h2>
+          {q && (
+            <button
+              onClick={limpiarBusqueda}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/10 text-primary text-[11px] font-semibold hover:bg-primary/20 transition-all"
+            >
+              <X className="w-3 h-3" />
+              Limpiar búsqueda
+            </button>
+          )}
+        </div>
         {!cargando && (
-            <p className="text-[10px] font-bold text-foreground-muted bg-background-subtle px-2 py-1 rounded-lg">
-                {productos.length} items
-            </p>
+          <p className="text-[10px] font-bold text-foreground-muted bg-background-subtle px-2 py-1 rounded-lg flex-shrink-0">
+            {productos.length} items
+          </p>
         )}
       </div>
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Heart, ShoppingCart, Store, LayoutDashboard } from 'lucide-react'
+import { Home, Heart, ShoppingCart, Store, LayoutDashboard, LayoutGrid } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usarCarrito } from '@/hooks/usar-carrito'
 import { usarFavoritos } from '@/hooks/usar-favoritos'
@@ -34,10 +34,11 @@ export function NavInferior({ esAdmin: esAdminProp }: Props) {
   }, [esAdminProp])
 
   const itemsBase = [
-    { href: '/',             label: 'Inicio',     icon: Home },
-    { href: '/favoritos',    label: 'Favoritos',  icon: Heart,         badge: conteoFavoritos },
-    { href: '/carrito',      label: 'Carrito',    icon: ShoppingCart,  badge: conteoCarrito },
-    { href: '/perfil-tienda',label: 'Tienda',     icon: Store },
+    { href: '/',             label: 'Inicio',      icon: Home },
+    { href: '/categorias',   label: 'Categorías',  icon: LayoutGrid },
+    { href: '/favoritos',    label: 'Favoritos',   icon: Heart,         badge: conteoFavoritos },
+    { href: '/carrito',      label: 'Carrito',     icon: ShoppingCart,  badge: conteoCarrito },
+    { href: '/perfil-tienda',label: 'Tienda',      icon: Store },
   ]
 
   const items = esAdmin

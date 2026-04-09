@@ -385,66 +385,79 @@ function TabColores({ config }: { config: ConfigTienda }) {
     setTimeout(() => window.location.reload(), 1200)
   }
 
+  const grupos = [
+    { label: 'Rojos & Rosas',       ids: ['rojo-vital','rojo-carmesi','rosa-elegante','rosa-fucsia','rose-soft'] },
+    { label: 'Naranjas & Amarillos', ids: ['naranja-energia','naranja-mango','ambar-dorado','oro-premium','amarillo-sol'] },
+    { label: 'Verdes',               ids: ['verde-esmeralda','bosque-profundo','verde-lima','verde-oliva','teal-fresco'] },
+    { label: 'Azules & Celestes',    ids: ['azul-cielo','azul-ocean','azul-medianoche','navy-clasico','cyan-fresh'] },
+    { label: 'Púrpuras & Violetas',  ids: ['indigo-moderno','violeta-real','purpura-intenso','morado-uva'] },
+    { label: 'Neutros',              ids: ['slate-pro','gris-acero','negro-total','carbon'] },
+  ]
+
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <div>
-        <p className="text-sm font-semibold text-foreground mb-1">Paleta de colores profesional</p>
-        <p className="text-xs text-foreground-muted">Selecciona una paleta curada que afectará a toda la identidad visual de tu tienda</p>
+        <p className="text-sm font-semibold text-foreground mb-1">Paleta de colores</p>
+        <p className="text-xs text-foreground-muted">El color que elijas se aplicará en toda la tienda para todos los dispositivos</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {PALETAS.map(p => {
-          const activo = colorActual.toLowerCase() === p.primary.toLowerCase()
-          return (
-            <button
-              key={p.id}
-              onClick={() => guardar(p.primary)}
-              disabled={guardando}
-              className={cn(
-                'group relative flex flex-col gap-3 p-4 rounded-2xl border-2 transition-all text-left overflow-hidden',
-                activo
-                  ? 'border-primary bg-primary/5 shadow-md'
-                  : 'border-border bg-card hover:border-primary/40'
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <div 
-                  className="w-10 h-10 rounded-xl shadow-inner flex items-center justify-center transition-transform group-hover:scale-110"
-                  style={{ backgroundColor: p.primary, color: p.foreground }}
-                >
-                  {activo && <Star className="w-5 h-5 fill-current" />}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-foreground">{p.nombre}</p>
-                  <p className="text-[10px] text-foreground-muted uppercase font-mono">{p.primary}</p>
-                </div>
-              </div>
+      {grupos.map(grupo => {
+        const paletas = grupo.ids.map(id => PALETAS.find(p => p.id === id)!).filter(Boolean)
+        return (
+          <div key={grupo.label}>
+            <p className="text-[11px] font-bold text-foreground-muted uppercase tracking-wider mb-2">{grupo.label}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+              {paletas.map(p => {
+                const activo = colorActual.toLowerCase() === p.primary.toLowerCase()
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => guardar(p.primary)}
+                    disabled={guardando}
+                    title={p.nombre}
+                    className={cn(
+                      'relative flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all',
+                      activo
+                        ? 'border-[3px] shadow-md scale-[1.03]'
+                        : 'border-border bg-card hover:border-foreground-muted/40 hover:scale-[1.02]'
+                    )}
+                    style={activo ? { borderColor: p.primary } : {}}
+                  >
+                    {/* Círculo de color */}
+                    <div
+                      className="w-10 h-10 rounded-full shadow-sm flex items-center justify-center flex-shrink-0 transition-transform"
+                      style={{ backgroundColor: p.primary, color: p.foreground }}
+                    >
+                      {activo && <Star className="w-4 h-4 fill-current" />}
+                    </div>
 
-              {/* Muestra de colores secundarios */}
-              <div className="flex gap-1.5 mt-1">
-                <div className="h-2 w-full rounded-full" style={{ backgroundColor: p.primary }} title="Principal" />
-                <div className="h-2 w-full rounded-full opacity-80" style={{ backgroundColor: p.hover }} title="Hover" />
-                <div className="h-2 w-full rounded-full" style={{ backgroundColor: p.subtle }} title="Sutil" />
-              </div>
+                    {/* Nombre */}
+                    <p className="text-[11px] font-semibold text-foreground text-center leading-tight">{p.nombre}</p>
 
-              {activo && (
-                <div className="absolute top-2 right-2">
-                  <span className="flex w-5 h-5 items-center justify-center rounded-full bg-primary text-white text-[10px] shadow-sm">
-                    ✓
-                  </span>
-                </div>
-              )}
-            </button>
-          )
-        })}
-      </div>
+                    {/* Código hex */}
+                    <p className="text-[9px] text-foreground-muted font-mono uppercase">{p.primary}</p>
 
-      {guardando || exito ? (
+                    {/* Tick activo */}
+                    {activo && (
+                      <span
+                        className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
+                        style={{ backgroundColor: p.primary }}
+                      >✓</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+
+      {(guardando || exito) && (
         <div className="flex items-center gap-2 text-xs text-primary font-medium">
-          {guardando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>✓</span>} 
-          {guardando ? 'Guardando paleta profesional...' : '¡Paleta aplicada! Recargando...'}
+          {guardando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>✓</span>}
+          {guardando ? 'Guardando...' : '¡Color aplicado! Recargando...'}
         </div>
-      ) : null}
+      )}
     </div>
   )
 }

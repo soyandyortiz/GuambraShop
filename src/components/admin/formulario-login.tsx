@@ -68,11 +68,6 @@ export function FormularioLogin() {
     <>
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
 
-        {/* Toggle tema */}
-        <div className="absolute top-4 right-4">
-
-        </div>
-
         {/* Card de login */}
         <div className="w-full max-w-sm">
 

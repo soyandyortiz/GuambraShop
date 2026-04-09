@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist } from 'next/font/google'
-import { ThemeProvider } from '@/components/providers/theme-provider'
 import { CarritoProvider } from '@/components/providers/carrito-provider'
 import { Toaster } from 'sonner'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
@@ -56,10 +55,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head />
       <body className="min-h-screen bg-background text-foreground antialiased" suppressHydrationWarning>
         <CarritoProvider>
-          <ThemeProvider>
-            {children}
-            <Toaster position="top-right" richColors />
-          </ThemeProvider>
+          {children}
+          <Toaster position="top-right" richColors />
         </CarritoProvider>
       </body>
     </html>

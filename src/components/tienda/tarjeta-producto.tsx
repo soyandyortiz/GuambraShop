@@ -101,7 +101,7 @@ export function TarjetaProducto({
       {/* Info */}
       <div className="flex flex-col flex-1 p-2 gap-0.5">
         <Link href={`/producto/${slug}`} className="block">
-          <p className="text-xs text-foreground font-medium line-clamp-2 leading-tight min-h-[2.5rem] hover:text-primary transition-colors">
+          <p className="text-xs text-foreground font-medium line-clamp-3 leading-tight min-h-[3.75rem] hover:text-primary transition-colors">
             {nombre}
           </p>
         </Link>

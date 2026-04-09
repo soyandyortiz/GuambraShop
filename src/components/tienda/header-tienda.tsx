@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, Package, Loader2, SlidersHorizontal, Lock, Tag } from 'lucide-react'
+import { Search, X, Package, Loader2, SlidersHorizontal, User, Tag } from 'lucide-react'
 import { usarCarrito } from '@/hooks/usar-carrito'
 import Link from 'next/link'
 import { cn, formatearPrecio } from '@/lib/utils'
@@ -30,6 +30,22 @@ export function HeaderTienda({ nombreTienda, logoUrl }: Props) {
   const [categorias, setCategorias] = useState<Pick<Categoria, 'id' | 'nombre' | 'slug'>[]>([])
   const [cargando, setCargando] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const [sesionUrl, setSesionUrl] = useState<string | null | undefined>(undefined) // undefined=cargando, null=sin sesión, string=foto_url
+  const [esAdmin, setEsAdmin] = useState(false)
+
+  useEffect(() => {
+    const supabase = crearClienteSupabase()
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) { setSesionUrl(null); return }
+      const { data } = await supabase
+        .from('perfiles')
+        .select('foto_perfil_url, rol')
+        .eq('id', session.user.id)
+        .single()
+      setSesionUrl(data?.foto_perfil_url ?? null)
+      setEsAdmin(data?.rol === 'admin' || data?.rol === 'superadmin')
+    })
+  }, [])
 
   // Búsqueda en tiempo real con debounce — productos + categorías
   useEffect(() => {
@@ -251,14 +267,36 @@ export function HeaderTienda({ nombreTienda, logoUrl }: Props) {
           <SlidersHorizontal className="w-4 h-4" />
         </button>
 
-        {/* Acceso admin — discreto, solo visible para quien sabe */}
-        <Link
-          href="/admin"
-          className="w-6 h-6 flex items-center justify-center text-white/30 hover:text-white/70 transition-colors flex-shrink-0"
-          title="Administración"
-        >
-          <Lock className="w-3 h-3" />
-        </Link>
+        {/* Botón sesión: spinner → "INICIAR SESIÓN" o foto de perfil */}
+        {sesionUrl === undefined ? (
+          <div className="w-7 h-7 rounded-full bg-white/20 animate-pulse flex-shrink-0" />
+        ) : sesionUrl ? (
+          // Con sesión y foto de perfil
+          <Link href="/admin/dashboard" className="flex-shrink-0" title="Panel de administración">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={sesionUrl}
+              alt="Perfil"
+              className="w-8 h-8 rounded-full object-cover border-2 border-white/40 hover:border-white transition-all"
+            />
+          </Link>
+        ) : esAdmin ? (
+          // Con sesión pero sin foto
+          <Link href="/admin/dashboard"
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 transition-all flex-shrink-0"
+            title="Panel de administración"
+          >
+            <User className="w-4 h-4 text-white" />
+          </Link>
+        ) : (
+          // Sin sesión
+          <Link
+            href="/admin"
+            className="flex-shrink-0 px-3 h-8 rounded-xl bg-white/20 hover:bg-white/30 border border-white/20 transition-all flex items-center"
+          >
+            <span className="text-white text-[11px] font-bold tracking-wide whitespace-nowrap">INICIAR SESIÓN</span>
+          </Link>
+        )}
       </div>
     </header>
   )
