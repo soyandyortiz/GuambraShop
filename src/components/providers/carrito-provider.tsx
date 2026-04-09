@@ -1,0 +1,116 @@
+'use client'
+
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+
+export interface ItemCarrito {
+  producto_id: string
+  nombre: string
+  slug: string
+  imagen_url: string | null
+  precio: number
+  variante_id?: string
+  nombre_variante?: string
+  talla?: string
+  cantidad: number
+}
+
+interface CarritoContextType {
+  items: ItemCarrito[]
+  agregar: (item: ItemCarrito) => void
+  quitar: (producto_id: string, variante_id?: string, talla?: string) => void
+  actualizarCantidad: (producto_id: string, cantidad: number, variante_id?: string, talla?: string) => void
+  limpiar: () => void
+  actualizar: (nuevos: ItemCarrito[]) => void
+  conteo: number
+  subtotal: number
+  hidratado: boolean
+}
+
+const CarritoContext = createContext<CarritoContextType | undefined>(undefined)
+
+const CLAVE = 'tienda_carrito'
+
+function leerCarrito(): ItemCarrito[] {
+  if (typeof window === 'undefined') return []
+  try {
+    return JSON.parse(localStorage.getItem(CLAVE) ?? '[]')
+  } catch { return [] }
+}
+
+function guardarCarrito(items: ItemCarrito[]) {
+  localStorage.setItem(CLAVE, JSON.stringify(items))
+}
+
+function claveItem(item: Pick<ItemCarrito, 'producto_id' | 'variante_id' | 'talla'>) {
+  return `${item.producto_id}|${item.variante_id ?? ''}|${item.talla ?? ''}`
+}
+
+export function CarritoProvider({ children }: { children: ReactNode }) {
+  const [items, setItems] = useState<ItemCarrito[]>([])
+  const [hidratado, setHidratado] = useState(false)
+
+  useEffect(() => {
+    setItems(leerCarrito())
+    setHidratado(true)
+  }, [])
+
+  const actualizar = useCallback((nuevos: ItemCarrito[]) => {
+    setItems(nuevos)
+    guardarCarrito(nuevos)
+  }, [])
+
+  const agregar = useCallback((item: ItemCarrito) => {
+    setItems(prev => {
+      const clave = claveItem(item)
+      const existe = prev.find(i => claveItem(i) === clave)
+      const nuevos = existe
+        ? prev.map(i => claveItem(i) === clave ? { ...i, cantidad: i.cantidad + item.cantidad } : i)
+        : [...prev, item]
+      guardarCarrito(nuevos)
+      return nuevos
+    })
+  }, [])
+
+  const quitar = useCallback((producto_id: string, variante_id?: string, talla?: string) => {
+    setItems(prev => {
+      const nuevos = prev.filter(i => claveItem(i) !== claveItem({ producto_id, variante_id, talla }))
+      guardarCarrito(nuevos)
+      return nuevos
+    })
+  }, [])
+
+  const actualizarCantidad = useCallback((producto_id: string, cantidad: number, variante_id?: string, talla?: string) => {
+    setItems(prev => {
+      const nuevos = cantidad <= 0
+        ? prev.filter(i => claveItem(i) !== claveItem({ producto_id, variante_id, talla }))
+        : prev.map(i => claveItem(i) === claveItem({ producto_id, variante_id, talla }) ? { ...i, cantidad } : i)
+      guardarCarrito(nuevos)
+      return nuevos
+    })
+  }, [])
+
+  const limpiar = useCallback(() => {
+    setItems([])
+    guardarCarrito([])
+  }, [])
+
+  const conteo = items.reduce((s, i) => s + i.cantidad, 0)
+  const subtotal = items.reduce((s, i) => s + i.precio * i.cantidad, 0)
+
+  return (
+    <CarritoContext.Provider value={{ 
+      items, agregar, quitar, actualizarCantidad, limpiar, actualizar,
+      conteo, subtotal, hidratado 
+    }}>
+      {children}
+    </CarritoContext.Provider>
+  )
+}
+
+export function useCarritoContext() {
+  const context = useContext(CarritoContext)
+  if (context === undefined) {
+    throw new Error('useCarritoContext debe ser usado dentro de un CarritoProvider')
+  }
+  return context
+}

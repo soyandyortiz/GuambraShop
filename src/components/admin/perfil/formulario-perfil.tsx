@@ -1,0 +1,1014 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { toast } from 'sonner'
+import { Loader2, Save, Plus, Trash2, Store, Image as ImageIcon, MapPin, Share2, User, Star, Palette, Hash, Eye, EyeOff, Lock } from 'lucide-react'
+import { crearClienteSupabase } from '@/lib/supabase/cliente'
+import { SubidorImagenes } from '@/components/ui/subidor-imagenes'
+import { cn } from '@/lib/utils'
+import { PALETAS } from '@/lib/paletas'
+
+// ─── Tipos ───────────────────────────────────────────────────
+interface ConfigTienda {
+  id: string
+  nombre_tienda: string
+  descripcion: string | null
+  logo_url: string | null
+  favicon_url: string | null
+  foto_perfil_url: string | null
+  foto_portada_url: string | null
+  color_primario: string | null
+  whatsapp: string | null
+  moneda: string
+  simbolo_moneda: string
+  politicas_negocio: string | null
+  meta_descripcion: string | null
+}
+
+interface Direccion {
+  id: string
+  etiqueta: string
+  direccion: string
+  ciudad: string | null
+  provincia: string | null
+  pais: string
+  es_principal: boolean
+}
+
+interface RedSocial {
+  id: string
+  plataforma: string
+  url: string
+  esta_activa: boolean
+  orden: number
+}
+
+interface Perfil {
+  id: string
+  nombre: string | null
+  telefono: string | null
+}
+
+interface Props {
+  config: ConfigTienda
+  direcciones: Direccion[]
+  redes: RedSocial[]
+  perfil: Perfil
+  rol: string
+}
+
+// ─── Schemas ─────────────────────────────────────────────────
+const schemaGeneral = z.object({
+  nombre_tienda: z.string().min(2, 'Mínimo 2 caracteres'),
+  descripcion: z.string().optional(),
+  whatsapp: z.string().optional(),
+  moneda: z.string().min(1),
+  simbolo_moneda: z.string().min(1),
+  meta_descripcion: z.string().optional(),
+  politicas_negocio: z.string().optional(),
+})
+
+const schemaMiCuenta = z.object({
+  nombre: z.string().min(2, 'Mínimo 2 caracteres'),
+  telefono: z.string().optional(),
+})
+
+const schemaDireccion = z.object({
+  etiqueta: z.string().min(2),
+  direccion: z.string().min(5),
+  ciudad: z.string().optional(),
+  provincia: z.string().optional(),
+  pais: z.string().min(2),
+  es_principal: z.boolean(),
+})
+
+const schemaRed = z.object({
+  plataforma: z.enum(['instagram', 'facebook', 'tiktok', 'youtube', 'twitter', 'pinterest', 'linkedin', 'snapchat', 'whatsapp']),
+  url: z.string().url('URL inválida'),
+  esta_activa: z.boolean(),
+  orden: z.string(),
+})
+
+type CamposGeneral = z.infer<typeof schemaGeneral>
+type CamposMiCuenta = z.infer<typeof schemaMiCuenta>
+type CamposDireccion = z.infer<typeof schemaDireccion>
+type CamposRed = z.infer<typeof schemaRed>
+
+// ─── Tabs ────────────────────────────────────────────────────
+const TABS = [
+  { id: 'general', label: 'General', icon: Store },
+  { id: 'imagenes', label: 'Imágenes', icon: ImageIcon },
+  { id: 'colores', label: 'Colores', icon: Palette },
+  { id: 'direcciones', label: 'Direcciones', icon: MapPin },
+  { id: 'redes', label: 'Redes', icon: Share2 },
+  { id: 'micuenta', label: 'Mi cuenta', icon: User },
+]
+
+// ─── Componente principal ─────────────────────────────────────
+export function FormularioPerfil({ config, direcciones: dirInic, redes: redesInic, perfil, rol }: Props) {
+  const [tab, setTab] = useState('general')
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h1 className="text-xl font-bold text-foreground">Perfil de tienda</h1>
+        <p className="text-xs text-foreground-muted mt-0.5">Configura los datos de tu negocio</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">
+        {TABS.map(t => {
+          const Icon = t.icon
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex-shrink-0',
+                tab === t.id
+                  ? 'bg-primary text-white'
+                  : 'bg-card border border-card-border text-foreground-muted hover:text-foreground'
+              )}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Contenido */}
+      <div className="rounded-2xl bg-card border border-card-border p-5">
+        {tab === 'general' && <TabGeneral config={config} />}
+        {tab === 'imagenes' && <TabImagenes config={config} />}
+        {tab === 'colores' && <TabColores config={config} />}
+        {tab === 'direcciones' && <TabDirecciones direccionesInic={dirInic} />}
+        {tab === 'redes' && <TabRedes redesInic={redesInic} />}
+        {tab === 'micuenta' && <TabMiCuenta perfil={perfil} rol={rol} />}
+      </div>
+    </div>
+  )
+}
+
+// ─── Tab General ──────────────────────────────────────────────
+function TabGeneral({ config }: { config: ConfigTienda }) {
+  const [guardando, setGuardando] = useState(false)
+  const [exito, setExito] = useState(false)
+  const { register, handleSubmit, formState: { errors } } = useForm<CamposGeneral>({
+    resolver: zodResolver(schemaGeneral),
+    defaultValues: {
+      nombre_tienda: config.nombre_tienda,
+      descripcion: config.descripcion ?? '',
+      whatsapp: config.whatsapp ?? '',
+      moneda: config.moneda,
+      simbolo_moneda: config.simbolo_moneda,
+      meta_descripcion: config.meta_descripcion ?? '',
+      politicas_negocio: config.politicas_negocio ?? '',
+    },
+  })
+
+  async function onSubmit(datos: CamposGeneral) {
+    setGuardando(true)
+    const supabase = crearClienteSupabase()
+    const { error } = await supabase.from('configuracion_tienda').update({
+      nombre_tienda: datos.nombre_tienda,
+      descripcion: datos.descripcion || null,
+      whatsapp: datos.whatsapp || null,
+      moneda: datos.moneda,
+      simbolo_moneda: datos.simbolo_moneda,
+      meta_descripcion: datos.meta_descripcion || null,
+      politicas_negocio: datos.politicas_negocio || null,
+    }).eq('id', config.id)
+    setGuardando(false)
+    if (error) {
+      toast.error('Error al guardar')
+      return
+    }
+
+    setExito(true)
+    toast.success('Cambios guardados correctamente')
+    setTimeout(() => window.location.reload(), 1200)
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      {/* ... inputs ... */}
+      <Campo label="Nombre de la tienda *" error={errors.nombre_tienda?.message}>
+        <input {...register('nombre_tienda')} className={inputCls} placeholder="Mi Tienda" />
+      </Campo>
+
+      <Campo label="Descripción">
+        <textarea {...register('descripcion')} rows={3} className={`${inputCls} h-auto py-2 resize-none`} placeholder="Describe tu negocio..." />
+      </Campo>
+
+      <Campo label="WhatsApp (con código de país)">
+        <input {...register('whatsapp')} className={inputCls} placeholder="0982650929" />
+      </Campo>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Campo label="Moneda">
+          <input {...register('moneda')} className={inputCls} placeholder="USD" />
+        </Campo>
+        <Campo label="Símbolo">
+          <input {...register('simbolo_moneda')} className={inputCls} placeholder="$" />
+        </Campo>
+      </div>
+
+      <Campo label="Meta descripción (SEO)">
+        <textarea {...register('meta_descripcion')} rows={2} className={`${inputCls} h-auto py-2 resize-none`} placeholder="Descripción para buscadores..." />
+      </Campo>
+
+      <Campo label="Políticas del negocio">
+        <textarea {...register('politicas_negocio')} rows={4} className={`${inputCls} h-auto py-2 resize-none`} placeholder="Política de devoluciones, envíos, etc." />
+      </Campo>
+
+      <BtnGuardar guardando={guardando} exito={exito} />
+    </form>
+  )
+}
+
+// ─── Tab Imágenes ─────────────────────────────────────────────
+function TabImagenes({ config }: { config: ConfigTienda }) {
+  const [logo, setLogo] = useState<string[]>(config.logo_url ? [config.logo_url] : [])
+  const [favicon, setFavicon] = useState<string[]>(config.favicon_url ? [config.favicon_url] : [])
+  const [perfil, setPerfil] = useState<string[]>(config.foto_perfil_url ? [config.foto_perfil_url] : [])
+  const [portada, setPortada] = useState<string[]>(config.foto_portada_url ? [config.foto_portada_url] : [])
+  const [guardando, setGuardando] = useState(false)
+  const [exito, setExito] = useState(false)
+
+  async function guardar() {
+    setGuardando(true)
+    const supabase = crearClienteSupabase()
+    
+    const { error } = await supabase.from('configuracion_tienda').update({
+      logo_url: logo[0] ?? null,
+      favicon_url: favicon[0] ?? null,
+      foto_perfil_url: perfil[0] ?? null,
+      foto_portada_url: portada[0] ?? null,
+    }).eq('id', config.id)
+
+    setGuardando(false)
+    if (error) {
+      toast.error('Error al guardar imágenes')
+      return
+    }
+    setExito(true)
+    toast.success('Cambios guardados correctamente')
+    setTimeout(() => window.location.reload(), 1200)
+  }
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h3 className="text-sm font-bold text-foreground">Identidad Visual</h3>
+        <p className="text-xs text-foreground-muted">Gestiona el logotipo, icono y fotos del perfil de tu tienda</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Logotipo del Menú */}
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-bold text-foreground flex items-center gap-2">
+              Logotipo del Menú
+              <span className="text-[10px] font-medium px-1.5 py-0.5 bg-primary/10 text-primary rounded">Recomendado</span>
+            </label>
+            <p className="text-[11px] text-foreground-muted mt-0.5">
+              Aparece en la barra superior. Se recomienda un formato <strong>rectangular</strong> de aprox. <strong>500x150px</strong>.
+            </p>
+          </div>
+          <SubidorImagenes
+            imagenes={logo}
+            onCambio={setLogo}
+            maxImagenes={1}
+            carpeta="tienda"
+          />
+        </div>
+
+        {/* Favicon */}
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-bold text-foreground flex items-center gap-2">
+              Favicon del Navegador
+              <span className="text-[10px] font-medium px-1.5 py-0.5 bg-primary/10 text-primary rounded">Recomendado</span>
+            </label>
+            <p className="text-[11px] text-foreground-muted mt-0.5">
+              Icono de la pestaña. Debe ser <strong>cuadrado</strong> (ej. <strong>32x32px</strong> o <strong>512x512px</strong>).
+            </p>
+          </div>
+          <SubidorImagenes
+            imagenes={favicon}
+            onCambio={setFavicon}
+            maxImagenes={1}
+            carpeta="tienda"
+          />
+        </div>
+
+        {/* Foto de Perfil */}
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-bold text-foreground flex items-center gap-2">
+              Foto de Perfil (Avatar)
+              <span className="text-[10px] font-medium px-1.5 py-0.5 bg-primary/10 text-primary rounded">Recomendado</span>
+            </label>
+            <p className="text-[11px] text-foreground-muted mt-0.5">
+              Imagen circular en el perfil público. Se recomienda ser <strong>cuadrada</strong> de <strong>400x400px</strong>.
+            </p>
+          </div>
+          <SubidorImagenes
+            imagenes={perfil}
+            onCambio={setPerfil}
+            maxImagenes={1}
+            carpeta="tienda"
+          />
+        </div>
+
+        {/* Foto de Portada */}
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-bold text-foreground flex items-center gap-2">
+              Foto de Portada (Banner)
+              <span className="text-[10px] font-medium px-1.5 py-0.5 bg-primary/10 text-primary rounded">Recomendado</span>
+            </label>
+            <p className="text-[11px] text-foreground-muted mt-0.5">
+              Imagen de fondo en la cabecera del perfil. Formato <strong>horizontal</strong> de aprox. <strong>1200x400px</strong>.
+            </p>
+          </div>
+          <SubidorImagenes
+            imagenes={portada}
+            onCambio={setPortada}
+            maxImagenes={1}
+            carpeta="tienda"
+          />
+        </div>
+      </div>
+
+      <div className="pt-6 border-t border-border flex justify-end">
+        <BtnGuardar 
+          guardando={guardando} 
+          exito={exito}
+          onClick={guardar} 
+          className="w-full sm:w-60 shadow-lg shadow-primary/10"
+        />
+      </div>
+    </div>
+  )
+}
+
+// ─── Tab Colores ──────────────────────────────────────────────
+function TabColores({ config }: { config: ConfigTienda }) {
+  const [colorActual, setColorActual] = useState(config.color_primario ?? '#ef4444')
+  const [guardando, setGuardando] = useState(false)
+  const [exito, setExito] = useState(false)
+
+  async function guardar(primario: string) {
+    setColorActual(primario)
+    setGuardando(true)
+    const supabase = crearClienteSupabase()
+    const { error } = await supabase.from('configuracion_tienda').update({ color_primario: primario }).eq('id', config.id)
+    setGuardando(false)
+    if (error) { toast.error('Error al guardar'); return }
+    
+    setExito(true)
+    toast.success('Cambios guardados correctamente')
+    
+    // Actualiza la variable CSS en tiempo real
+    document.documentElement.style.setProperty('--primary', primario)
+    const paleta = PALETAS.find(p => p.primary === primario)
+    if (paleta) {
+      document.documentElement.style.setProperty('--primary-hover', paleta.hover)
+      document.documentElement.style.setProperty('--primary-foreground', paleta.foreground)
+    }
+
+    setTimeout(() => window.location.reload(), 1200)
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <p className="text-sm font-semibold text-foreground mb-1">Paleta de colores profesional</p>
+        <p className="text-xs text-foreground-muted">Selecciona una paleta curada que afectará a toda la identidad visual de tu tienda</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        {PALETAS.map(p => {
+          const activo = colorActual.toLowerCase() === p.primary.toLowerCase()
+          return (
+            <button
+              key={p.id}
+              onClick={() => guardar(p.primary)}
+              disabled={guardando}
+              className={cn(
+                'group relative flex flex-col gap-3 p-4 rounded-2xl border-2 transition-all text-left overflow-hidden',
+                activo
+                  ? 'border-primary bg-primary/5 shadow-md'
+                  : 'border-border bg-card hover:border-primary/40'
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <div 
+                  className="w-10 h-10 rounded-xl shadow-inner flex items-center justify-center transition-transform group-hover:scale-110"
+                  style={{ backgroundColor: p.primary, color: p.foreground }}
+                >
+                  {activo && <Star className="w-5 h-5 fill-current" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-foreground">{p.nombre}</p>
+                  <p className="text-[10px] text-foreground-muted uppercase font-mono">{p.primary}</p>
+                </div>
+              </div>
+
+              {/* Muestra de colores secundarios */}
+              <div className="flex gap-1.5 mt-1">
+                <div className="h-2 w-full rounded-full" style={{ backgroundColor: p.primary }} title="Principal" />
+                <div className="h-2 w-full rounded-full opacity-80" style={{ backgroundColor: p.hover }} title="Hover" />
+                <div className="h-2 w-full rounded-full" style={{ backgroundColor: p.subtle }} title="Sutil" />
+              </div>
+
+              {activo && (
+                <div className="absolute top-2 right-2">
+                  <span className="flex w-5 h-5 items-center justify-center rounded-full bg-primary text-white text-[10px] shadow-sm">
+                    ✓
+                  </span>
+                </div>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {guardando || exito ? (
+        <div className="flex items-center gap-2 text-xs text-primary font-medium">
+          {guardando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>✓</span>} 
+          {guardando ? 'Guardando paleta profesional...' : '¡Paleta aplicada! Recargando...'}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+// ─── Tab Direcciones ──────────────────────────────────────────
+function TabDirecciones({ direccionesInic }: { direccionesInic: Direccion[] }) {
+  const [direcciones, setDirecciones] = useState<Direccion[]>(direccionesInic)
+  const [modo, setModo] = useState<'lista' | 'nuevo' | { editar: Direccion }>('lista')
+  const [, startTransition] = useTransition()
+
+  async function eliminar(id: string) {
+    if (!confirm('¿Eliminar esta dirección?')) return
+    const supabase = crearClienteSupabase()
+    await supabase.from('direcciones_negocio').delete().eq('id', id)
+    startTransition(() => setDirecciones(d => d.filter(x => x.id !== id)))
+  }
+
+  async function marcarPrincipal(id: string) {
+    const supabase = crearClienteSupabase()
+    await supabase.from('direcciones_negocio').update({ es_principal: false }).neq('id', 'none')
+    await supabase.from('direcciones_negocio').update({ es_principal: true }).eq('id', id)
+    startTransition(() => setDirecciones(d => d.map(x => ({ ...x, es_principal: x.id === id }))))
+    toast.success('Cambios guardados correctamente')
+  }
+
+  if (modo === 'nuevo' || (typeof modo === 'object' && 'editar' in modo)) {
+    return (
+      <FormDireccion
+        direccion={typeof modo === 'object' && 'editar' in modo ? modo.editar : undefined}
+        onGuardado={(d) => {
+          if (typeof modo === 'object' && 'editar' in modo) {
+            setDirecciones(dirs => dirs.map(x => x.id === d.id ? d : x))
+          } else {
+            setDirecciones(dirs => [...dirs, d])
+          }
+          setModo('lista')
+        }}
+        onCancelar={() => setModo('lista')}
+      />
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {direcciones.length === 0 ? (
+        <p className="text-sm text-foreground-muted text-center py-6">Sin direcciones registradas</p>
+      ) : (
+        direcciones.map(d => (
+          <div key={d.id} className="flex items-start gap-3 p-3 rounded-xl border border-border bg-background-subtle">
+            <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-foreground">{d.etiqueta}</p>
+                {d.es_principal && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                    <Star className="w-2.5 h-2.5" /> Principal
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-foreground-muted">{d.direccion}</p>
+              {(d.ciudad || d.provincia) && (
+                <p className="text-xs text-foreground-muted">{[d.ciudad, d.provincia, d.pais].filter(Boolean).join(', ')}</p>
+              )}
+            </div>
+            <div className="flex gap-1 flex-shrink-0">
+              {!d.es_principal && (
+                <button onClick={() => marcarPrincipal(d.id)} title="Marcar como principal"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-primary hover:bg-primary/10 transition-all">
+                  <Star className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button onClick={() => setModo({ editar: d })}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-background-subtle transition-all">
+                <Save className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => eliminar(d.id)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-all">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        ))
+      )}
+      <button
+        onClick={() => setModo('nuevo')}
+        className="flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-dashed border-border text-sm text-foreground-muted hover:border-primary hover:text-primary transition-all"
+      >
+        <Plus className="w-4 h-4" /> Agregar dirección
+      </button>
+    </div>
+  )
+}
+
+function FormDireccion({ direccion, onGuardado, onCancelar }: {
+  direccion?: Direccion
+  onGuardado: (d: Direccion) => void
+  onCancelar: () => void
+}) {
+  const [guardando, setGuardando] = useState(false)
+  const { register, handleSubmit, formState: { errors } } = useForm<CamposDireccion>({
+    resolver: zodResolver(schemaDireccion),
+    defaultValues: {
+      etiqueta: direccion?.etiqueta ?? 'Tienda principal',
+      direccion: direccion?.direccion ?? '',
+      ciudad: direccion?.ciudad ?? '',
+      provincia: direccion?.provincia ?? '',
+      pais: direccion?.pais ?? 'Ecuador',
+      es_principal: direccion?.es_principal ?? false,
+    },
+  })
+
+  async function onSubmit(datos: CamposDireccion) {
+    setGuardando(true)
+    const supabase = crearClienteSupabase()
+    const payload = {
+      etiqueta: datos.etiqueta,
+      direccion: datos.direccion,
+      ciudad: datos.ciudad || null,
+      provincia: datos.provincia || null,
+      pais: datos.pais,
+      es_principal: datos.es_principal,
+    }
+
+    if (direccion) {
+      const { error } = await supabase.from('direcciones_negocio').update(payload).eq('id', direccion.id)
+      if (error) { toast.error('Error al guardar'); setGuardando(false); return }
+      onGuardado({ ...direccion, ...payload })
+    } else {
+      const { data, error } = await supabase.from('direcciones_negocio').insert(payload).select().single()
+      if (error || !data) { toast.error('Error al guardar'); setGuardando(false); return }
+      onGuardado(data as Direccion)
+    }
+    toast.success('Cambios guardados correctamente')
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3">
+      <p className="text-sm font-semibold text-foreground">{direccion ? 'Editar dirección' : 'Nueva dirección'}</p>
+
+      <Campo label="Etiqueta *" error={errors.etiqueta?.message}>
+        <input {...register('etiqueta')} className={inputCls} placeholder="Tienda principal" />
+      </Campo>
+      <Campo label="Dirección *" error={errors.direccion?.message}>
+        <input {...register('direccion')} className={inputCls} placeholder="Av. Ejemplo 123" />
+      </Campo>
+      <div className="grid grid-cols-2 gap-3">
+        <Campo label="Ciudad">
+          <input {...register('ciudad')} className={inputCls} placeholder="Quito" />
+        </Campo>
+        <Campo label="Provincia">
+          <input {...register('provincia')} className={inputCls} placeholder="Pichincha" />
+        </Campo>
+      </div>
+      <Campo label="País">
+        <input {...register('pais')} className={inputCls} placeholder="Ecuador" />
+      </Campo>
+      <label className="flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" {...register('es_principal')} className="rounded" />
+        <span className="text-foreground">Marcar como dirección principal</span>
+      </label>
+
+      <div className="flex gap-2 mt-1">
+        <button type="button" onClick={onCancelar}
+          className="flex-1 h-10 rounded-xl border border-border text-sm text-foreground-muted hover:text-foreground transition-all">
+          Cancelar
+        </button>
+        <BtnGuardar guardando={guardando} className="flex-1" />
+      </div>
+    </form>
+  )
+}
+
+// ─── Tab Redes sociales ───────────────────────────────────────
+const PLATAFORMAS = ['instagram', 'facebook', 'tiktok', 'youtube', 'twitter', 'pinterest', 'linkedin', 'snapchat', 'whatsapp'] as const
+
+function TabRedes({ redesInic }: { redesInic: RedSocial[] }) {
+  const [redes, setRedes] = useState<RedSocial[]>(redesInic)
+  const [modo, setModo] = useState<'lista' | 'nuevo' | { editar: RedSocial }>('lista')
+  const [, startTransition] = useTransition()
+
+  async function toggleActiva(id: string, activa: boolean) {
+    const supabase = crearClienteSupabase()
+    await supabase.from('redes_sociales').update({ esta_activa: !activa }).eq('id', id)
+    startTransition(() => setRedes(r => r.map(x => x.id === id ? { ...x, esta_activa: !activa } : x)))
+  }
+
+  async function eliminar(id: string) {
+    if (!confirm('¿Eliminar esta red social?')) return
+    const supabase = crearClienteSupabase()
+    await supabase.from('redes_sociales').delete().eq('id', id)
+    startTransition(() => setRedes(r => r.filter(x => x.id !== id)))
+  }
+
+  if (modo === 'nuevo' || (typeof modo === 'object' && 'editar' in modo)) {
+    return (
+      <FormRed
+        red={typeof modo === 'object' && 'editar' in modo ? modo.editar : undefined}
+        onGuardado={(r) => {
+          if (typeof modo === 'object' && 'editar' in modo) {
+            setRedes(rs => rs.map(x => x.id === r.id ? r : x))
+          } else {
+            setRedes(rs => [...rs, r])
+          }
+          setModo('lista')
+        }}
+        onCancelar={() => setModo('lista')}
+      />
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {redes.length === 0 ? (
+        <p className="text-sm text-foreground-muted text-center py-6">Sin redes sociales registradas</p>
+      ) : (
+        redes.sort((a, b) => a.orden - b.orden).map(r => (
+          <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-background-subtle">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Share2 className="w-4 h-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground capitalize">{r.plataforma}</p>
+              <p className="text-xs text-foreground-muted truncate">{r.url}</p>
+            </div>
+            <div className="flex gap-1 flex-shrink-0">
+              <button onClick={() => toggleActiva(r.id, r.esta_activa)}
+                className={cn('w-7 h-7 rounded-lg flex items-center justify-center transition-all text-xs font-bold',
+                  r.esta_activa ? 'bg-success/10 text-success' : 'bg-foreground-muted/10 text-foreground-muted')}>
+                {r.esta_activa ? 'ON' : 'OFF'}
+              </button>
+              <button onClick={() => setModo({ editar: r })}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-background-subtle transition-all">
+                <Save className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => eliminar(r.id)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-all">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        ))
+      )}
+      <button
+        onClick={() => setModo('nuevo')}
+        className="flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-dashed border-border text-sm text-foreground-muted hover:border-primary hover:text-primary transition-all"
+      >
+        <Plus className="w-4 h-4" /> Agregar red social
+      </button>
+    </div>
+  )
+}
+
+function FormRed({ red, onGuardado, onCancelar }: {
+  red?: RedSocial
+  onGuardado: (r: RedSocial) => void
+  onCancelar: () => void
+}) {
+  const [guardando, setGuardando] = useState(false)
+  const [exito, setExito] = useState(false)
+  const { register, handleSubmit, formState: { errors } } = useForm<CamposRed>({
+    resolver: zodResolver(schemaRed),
+    defaultValues: {
+      plataforma: (red?.plataforma as typeof PLATAFORMAS[number]) ?? 'instagram',
+      url: red?.url ?? '',
+      esta_activa: red?.esta_activa ?? true,
+      orden: String(red?.orden ?? 0),
+    },
+  })
+
+  async function onSubmit(datos: CamposRed) {
+    setGuardando(true)
+    const supabase = crearClienteSupabase()
+    const payload = {
+      plataforma: datos.plataforma,
+      url: datos.url,
+      esta_activa: datos.esta_activa,
+      orden: parseInt(datos.orden) || 0,
+    }
+
+    if (red) {
+      const { error } = await supabase.from('redes_sociales').update(payload).eq('id', red.id)
+      if (error) { toast.error('Error al guardar'); setGuardando(false); return }
+      onGuardado({ ...red, ...payload })
+    } else {
+      const { data, error } = await supabase.from('redes_sociales').insert(payload).select().single()
+      if (error || !data) { toast.error('Error al guardar'); setGuardando(false); return }
+      onGuardado(data as RedSocial)
+    }
+    setGuardando(false)
+    setExito(true)
+    toast.success('Cambios guardados correctamente')
+    setTimeout(() => window.location.reload(), 1200)
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3">
+      <p className="text-sm font-semibold text-foreground">{red ? 'Editar red social' : 'Nueva red social'}</p>
+
+      <Campo label="Plataforma">
+        <select {...register('plataforma')} className={`${inputCls} capitalize`}>
+          {PLATAFORMAS.map(p => (
+            <option key={p} value={p} className="capitalize">{p}</option>
+          ))}
+        </select>
+      </Campo>
+      <Campo label="URL *" error={errors.url?.message}>
+        <input {...register('url')} className={inputCls} placeholder="https://instagram.com/mitienda" />
+      </Campo>
+      <div className="grid grid-cols-2 gap-3">
+        <Campo label="Orden">
+          <input {...register('orden')} type="number" min="0" className={inputCls} placeholder="0" />
+        </Campo>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-foreground">Estado</label>
+          <label className="flex items-center gap-2 h-10 cursor-pointer">
+            <input type="checkbox" {...register('esta_activa')} className="rounded" />
+            <span className="text-sm text-foreground">Activa</span>
+          </label>
+        </div>
+      </div>
+
+      <div className="flex gap-2 mt-1">
+        <button type="button" onClick={onCancelar}
+          className="flex-1 h-10 rounded-xl border border-border text-sm text-foreground-muted hover:text-foreground transition-all">
+          Cancelar
+        </button>
+        <BtnGuardar guardando={guardando} exito={exito} className="flex-1" />
+      </div>
+    </form>
+  )
+}
+
+// ─── Tab Mi cuenta ────────────────────────────────────────────
+function TabMiCuenta({ perfil, rol }: { perfil: Perfil; rol: string }) {
+  const [guardando, setGuardando] = useState(false)
+  const [exito, setExito] = useState(false)
+  const { register, handleSubmit, formState: { errors } } = useForm<CamposMiCuenta>({
+    resolver: zodResolver(schemaMiCuenta),
+    defaultValues: {
+      nombre: perfil.nombre ?? '',
+      telefono: perfil.telefono ?? '',
+    },
+  })
+
+  async function onSubmit(datos: CamposMiCuenta) {
+    setGuardando(true)
+    const supabase = crearClienteSupabase()
+    const { error } = await supabase.from('perfiles').update({
+      nombre: datos.nombre,
+      telefono: datos.telefono || null,
+    }).eq('id', perfil.id)
+    setGuardando(false)
+    if (error) {
+      toast.error('Error al guardar')
+      return
+    }
+
+    setExito(true)
+    toast.success('Cambios guardados correctamente')
+    setTimeout(() => window.location.reload(), 1200)
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
+        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
+          <User className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-foreground">{perfil.nombre ?? 'Sin nombre'}</p>
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary capitalize">{rol}</span>
+        </div>
+      </div>
+
+      <Campo label="Nombre *" error={errors.nombre?.message}>
+        <input {...register('nombre')} className={inputCls} placeholder="Tu nombre" />
+      </Campo>
+
+      <Campo label="Teléfono">
+        <input {...register('telefono')} className={inputCls} placeholder="0999999999" />
+      </Campo>
+
+      <BtnGuardar guardando={guardando} exito={exito} />
+      
+      <div className="mt-8 pt-6 border-t border-border">
+        <SeccionPassword />
+      </div>
+    </form>
+  )
+}
+
+function SeccionPassword() {
+  const [actual, setActual] = useState('')
+  const [nueva, setNueva] = useState('')
+  const [verActual, setVerActual] = useState(false)
+  const [verNueva, setVerNueva] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [exito, setExito] = useState(false)
+
+  async function cambiarPassword(e?: React.FormEvent) {
+    if (e) e.preventDefault()
+    if (nueva.length < 6) {
+      toast.error('La nueva contraseña debe tener al menos 6 caracteres')
+      return
+    }
+
+    setGuardando(true)
+    const supabase = crearClienteSupabase()
+
+    // 1. Verificar contraseña actual (re-autenticación)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user?.email) {
+      toast.error('No se pudo verificar el usuario')
+      setGuardando(false)
+      return
+    }
+
+    const { error: errorAuth } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: actual
+    })
+
+    if (errorAuth) {
+      toast.error('La contraseña actual es incorrecta')
+      setGuardando(false)
+      return
+    }
+
+    // 2. Actualizar contraseña
+    const { error } = await supabase.auth.updateUser({ password: nueva })
+    
+    setGuardando(false)
+    if (error) {
+      toast.error('Error al actualizar contraseña: ' + error.message)
+    } else {
+      setExito(true)
+      toast.success('Cambios guardados correctamente')
+      setActual('')
+      setNueva('')
+      setTimeout(() => window.location.reload(), 1200)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+          <Lock className="w-4 h-4 text-primary" />
+          Seguridad de la cuenta
+        </h3>
+        <p className="text-xs text-foreground-muted mt-0.5">Cambia tu contraseña de acceso al panel</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-foreground">Contraseña actual</label>
+          <div className="relative">
+            <input
+              type={verActual ? 'text' : 'password'}
+              value={actual}
+              onChange={(e) => setActual(e.target.value)}
+              className={inputCls}
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setVerActual(!verActual)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground transition-colors"
+            >
+              {verActual ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-foreground">Contraseña nueva</label>
+          <div className="relative">
+            <input
+              type={verNueva ? 'text' : 'password'}
+              value={nueva}
+              onChange={(e) => setNueva(e.target.value)}
+              className={inputCls}
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setVerNueva(!verNueva)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground transition-colors"
+            >
+              {verNueva ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <BtnGuardar
+        onClick={cambiarPassword}
+        guardando={guardando}
+        exito={exito}
+        disabled={!actual || !nueva}
+        className="w-full sm:w-60 self-end"
+      />
+    </div>
+  )
+}
+
+// ─── Helpers ──────────────────────────────────────────────────
+const inputCls = 'w-full h-10 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent'
+
+function Campo({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-sm font-medium text-foreground">{label}</label>
+      {children}
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </div>
+  )
+}
+
+function BtnGuardar({ 
+  guardando, 
+  exito,
+  onClick, 
+  disabled,
+  className 
+}: { 
+  guardando: boolean; 
+  exito?: boolean;
+  onClick?: () => void; 
+  disabled?: boolean;
+  className?: string 
+}) {
+  return (
+    <button
+      type={onClick ? 'button' : 'submit'}
+      onClick={onClick}
+      disabled={guardando || exito || disabled}
+      className={cn(
+        'group relative flex items-center justify-center gap-2 h-12 px-6 rounded-2xl font-bold text-sm overflow-hidden transition-all duration-500 shadow-lg hover:shadow-xl active:scale-[0.98] disabled:cursor-not-allowed',
+        exito 
+          ? 'bg-[#22c55e] text-white' // Verde éxito
+          : 'bg-primary text-white hover:bg-primary/90 hover:scale-[1.02]',
+        guardando && 'opacity-80 pointer-events-none',
+        className
+      )}
+    >
+      {guardando ? (
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span>Guardando...</span>
+        </div>
+      ) : exito ? (
+        <div className="flex items-center gap-2 animate-in zoom-in-50 duration-300">
+          <svg className="w-5 h-5 text-white animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+          <span>¡Guardado!</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Save className="w-4 h-4 transition-transform group-hover:scale-110" />
+          <span>Guardar cambios</span>
+        </div>
+      )}
+    </button>
+  )
+}
