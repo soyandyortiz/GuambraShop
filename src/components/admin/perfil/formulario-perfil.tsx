@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Loader2, Save, Plus, Trash2, Store, Image as ImageIcon, MapPin, Share2, User, Star, Palette, Hash, Eye, EyeOff, Lock } from 'lucide-react'
+import { Loader2, Save, Plus, Trash2, Store, Image as ImageIcon, MapPin, Share2, User, Star, Palette, Hash, Eye, EyeOff, Lock, Pencil, GripVertical } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { SubidorImagenes } from '@/components/ui/subidor-imagenes'
 import { cn } from '@/lib/utils'
@@ -206,8 +206,11 @@ function TabGeneral({ config }: { config: ConfigTienda }) {
         <textarea {...register('descripcion')} rows={3} className={`${inputCls} h-auto py-2 resize-none`} placeholder="Describe tu negocio..." />
       </Campo>
 
-      <Campo label="WhatsApp (con código de país)">
-        <input {...register('whatsapp')} className={inputCls} placeholder="0982650929" />
+      <Campo label="WhatsApp">
+        <input {...register('whatsapp')} className={inputCls} placeholder="Ej: 0982650929" />
+        <p className="text-[11px] text-foreground-muted mt-1">
+          Ingresa solo el número sin espacios ni guiones. Ecuador: <span className="font-mono bg-background-subtle px-1 rounded">0982650929</span>
+        </p>
       </Campo>
 
       <div className="grid grid-cols-2 gap-3">
@@ -656,9 +659,10 @@ function FormDireccion({ direccion, onGuardado, onCancelar }: {
 const PLATAFORMAS = ['instagram', 'facebook', 'tiktok', 'youtube', 'twitter', 'pinterest', 'linkedin', 'snapchat', 'whatsapp'] as const
 
 function TabRedes({ redesInic }: { redesInic: RedSocial[] }) {
-  const [redes, setRedes] = useState<RedSocial[]>(redesInic)
+  const [redes, setRedes] = useState<RedSocial[]>([...redesInic].sort((a, b) => a.orden - b.orden))
   const [modo, setModo] = useState<'lista' | 'nuevo' | { editar: RedSocial }>('lista')
   const [, startTransition] = useTransition()
+  const dragIdx = useRef<number | null>(null)
 
   async function toggleActiva(id: string, activa: boolean) {
     const supabase = crearClienteSupabase()
@@ -671,6 +675,29 @@ function TabRedes({ redesInic }: { redesInic: RedSocial[] }) {
     const supabase = crearClienteSupabase()
     await supabase.from('redes_sociales').delete().eq('id', id)
     startTransition(() => setRedes(r => r.filter(x => x.id !== id)))
+  }
+
+  async function guardarOrden(lista: RedSocial[]) {
+    const supabase = crearClienteSupabase()
+    await Promise.all(lista.map((r, i) => supabase.from('redes_sociales').update({ orden: i }).eq('id', r.id)))
+  }
+
+  function onDragStart(i: number) { dragIdx.current = i }
+
+  function onDragOver(e: React.DragEvent, i: number) {
+    e.preventDefault()
+    if (dragIdx.current === null || dragIdx.current === i) return
+    const nueva = [...redes]
+    const [mov] = nueva.splice(dragIdx.current, 1)
+    nueva.splice(i, 0, mov)
+    dragIdx.current = i
+    setRedes(nueva)
+  }
+
+  function onDrop() {
+    dragIdx.current = null
+    guardarOrden(redes)
+    toast.success('Orden guardado')
   }
 
   if (modo === 'nuevo' || (typeof modo === 'object' && 'editar' in modo)) {
@@ -695,32 +722,52 @@ function TabRedes({ redesInic }: { redesInic: RedSocial[] }) {
       {redes.length === 0 ? (
         <p className="text-sm text-foreground-muted text-center py-6">Sin redes sociales registradas</p>
       ) : (
-        redes.sort((a, b) => a.orden - b.orden).map(r => (
-          <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-background-subtle">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Share2 className="w-4 h-4 text-primary" />
+        <>
+          <p className="text-[11px] text-foreground-muted flex items-center gap-1">
+            <GripVertical className="w-3 h-3" /> Arrastra para cambiar el orden
+          </p>
+          {redes.map((r, i) => (
+            <div
+              key={r.id}
+              draggable
+              onDragStart={() => onDragStart(i)}
+              onDragOver={e => onDragOver(e, i)}
+              onDrop={onDrop}
+              className="flex items-center gap-2 p-3 rounded-xl border border-border bg-background-subtle cursor-grab active:cursor-grabbing active:opacity-60 active:scale-[0.99] transition-all"
+            >
+              {/* Handle */}
+              <GripVertical className="w-4 h-4 text-foreground-muted/40 flex-shrink-0" />
+
+              {/* Icono plataforma */}
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Share2 className="w-4 h-4 text-primary" />
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground capitalize">{r.plataforma}</p>
+                <p className="text-xs text-foreground-muted truncate">{r.url}</p>
+              </div>
+
+              {/* Acciones */}
+              <div className="flex gap-1 flex-shrink-0">
+                <button onClick={() => toggleActiva(r.id, r.esta_activa)}
+                  className={cn('h-7 px-2 rounded-lg flex items-center justify-center transition-all text-[10px] font-bold',
+                    r.esta_activa ? 'bg-success/10 text-success' : 'bg-foreground-muted/10 text-foreground-muted')}>
+                  {r.esta_activa ? 'ON' : 'OFF'}
+                </button>
+                <button onClick={() => setModo({ editar: r })}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-card transition-all">
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => eliminar(r.id)}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-all">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground capitalize">{r.plataforma}</p>
-              <p className="text-xs text-foreground-muted truncate">{r.url}</p>
-            </div>
-            <div className="flex gap-1 flex-shrink-0">
-              <button onClick={() => toggleActiva(r.id, r.esta_activa)}
-                className={cn('w-7 h-7 rounded-lg flex items-center justify-center transition-all text-xs font-bold',
-                  r.esta_activa ? 'bg-success/10 text-success' : 'bg-foreground-muted/10 text-foreground-muted')}>
-                {r.esta_activa ? 'ON' : 'OFF'}
-              </button>
-              <button onClick={() => setModo({ editar: r })}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-background-subtle transition-all">
-                <Save className="w-3.5 h-3.5" />
-              </button>
-              <button onClick={() => eliminar(r.id)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-all">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        ))
+          ))}
+        </>
       )}
       <button
         onClick={() => setModo('nuevo')}
