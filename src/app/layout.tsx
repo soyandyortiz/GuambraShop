@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Geist } from 'next/font/google'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import { CarritoProvider } from '@/components/providers/carrito-provider'
@@ -12,6 +12,12 @@ const geist = Geist({
   subsets: ['latin'],
 })
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const supabase = await crearClienteServidor()
   const { data: config } = await supabase
@@ -24,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description: config?.meta_descripcion ?? 'Tu tienda online profesional',
     icons: config?.favicon_url
       ? { icon: config.favicon_url, shortcut: config.favicon_url }
-      : undefined,
+      : { icon: '/favicon-blank.png' },
   }
 }
 
