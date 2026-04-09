@@ -105,25 +105,25 @@ export function HeaderTienda({ nombreTienda, logoUrl }: Props) {
 
   return (
     <header className="sticky top-0 z-30 bg-primary shadow-md">
-      <div className="flex items-center gap-4 px-4 h-16 max-w-4xl mx-auto">
+      <div className="flex items-center gap-2 px-3 h-14 max-w-4xl mx-auto w-full">
         {/* Logo / Nombre */}
         {!buscando && (
-          <Link href="/" className="flex items-center gap-2 flex-shrink-0">
+          <Link href="/" className="flex items-center gap-2 flex-shrink-0 min-w-0">
             {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt={nombreTienda} className="h-10 w-auto max-w-[140px] object-contain" />
+              <img src={logoUrl} alt={nombreTienda} className="h-8 w-auto max-w-[100px] object-contain" />
             ) : (
-              <div className="h-8 px-3 bg-white/20 rounded-lg flex items-center">
-                <span className="text-white font-bold text-sm truncate max-w-[120px]">{nombreTienda}</span>
+              <div className="h-7 px-2.5 bg-white/20 rounded-lg flex items-center">
+                <span className="text-white font-bold text-xs truncate max-w-[90px]">{nombreTienda}</span>
               </div>
             )}
           </Link>
         )}
 
         {/* Barra de búsqueda con resultados en tiempo real */}
-        <div ref={containerRef} className={cn('flex-1 relative', buscando && 'flex-1')}>
-          <form onSubmit={onBuscar} className="flex items-center gap-2">
-            <div className="flex-1 flex items-center bg-white/20 rounded-xl px-3 h-11 gap-2 border border-transparent focus-within:border-white/30 focus-within:bg-white/25 transition-all">
+        <div ref={containerRef} className={cn('flex-1 relative min-w-0', buscando && 'flex-1')}>
+          <form onSubmit={onBuscar} className="flex items-center gap-1.5">
+            <div className="flex-1 flex items-center bg-white/20 rounded-xl px-2.5 h-9 gap-2 border border-transparent focus-within:border-white/30 focus-within:bg-white/25 transition-all min-w-0">
               {cargando ? (
                 <Loader2 className="w-4 h-4 text-white/70 animate-spin" />
               ) : (
@@ -145,7 +145,7 @@ export function HeaderTienda({ nombreTienda, logoUrl }: Props) {
             </div>
             {buscando && (
               <button type="button" onClick={cerrarBusqueda}
-                className="sm:hidden text-white/80 text-sm font-medium flex-shrink-0">
+                className="sm:hidden text-white/80 text-xs font-medium flex-shrink-0">
                 Cancelar
               </button>
             )}
@@ -246,18 +246,18 @@ export function HeaderTienda({ nombreTienda, logoUrl }: Props) {
         {/* Filtros */}
         <button
           onClick={toggleFiltros}
-          className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-all flex-shrink-0"
+          className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-all flex-shrink-0"
         >
-          <SlidersHorizontal className="w-5 h-5" />
+          <SlidersHorizontal className="w-4 h-4" />
         </button>
 
         {/* Acceso admin — discreto, solo visible para quien sabe */}
         <Link
           href="/admin"
-          className="w-7 h-7 flex items-center justify-center text-white/30 hover:text-white/70 transition-colors flex-shrink-0"
+          className="w-6 h-6 flex items-center justify-center text-white/30 hover:text-white/70 transition-colors flex-shrink-0"
           title="Administración"
         >
-          <Lock className="w-3.5 h-3.5" />
+          <Lock className="w-3 h-3" />
         </Link>
       </div>
     </header>

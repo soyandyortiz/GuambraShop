@@ -45,11 +45,11 @@ export function NavInferior({ esAdmin: esAdminProp }: Props) {
     : itemsBase
 
   return (
-    <nav className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 w-[94%] max-w-sm sm:max-w-md md:max-w-lg pointer-events-none">
+    <nav className="fixed bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-xs sm:max-w-md md:max-w-lg pointer-events-none">
       <div className={cn(
         'relative flex items-center justify-around pointer-events-auto',
-        'h-16 sm:h-[4.25rem] px-1 sm:px-2',
-        'rounded-[2rem] sm:rounded-[2.5rem]',
+        'h-14 sm:h-[4.25rem] px-1',
+        'rounded-[1.75rem] sm:rounded-[2.5rem]',
         'bg-[#0f1117]/95 backdrop-blur-2xl',
         'border border-white/[0.08]',
         'shadow-[0_20px_60px_-10px_rgba(0,0,0,0.7),0_0_0_0.5px_rgba(255,255,255,0.05)]',
@@ -63,8 +63,8 @@ export function NavInferior({ esAdmin: esAdminProp }: Props) {
               key={href}
               href={href}
               className={cn(
-                'relative flex flex-col items-center justify-center gap-[3px]',
-                'flex-1 h-full rounded-[1.5rem] sm:rounded-[2rem]',
+                'relative flex flex-col items-center justify-center gap-[2px]',
+                'flex-1 h-full rounded-[1.25rem] sm:rounded-[2rem]',
                 'transition-all duration-200 ease-out select-none',
                 'active:scale-90',
                 !activo && 'hover:text-white/70',
@@ -80,7 +80,7 @@ export function NavInferior({ esAdmin: esAdminProp }: Props) {
                 <Icon
                   className={cn(
                     'transition-all duration-200',
-                    'w-[22px] h-[22px] sm:w-6 sm:h-6',
+                    'w-5 h-5 sm:w-6 sm:h-6',
                     activo ? 'text-white scale-110' : 'text-white/40',
                   )}
                   strokeWidth={activo ? 2.25 : 1.75}
@@ -104,7 +104,7 @@ export function NavInferior({ esAdmin: esAdminProp }: Props) {
 
               {/* Label */}
               <span className={cn(
-                'relative z-10 text-[9px] sm:text-[10px] font-bold tracking-wide leading-none transition-all duration-200',
+                'relative z-10 text-[8px] sm:text-[10px] font-bold tracking-wide leading-none transition-all duration-200',
                 activo ? 'text-white' : 'text-white/35',
               )}>
                 {label}
