@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -26,6 +26,15 @@ export function FormularioLogin() {
   const router = useRouter()
   const [error, setError] = useState('')
   const [modalAbierto, setModalAbierto] = useState(false)
+  const [fotoPerfil, setFotoPerfil] = useState<string | null>(null)
+
+  useEffect(() => {
+    crearClienteSupabase()
+      .from('configuracion_tienda')
+      .select('foto_perfil_url')
+      .single()
+      .then(({ data }) => { if (data?.foto_perfil_url) setFotoPerfil(data.foto_perfil_url) })
+  }, [])
 
   const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<DatosLogin>({
     resolver: zodResolver(esquema),
@@ -73,8 +82,13 @@ export function FormularioLogin() {
 
           {/* Logo / Marca */}
           <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg mb-4">
-              <ShoppingBag className="w-8 h-8 text-white" />
+            <div className="w-16 h-16 rounded-2xl shadow-lg mb-4 overflow-hidden bg-primary flex items-center justify-center">
+              {fotoPerfil ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={fotoPerfil} alt="Logo tienda" className="w-full h-full object-cover" />
+              ) : (
+                <ShoppingBag className="w-8 h-8 text-white" />
+              )}
             </div>
             <h1 className="text-2xl font-bold text-foreground">Bienvenido</h1>
             <p className="text-sm text-foreground-muted mt-1">Ingresa a tu panel de administración</p>
@@ -85,7 +99,7 @@ export function FormularioLogin() {
 
             <Input
               etiqueta="Usuario"
-              placeholder="admin@tiendademo.com"
+              placeholder="demo"
               icono={<User className="w-4 h-4" />}
               autoComplete="email"
               autoCapitalize="none"

@@ -36,6 +36,7 @@ interface Direccion {
   provincia: string | null
   pais: string
   es_principal: boolean
+  enlace_mapa: string | null
 }
 
 interface RedSocial {
@@ -83,6 +84,7 @@ const schemaDireccion = z.object({
   provincia: z.string().optional(),
   pais: z.string().min(2),
   es_principal: z.boolean(),
+  enlace_mapa: z.string().optional(),
 })
 
 const schemaRed = z.object({
@@ -551,6 +553,13 @@ function TabDirecciones({ direccionesInic }: { direccionesInic: Direccion[] }) {
   )
 }
 
+/** Extrae la URL del src si el usuario pega el código iframe completo */
+function extraerSrcMapa(valor: string): string {
+  const matchSrc = valor.match(/src="([^"]+)"/i)
+  if (matchSrc) return matchSrc[1]
+  return valor.trim()
+}
+
 function FormDireccion({ direccion, onGuardado, onCancelar }: {
   direccion?: Direccion
   onGuardado: (d: Direccion) => void
@@ -566,6 +575,7 @@ function FormDireccion({ direccion, onGuardado, onCancelar }: {
       provincia: direccion?.provincia ?? '',
       pais: direccion?.pais ?? 'Ecuador',
       es_principal: direccion?.es_principal ?? false,
+      enlace_mapa: direccion?.enlace_mapa ?? '',
     },
   })
 
@@ -579,12 +589,13 @@ function FormDireccion({ direccion, onGuardado, onCancelar }: {
       provincia: datos.provincia || null,
       pais: datos.pais,
       es_principal: datos.es_principal,
+      enlace_mapa: extraerSrcMapa(datos.enlace_mapa || '') || null,
     }
 
     if (direccion) {
       const { error } = await supabase.from('direcciones_negocio').update(payload).eq('id', direccion.id)
       if (error) { toast.error('Error al guardar'); setGuardando(false); return }
-      onGuardado({ ...direccion, ...payload })
+      onGuardado({ ...direccion, ...payload, enlace_mapa: payload.enlace_mapa ?? null })
     } else {
       const { data, error } = await supabase.from('direcciones_negocio').insert(payload).select().single()
       if (error || !data) { toast.error('Error al guardar'); setGuardando(false); return }
@@ -618,6 +629,17 @@ function FormDireccion({ direccion, onGuardado, onCancelar }: {
         <input type="checkbox" {...register('es_principal')} className="rounded" />
         <span className="text-foreground">Marcar como dirección principal</span>
       </label>
+
+      <Campo label="Enlace de Google Maps (opcional)">
+        <input
+          {...register('enlace_mapa')}
+          className={inputCls}
+          placeholder="Pega aquí el enlace o el código iframe de Google Maps"
+        />
+        <p className="text-[11px] text-foreground-muted leading-snug mt-1">
+          En Google Maps: <strong>Compartir → Insertar mapa</strong> → copia todo el código o solo la URL del <code className="bg-background-subtle px-1 rounded">src</code>
+        </p>
+      </Campo>
 
       <div className="flex gap-2 mt-1">
         <button type="button" onClick={onCancelar}

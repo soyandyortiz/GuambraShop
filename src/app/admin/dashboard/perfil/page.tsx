@@ -15,7 +15,7 @@ export default async function PáginaPerfil() {
     { data: perfil },
   ] = await Promise.all([
     supabase.from('configuracion_tienda').select('*').single(),
-    supabase.from('direcciones_negocio').select('*').order('es_principal', { ascending: false }),
+    supabase.from('direcciones_negocio').select('id, etiqueta, direccion, ciudad, provincia, pais, es_principal, enlace_mapa').order('es_principal', { ascending: false }),
     supabase.from('redes_sociales').select('*').order('orden'),
     supabase.from('perfiles').select('id, nombre, telefono, rol').eq('id', user.id).single(),
   ])

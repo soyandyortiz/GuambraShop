@@ -42,6 +42,7 @@ export interface DireccionNegocio {
   provincia: string | null
   pais: string
   es_principal: boolean
+  enlace_mapa: string | null
   creado_en: string
 }
 

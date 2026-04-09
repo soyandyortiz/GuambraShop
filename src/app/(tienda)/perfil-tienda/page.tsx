@@ -24,7 +24,7 @@ export default async function PáginaPerfilTienda() {
       .select('nombre_tienda, descripcion, logo_url, whatsapp, politicas_negocio, foto_perfil_url, foto_portada_url')
       .single(),
     supabase.from('direcciones_negocio')
-      .select('id, etiqueta, direccion, ciudad, provincia, pais, es_principal')
+      .select('id, etiqueta, direccion, ciudad, provincia, pais, es_principal, enlace_mapa')
       .order('es_principal', { ascending: false }),
     supabase.from('redes_sociales')
       .select('id, plataforma, url')
@@ -150,31 +150,53 @@ export default async function PáginaPerfilTienda() {
             <p className="text-xs font-semibold text-foreground-muted uppercase tracking-wide mb-3">Encuéntranos en</p>
             <div className="flex flex-col gap-2">
               {direcciones!.map(dir => (
-                <div key={dir.id}
-                  className="flex items-start gap-3 p-3 rounded-xl bg-card border border-card-border">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${dir.es_principal ? 'bg-primary/10' : 'bg-background-subtle'}`}>
-                    <MapPin className={`w-4 h-4 ${dir.es_principal ? 'text-primary' : 'text-foreground-muted'}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-foreground">{dir.etiqueta}</p>
-                      {dir.es_principal && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">Principal</span>
-                      )}
+                <div key={dir.id} className="rounded-xl overflow-hidden border border-card-border bg-card">
+                  {/* Info */}
+                  <div className="flex items-start gap-3 p-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${dir.es_principal ? 'bg-primary/10' : 'bg-background-subtle'}`}>
+                      <MapPin className={`w-4 h-4 ${dir.es_principal ? 'text-primary' : 'text-foreground-muted'}`} />
                     </div>
-                    <p className="text-xs text-foreground-muted mt-0.5">{dir.direccion}</p>
-                    {(dir.ciudad || dir.provincia) && (
-                      <p className="text-xs text-foreground-muted">
-                        {[dir.ciudad, dir.provincia, dir.pais].filter(Boolean).join(', ')}
-                      </p>
-                    )}
-                    <a
-                      href={`https://maps.google.com/?q=${encodeURIComponent([dir.direccion, dir.ciudad, dir.provincia].filter(Boolean).join(', '))}`}
-                      target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[10px] text-primary mt-1 hover:underline">
-                      <MapPin className="w-2.5 h-2.5" /> Ver en Google Maps
-                    </a>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-foreground">{dir.etiqueta}</p>
+                        {dir.es_principal && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">Principal</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-foreground-muted mt-0.5">{dir.direccion}</p>
+                      {(dir.ciudad || dir.provincia) && (
+                        <p className="text-xs text-foreground-muted">
+                          {[dir.ciudad, dir.provincia, dir.pais].filter(Boolean).join(', ')}
+                        </p>
+                      )}
+                      <a
+                        href={
+                          (dir as any).enlace_mapa
+                            ? (dir as any).enlace_mapa
+                            : `https://maps.google.com/?q=${encodeURIComponent([dir.direccion, dir.ciudad, dir.provincia].filter(Boolean).join(', '))}`
+                        }
+                        target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] text-primary mt-1 hover:underline">
+                        <MapPin className="w-2.5 h-2.5" /> Ver en Google Maps
+                      </a>
+                    </div>
                   </div>
+
+                  {/* Mapa embebido si tiene enlace */}
+                  {(dir as any).enlace_mapa && (
+                    <div className="w-full h-48 border-t border-border">
+                      <iframe
+                        src={(dir as any).enlace_mapa}
+                        width="100%"
+                        height="100%"
+                        style={{ border: 0 }}
+                        allowFullScreen
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                        title={`Mapa — ${dir.etiqueta}`}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
