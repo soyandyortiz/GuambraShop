@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { crearClienteSupabase, CLAVE_DEMO } from '@/lib/supabase/cliente'
+import { DemoStore } from '@/lib/supabase/demo-store'
 import { useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, Ticket,
@@ -40,6 +41,7 @@ export function HeaderAdmin({ nombre, rol, fotoPerfil }: PropsHeaderAdmin) {
   const esSuperadmin = rol === 'superadmin'
 
   async function cerrarSesion() {
+    DemoStore.limpiar()
     localStorage.removeItem(CLAVE_DEMO)
     const supabase = crearClienteSupabase()
     await supabase.auth.signOut()

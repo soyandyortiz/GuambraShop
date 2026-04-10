@@ -6,6 +6,7 @@ import { Pencil, Trash2, Eye, EyeOff, FolderOpen, ChevronRight, Plus } from 'luc
 import { cn } from '@/lib/utils'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
+import { useDemoDatos } from '@/hooks/usar-demo-datos'
 
 interface CategoriaFila {
   id: string
@@ -22,7 +23,8 @@ interface Props {
   categorias: CategoriaFila[]
 }
 
-export function ListaCategoriasAdmin({ categorias }: Props) {
+export function ListaCategoriasAdmin({ categorias: categoriasServidor }: Props) {
+  const categorias = useDemoDatos<CategoriaFila>('categorias', categoriasServidor)
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [expandidas, setExpandidas] = useState<Set<string>>(new Set())

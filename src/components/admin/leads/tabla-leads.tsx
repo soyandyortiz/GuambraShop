@@ -5,6 +5,7 @@ import { Trash2, Download, Phone, Search, Users } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { useDemoDatos } from '@/hooks/usar-demo-datos'
 
 interface Lead {
   id: string
@@ -15,9 +16,10 @@ interface Lead {
 interface Props { leads: Lead[] }
 
 export function TablaLeads({ leads: leadsInic }: Props) {
+  const leadsDemo = useDemoDatos<Lead>('leads', leadsInic)
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [leads, setLeads] = useState<Lead[]>(leadsInic)
+  const [leads, setLeads] = useState<Lead[]>(leadsDemo)
   const [busqueda, setBusqueda] = useState('')
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
 

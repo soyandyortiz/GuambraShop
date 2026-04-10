@@ -7,6 +7,7 @@ import { cn, formatearPrecio } from '@/lib/utils'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { useDemoDatos } from '@/hooks/usar-demo-datos'
 
 interface ImagenProducto { url: string; orden: number }
 interface ProductoFila {
@@ -26,7 +27,8 @@ interface Props {
   categorias: Categoria[]
 }
 
-export function ListaProductosAdmin({ productos, categorias }: Props) {
+export function ListaProductosAdmin({ productos: productosServidor, categorias }: Props) {
+  const productos = useDemoDatos<ProductoFila>('productos', productosServidor)
   const router = useRouter()
   const [busqueda, setBusqueda] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState('todas')

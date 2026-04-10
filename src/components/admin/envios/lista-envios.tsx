@@ -6,6 +6,7 @@ import { Pencil, Trash2, Eye, EyeOff, Truck, Search } from 'lucide-react'
 import { cn, formatearPrecio } from '@/lib/utils'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
+import { useDemoDatos } from '@/hooks/usar-demo-datos'
 
 interface ZonaEnvio {
   id: string
@@ -20,7 +21,8 @@ interface ZonaEnvio {
 
 interface Props { zonas: ZonaEnvio[] }
 
-export function ListaEnviosAdmin({ zonas }: Props) {
+export function ListaEnviosAdmin({ zonas: zonasServidor }: Props) {
+  const zonas = useDemoDatos<ZonaEnvio>('zonas_envio', zonasServidor)
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [busqueda, setBusqueda] = useState('')

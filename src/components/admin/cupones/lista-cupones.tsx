@@ -7,6 +7,7 @@ import { cn, formatearPrecio } from '@/lib/utils'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { useDemoDatos } from '@/hooks/usar-demo-datos'
 
 interface Cupon {
   id: string
@@ -22,7 +23,8 @@ interface Cupon {
 
 interface Props { cupones: Cupon[] }
 
-export function ListaCuponesAdmin({ cupones }: Props) {
+export function ListaCuponesAdmin({ cupones: cuponesServidor }: Props) {
+  const cupones = useDemoDatos<Cupon>('cupones', cuponesServidor)
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [busqueda, setBusqueda] = useState('')

@@ -9,6 +9,7 @@ import {
 import { cn } from '@/lib/utils'
 
 import { crearClienteSupabase, CLAVE_DEMO } from '@/lib/supabase/cliente'
+import { DemoStore } from '@/lib/supabase/demo-store'
 import { useRouter } from 'next/navigation'
 import type { Rol } from '@/types'
 
@@ -45,6 +46,7 @@ export function Sidebar({ rol, nombre, fotoPerfil, faviconUrl }: PropsSidebar) {
   const esSuperadmin = rol === 'superadmin'
 
   async function cerrarSesion() {
+    DemoStore.limpiar()
     localStorage.removeItem(CLAVE_DEMO)
     const supabase = crearClienteSupabase()
     await supabase.auth.signOut()

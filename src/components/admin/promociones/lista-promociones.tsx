@@ -6,6 +6,7 @@ import { Pencil, Trash2, Eye, EyeOff, Megaphone, LayoutTemplate } from 'lucide-r
 import { cn, formatearPrecio } from '@/lib/utils'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
+import { useDemoDatos } from '@/hooks/usar-demo-datos'
 
 interface Promocion {
   id: string
@@ -35,7 +36,8 @@ function estadoPromocion(p: Promocion): { label: string; clase: string } {
   return { label: 'Activa', clase: 'bg-success/10 text-success' }
 }
 
-export function ListaPromocionesAdmin({ promociones }: Props) {
+export function ListaPromocionesAdmin({ promociones: promocionesServidor }: Props) {
+  const promociones = useDemoDatos<Promocion>('promociones', promocionesServidor)
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [preview, setPreview] = useState<Promocion | null>(null)
