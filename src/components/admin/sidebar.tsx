@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-import { crearClienteSupabase } from '@/lib/supabase/cliente'
+import { crearClienteSupabase, CLAVE_DEMO } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
 import type { Rol } from '@/types'
 
@@ -45,6 +45,7 @@ export function Sidebar({ rol, nombre, fotoPerfil, faviconUrl }: PropsSidebar) {
   const esSuperadmin = rol === 'superadmin'
 
   async function cerrarSesion() {
+    localStorage.removeItem(CLAVE_DEMO)
     const supabase = crearClienteSupabase()
     await supabase.auth.signOut()
     router.push('/admin')

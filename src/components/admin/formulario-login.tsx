@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { User, Lock, ShoppingBag, FlaskConical } from 'lucide-react'
-import { crearClienteSupabase } from '@/lib/supabase/cliente'
+import { crearClienteSupabase, CLAVE_DEMO } from '@/lib/supabase/cliente'
 import { Input } from '@/components/ui/input'
 import { Botón } from '@/components/ui/boton'
 import { ModalRecuperarContrasena } from './modal-recuperar-contrasena'
@@ -67,6 +67,14 @@ export function FormularioLogin() {
     if (errAuth) {
       setError('Usuario o contraseña incorrectos')
       return
+    }
+
+    // Si es la cuenta demo → activar flag para bloquear escrituras en cliente
+    const emailIngresado = normalizarEmail(datos.email)
+    if (emailIngresado === 'demo@tiendademo.local') {
+      localStorage.setItem(CLAVE_DEMO, 'true')
+    } else {
+      localStorage.removeItem(CLAVE_DEMO)
     }
 
     router.push('/admin/dashboard')
