@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   Power, MessageSquare, Calendar, Clock, Send,
-  Loader2, ShieldAlert, ToggleLeft, ToggleRight
+  Loader2, ShieldAlert, ToggleLeft, ToggleRight,
+  Lock, LockOpen, KeyRound, Copy, Check, RefreshCw
 } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { ContadorPago } from './contador-pago'
@@ -46,6 +47,11 @@ export function PanelSuperadmin({ config }: Props) {
   const [mensajeSuspension, setMensajeSuspension] = useState(config.mensaje_suspension)
   const [infoPago, setInfoPago] = useState(config.info_pago ?? '')
   const [mensajePersonal, setMensajePersonal] = useState('')
+
+  // Reset contraseña admin
+  const [candadoAbierto, setCandadoAbierto] = useState(false)
+  const [nuevaContrasena, setNuevaContrasena] = useState<string | null>(null)
+  const [copiado, setCopiado] = useState(false)
 
   async function guardarCobro() {
     setGuardando('cobro')
@@ -121,6 +127,28 @@ export function PanelSuperadmin({ config }: Props) {
     toast.success('Mensaje enviado al admin')
     setGuardando(null)
     router.refresh()
+  }
+
+  async function resetearContrasena() {
+    setGuardando('reset')
+    setNuevaContrasena(null)
+    try {
+      const res = await fetch('/api/superadmin/reset-password', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error ?? 'Error al resetear'); setGuardando(null); return }
+      setNuevaContrasena(json.contrasena)
+      toast.success('Contraseña generada correctamente')
+    } catch {
+      toast.error('Error de conexión')
+    }
+    setGuardando(null)
+  }
+
+  async function copiarContrasena() {
+    if (!nuevaContrasena) return
+    await navigator.clipboard.writeText(nuevaContrasena)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2000)
   }
 
   async function enviarRecordatorioPago() {
@@ -304,6 +332,92 @@ export function PanelSuperadmin({ config }: Props) {
             : <><Power className="w-4 h-4" /> Reactivar tienda</>
           }
         </button>
+      </div>
+
+      {/* ── SECCIÓN RESET CONTRASEÑA ADMIN ─────────── */}
+      <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-primary" />
+              Contraseña del Admin
+            </p>
+            <p className="text-xs text-foreground-muted mt-0.5">
+              Genera una nueva contraseña para el administrador
+            </p>
+          </div>
+          {/* Candado */}
+          <button
+            onClick={() => { setCandadoAbierto(v => !v); setNuevaContrasena(null) }}
+            className={cn(
+              'w-10 h-10 rounded-xl flex items-center justify-center transition-all border',
+              candadoAbierto
+                ? 'bg-warning/10 border-warning/30 text-warning'
+                : 'bg-background-subtle border-border text-foreground-muted hover:text-foreground'
+            )}
+            title={candadoAbierto ? 'Bloquear' : 'Desbloquear para resetear contraseña'}
+          >
+            {candadoAbierto
+              ? <LockOpen className="w-5 h-5" />
+              : <Lock className="w-5 h-5" />
+            }
+          </button>
+        </div>
+
+        {candadoAbierto && (
+          <>
+            {!nuevaContrasena ? (
+              <div className="rounded-xl bg-warning/10 border border-warning/20 p-3 flex flex-col gap-3">
+                <p className="text-xs text-warning font-medium">
+                  ¿Generar una nueva contraseña para el admin? El acceso actual quedará inválido de inmediato.
+                </p>
+                <button
+                  onClick={resetearContrasena}
+                  disabled={guardando === 'reset'}
+                  className="flex items-center justify-center gap-2 h-10 rounded-xl bg-warning text-white text-sm font-bold hover:bg-warning/90 disabled:opacity-60 transition-all"
+                >
+                  {guardando === 'reset'
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Generando...</>
+                    : <><RefreshCw className="w-4 h-4" /> Sí, generar nueva contraseña</>
+                  }
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-xl bg-success/10 border border-success/20 p-4 flex flex-col gap-3">
+                <p className="text-xs text-success font-semibold">
+                  ✓ Nueva contraseña generada. Compártela con el admin de forma segura.
+                </p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-card border border-border rounded-xl px-4 h-11 flex items-center">
+                    <span className="font-mono text-base font-bold tracking-widest text-foreground select-all">
+                      {nuevaContrasena}
+                    </span>
+                  </div>
+                  <button
+                    onClick={copiarContrasena}
+                    className={cn(
+                      'w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 border transition-all',
+                      copiado
+                        ? 'bg-success text-white border-success'
+                        : 'bg-background-subtle border-border text-foreground-muted hover:text-foreground'
+                    )}
+                    title="Copiar contraseña"
+                  >
+                    {copiado ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+                <button
+                  onClick={resetearContrasena}
+                  disabled={guardando === 'reset'}
+                  className="flex items-center justify-center gap-1.5 text-xs text-foreground-muted hover:text-foreground transition-colors"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Generar otra
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* ── SECCIÓN MENSAJE RÁPIDO ───────────────────── */}
