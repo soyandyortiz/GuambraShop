@@ -29,27 +29,15 @@ export function HeaderTienda({ nombreTienda, logoUrl }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Separar estado de sesión de la foto
-  const [sesionActiva, setSesionActiva] = useState<boolean | undefined>(undefined) // undefined=cargando
-  const [fotoPerfil, setFotoPerfil] = useState<string | null>(null)
+  const [sesionActiva, setSesionActiva] = useState<boolean | undefined>(undefined)
 
   // No renderizar en rutas de administración
   if (pathname.startsWith('/admin')) return null
 
   useEffect(() => {
     const supabase = crearClienteSupabase()
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) {
-        setSesionActiva(false)
-        return
-      }
-      setSesionActiva(true)
-      const { data } = await supabase
-        .from('perfiles')
-        .select('foto_perfil_url')
-        .eq('id', session.user.id)
-        .single()
-      setFotoPerfil(data?.foto_perfil_url ?? null)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSesionActiva(!!session)
     })
   }, [])
 
@@ -305,20 +293,11 @@ export function HeaderTienda({ nombreTienda, logoUrl }: Props) {
               /* Cargando */
               <div className="w-8 h-8 rounded-full bg-white/20 animate-pulse flex-shrink-0" />
             ) : sesionActiva ? (
-              /* Logueado — foto o icono de usuario */
+              /* Logueado — icono de usuario → panel admin */
               <Link href="/admin/dashboard" className="flex-shrink-0" title="Panel de administración">
-                {fotoPerfil ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={fotoPerfil}
-                    alt="Perfil"
-                    className="w-8 h-8 rounded-full object-cover border-2 border-white/40 hover:border-white transition-all"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 border-2 border-white/40 hover:border-white transition-all flex items-center justify-center">
-                    <User className="w-4 h-4 text-white" />
-                  </div>
-                )}
+                <div className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 border-2 border-white/40 hover:border-white transition-all flex items-center justify-center">
+                  <User className="w-4 h-4 text-white" />
+                </div>
               </Link>
             ) : (
               /* Sin sesión */
