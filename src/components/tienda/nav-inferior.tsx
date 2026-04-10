@@ -64,25 +64,21 @@ export function NavInferior({ esAdmin: esAdminProp }: Props) {
               href={href}
               className={cn(
                 'relative flex flex-col items-center justify-center gap-[3px]',
-                'flex-1 h-full rounded-[1.25rem] sm:rounded-[2rem]',
+                'flex-1 h-full',
                 'transition-all duration-200 ease-out select-none',
                 'active:scale-90',
               )}
             >
-              {/* Píldora blanca para el item activo */}
-              {activo && (
-                <span className="absolute inset-x-1.5 inset-y-[6px] rounded-[1rem] bg-white/25 shadow-inner" />
-              )}
-
               {/* Icono */}
-              <span className="relative z-10">
+              <span className="relative">
                 <Icon
                   className={cn(
                     'transition-all duration-200',
                     'w-[1.35rem] h-[1.35rem] sm:w-6 sm:h-6',
-                    activo ? 'text-white scale-110 drop-shadow-sm' : 'text-white/60',
+                    activo ? 'text-white' : 'text-white/50',
                   )}
                   strokeWidth={activo ? 2.5 : 1.75}
+                  fill={activo ? 'currentColor' : 'none'}
                 />
 
                 {/* Badge */}
@@ -102,8 +98,8 @@ export function NavInferior({ esAdmin: esAdminProp }: Props) {
 
               {/* Label */}
               <span className={cn(
-                'relative z-10 text-[9px] sm:text-[10px] font-bold tracking-wide leading-none transition-all duration-200',
-                activo ? 'text-white' : 'text-white/55',
+                'text-[9px] sm:text-[10px] tracking-wide leading-none transition-all duration-200',
+                activo ? 'text-white font-bold' : 'text-white/50 font-medium',
               )}>
                 {label}
               </span>
