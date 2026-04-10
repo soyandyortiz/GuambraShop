@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import {
   ShoppingCart, Trash2, Plus, Minus, Tag, Truck,
@@ -34,6 +34,7 @@ interface Cupon {
 export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }: Props) {
   const { items, quitar, actualizarCantidad, limpiar, subtotal, hidratado } = usarCarrito()
 
+  const [confirmarVaciar, setConfirmarVaciar] = useState(false)
   const [codigoCupon, setCodigoCupon] = useState('')
   const [cupon, setCupon] = useState<Cupon | null>(null)
   const [validandoCupon, setValidandoCupon] = useState(false)
@@ -146,7 +147,7 @@ export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }:
         <h1 className="text-lg font-bold text-foreground">
           Mi carrito <span className="text-primary">({items.length})</span>
         </h1>
-        <button onClick={() => { if (confirm('¿Vaciar carrito?')) limpiar() }}
+        <button onClick={() => setConfirmarVaciar(true)}
           className="text-xs text-foreground-muted hover:text-danger transition-colors">
           Vaciar
         </button>
@@ -390,6 +391,43 @@ export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }:
             <MessageCircle className="w-5 h-5" />
             Pedir por WhatsApp
           </button>
+        </div>
+      )}
+
+      {/* Modal confirmación vaciar carrito */}
+      {confirmarVaciar && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+          {/* Overlay */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setConfirmarVaciar(false)}
+          />
+          {/* Panel */}
+          <div className="relative w-full max-w-sm bg-card rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border">
+              <div className="w-8 h-8 rounded-full bg-danger/10 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-4 h-4 text-danger" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">¿Vaciar carrito?</p>
+                <p className="text-xs text-foreground-muted">Se eliminarán todos los productos</p>
+              </div>
+            </div>
+            <div className="flex gap-2 p-3">
+              <button
+                onClick={() => setConfirmarVaciar(false)}
+                className="flex-1 h-10 rounded-xl border border-border text-sm font-semibold text-foreground-muted hover:bg-background-subtle transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { limpiar(); setConfirmarVaciar(false) }}
+                className="flex-1 h-10 rounded-xl bg-danger text-white text-sm font-semibold hover:bg-danger/90 active:scale-[0.97] transition-all"
+              >
+                Sí, vaciar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
