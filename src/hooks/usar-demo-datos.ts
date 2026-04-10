@@ -16,13 +16,9 @@ import { DemoStore, EVENTO_DEMO } from '@/lib/supabase/demo-store'
 export function useDemoDatos<T>(tabla: string, datosServidor: T[]): T[] {
   const esDemo = usarModoDemo()
 
-  const [datos, setDatos] = useState<T[]>(() => {
-    // Inicialización síncrona: si ya hay datos en DemoStore, usarlos desde el principio
-    if (esDemo && typeof window !== 'undefined' && DemoStore.has(tabla)) {
-      return DemoStore.obtener(tabla) as T[]
-    }
-    return datosServidor
-  })
+  // Siempre inicializar con datosServidor para que SSR y cliente coincidan (evita React #418).
+  // El useEffect carga los datos demo de localStorage después de la hidratación.
+  const [datos, setDatos] = useState<T[]>(datosServidor)
 
   useEffect(() => {
     if (!esDemo) return
