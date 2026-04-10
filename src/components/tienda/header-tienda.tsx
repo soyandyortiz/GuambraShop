@@ -21,9 +21,6 @@ export function HeaderTienda({ nombreTienda, logoUrl }: Props) {
   const pathname = usePathname()
   const { conteo } = usarCarrito()
 
-  // No renderizar en rutas de administración
-  if (pathname.startsWith('/admin')) return null
-
   const [busqueda, setBusqueda] = useState('')
   const [buscando, setBuscando] = useState(false)
   const [resultados, setResultados] = useState<Producto[]>([])
@@ -35,6 +32,9 @@ export function HeaderTienda({ nombreTienda, logoUrl }: Props) {
   // Separar estado de sesión de la foto
   const [sesionActiva, setSesionActiva] = useState<boolean | undefined>(undefined) // undefined=cargando
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null)
+
+  // No renderizar en rutas de administración
+  if (pathname.startsWith('/admin')) return null
 
   useEffect(() => {
     const supabase = crearClienteSupabase()
