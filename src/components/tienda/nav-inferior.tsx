@@ -19,8 +19,6 @@ export function NavInferior({ esAdmin: esAdminProp }: Props) {
   const { conteo: conteoFavoritos } = usarFavoritos()
   const [esAdmin, setEsAdmin] = useState(esAdminProp ?? false)
 
-  if (pathname.startsWith('/admin')) return null
-
   useEffect(() => {
     if (esAdminProp !== undefined) return
     const supabase = crearClienteSupabase()
@@ -32,6 +30,8 @@ export function NavInferior({ esAdmin: esAdminProp }: Props) {
         })
     })
   }, [esAdminProp])
+
+  if (pathname.startsWith('/admin')) return null
 
   const itemsBase = [
     { href: '/',              label: 'Inicio',     icon: Home },

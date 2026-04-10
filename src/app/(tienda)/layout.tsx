@@ -3,7 +3,6 @@ import { HeaderTienda } from '@/components/tienda/header-tienda'
 import { NavInferior } from '@/components/tienda/nav-inferior'
 import { ModalPromocionPub } from '@/components/tienda/modal-promocion-pub'
 import { FooterTienda } from '@/components/tienda/footer-tienda'
-import { FavoritosProvider } from '@/components/providers/favoritos-provider'
 
 export default async function LayoutTienda({ children }: { children: React.ReactNode }) {
   const supabase = await crearClienteServidor()
@@ -48,7 +47,6 @@ export default async function LayoutTienda({ children }: { children: React.React
   }
 
   return (
-    <FavoritosProvider>
     <div className="min-h-screen bg-background">
       <HeaderTienda
         nombreTienda={config?.nombre_tienda ?? 'Tienda'}
@@ -69,6 +67,5 @@ export default async function LayoutTienda({ children }: { children: React.React
         />
       )}
     </div>
-    </FavoritosProvider>
   )
 }
