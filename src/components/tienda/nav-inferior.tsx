@@ -34,11 +34,11 @@ export function NavInferior({ esAdmin: esAdminProp }: Props) {
   }, [esAdminProp])
 
   const itemsBase = [
-    { href: '/',             label: 'Inicio',      icon: Home },
-    { href: '/categorias',   label: 'Categorías',  icon: LayoutGrid },
-    { href: '/favoritos',    label: 'Favoritos',   icon: Heart,         badge: conteoFavoritos },
-    { href: '/carrito',      label: 'Carrito',     icon: ShoppingCart,  badge: conteoCarrito },
-    { href: '/perfil-tienda',label: 'Tienda',      icon: Store },
+    { href: '/',              label: 'Inicio',     icon: Home },
+    { href: '/categorias',    label: 'Categorías', icon: LayoutGrid },
+    { href: '/favoritos',     label: 'Favoritos',  icon: Heart,        badge: conteoFavoritos },
+    { href: '/carrito',       label: 'Carrito',    icon: ShoppingCart, badge: conteoCarrito },
+    { href: '/perfil-tienda', label: 'Tienda',     icon: Store },
   ]
 
   const items = esAdmin
@@ -49,11 +49,10 @@ export function NavInferior({ esAdmin: esAdminProp }: Props) {
     <nav className="fixed bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-xs sm:max-w-md md:max-w-lg pointer-events-none">
       <div className={cn(
         'relative flex items-center justify-around pointer-events-auto',
-        'h-14 sm:h-[4.25rem] px-1',
+        'h-[3.75rem] sm:h-[4.25rem] px-1',
         'rounded-[1.75rem] sm:rounded-[2.5rem]',
-        'bg-[#0f1117]/95 backdrop-blur-2xl',
-        'border border-white/[0.08]',
-        'shadow-[0_20px_60px_-10px_rgba(0,0,0,0.7),0_0_0_0.5px_rgba(255,255,255,0.05)]',
+        'bg-primary',
+        'shadow-[0_8px_32px_-4px_rgba(0,0,0,0.35),0_2px_8px_-2px_rgba(0,0,0,0.2)]',
       )}>
 
         {items.map(({ href, label, icon: Icon, badge }) => {
@@ -64,16 +63,15 @@ export function NavInferior({ esAdmin: esAdminProp }: Props) {
               key={href}
               href={href}
               className={cn(
-                'relative flex flex-col items-center justify-center gap-[2px]',
+                'relative flex flex-col items-center justify-center gap-[3px]',
                 'flex-1 h-full rounded-[1.25rem] sm:rounded-[2rem]',
                 'transition-all duration-200 ease-out select-none',
                 'active:scale-90',
-                !activo && 'hover:text-white/70',
               )}
             >
-              {/* Píldora sólida con color primario para el item activo */}
+              {/* Píldora blanca para el item activo */}
               {activo && (
-                <span className="absolute inset-x-1 inset-y-[6px] rounded-[1.25rem] bg-primary shadow-[0_4px_16px_rgba(0,0,0,0.35)]" />
+                <span className="absolute inset-x-1.5 inset-y-[6px] rounded-[1rem] bg-white/25 shadow-inner" />
               )}
 
               {/* Icono */}
@@ -81,22 +79,21 @@ export function NavInferior({ esAdmin: esAdminProp }: Props) {
                 <Icon
                   className={cn(
                     'transition-all duration-200',
-                    'w-5 h-5 sm:w-6 sm:h-6',
-                    activo ? 'text-white scale-110' : 'text-white/40',
+                    'w-[1.35rem] h-[1.35rem] sm:w-6 sm:h-6',
+                    activo ? 'text-white scale-110 drop-shadow-sm' : 'text-white/60',
                   )}
-                  strokeWidth={activo ? 2.25 : 1.75}
+                  strokeWidth={activo ? 2.5 : 1.75}
                 />
 
                 {/* Badge */}
                 {badge !== undefined && badge > 0 && (
                   <span className={cn(
                     'absolute -top-1.5 -right-2',
-                    'min-w-[15px] h-[15px] px-[3px]',
-                    activo ? 'bg-white text-primary' : 'bg-primary text-white',
-                    'text-[8px] font-black leading-none',
+                    'min-w-[16px] h-4 px-1',
+                    'bg-white text-primary',
+                    'text-[9px] font-black leading-none',
                     'rounded-full flex items-center justify-center',
-                    'shadow-[0_2px_8px_rgba(0,0,0,0.4)]',
-                    'ring-1 ring-[#0f1117]',
+                    'shadow-md',
                   )}>
                     {badge > 99 ? '99+' : badge}
                   </span>
@@ -105,8 +102,8 @@ export function NavInferior({ esAdmin: esAdminProp }: Props) {
 
               {/* Label */}
               <span className={cn(
-                'relative z-10 text-[8px] sm:text-[10px] font-bold tracking-wide leading-none transition-all duration-200',
-                activo ? 'text-white' : 'text-white/35',
+                'relative z-10 text-[9px] sm:text-[10px] font-bold tracking-wide leading-none transition-all duration-200',
+                activo ? 'text-white' : 'text-white/55',
               )}>
                 {label}
               </span>

@@ -98,7 +98,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
 
   function consultarWhatsApp() {
     const msg = `Hola, estoy interesado en *${producto.nombre}*${variante ? ` (${variante.nombre})` : ''}${talla ? `, talla ${talla}` : ''}.\n\nPrecio: ${formatearPrecio(precioBase)}\n\n${window.location.href}`
-    window.open(generarEnlaceWhatsApp(whatsapp, msg), '_blank')
+    window.open(generarEnlaceWhatsApp(whatsapp, encodeURIComponent(msg)), '_blank')
   }
 
   const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes.length)

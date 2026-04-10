@@ -51,8 +51,13 @@ export function HeaderAdmin({ nombre, rol, fotoPerfil }: PropsHeaderAdmin) {
       {/* Header móvil/tablet */}
       <header className="lg:hidden h-14 bg-card border-b border-border flex items-center justify-between px-4 sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-            <ShoppingBag className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-primary flex items-center justify-center flex-shrink-0 border-2 border-primary/30">
+            {fotoPerfil ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={fotoPerfil} alt="Perfil" className="w-full h-full object-cover" />
+            ) : (
+              <ShoppingBag className="w-4 h-4 text-white" />
+            )}
           </div>
           <span className="font-bold text-sm text-foreground">Panel Admin</span>
           {esSuperadmin && (
@@ -74,7 +79,7 @@ export function HeaderAdmin({ nombre, rol, fotoPerfil }: PropsHeaderAdmin) {
 
       {/* Menú móvil desplegable */}
       {menuAbierto && (
-        <div className="lg:hidden fixed inset-0 z-[60] top-14">
+        <div className="lg:hidden fixed inset-0 z-[60]">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMenuAbierto(false)} />
           <nav className="absolute top-0 right-0 w-64 h-full bg-card border-l border-border flex flex-col shadow-2xl">
             {/* Info usuario */}

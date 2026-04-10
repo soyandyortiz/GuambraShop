@@ -1,8 +1,54 @@
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { notFound } from 'next/navigation'
 import { DetalleProductoCliente } from './detalle-cliente'
+import type { Metadata } from 'next'
 
 interface Props { params: Promise<{ slug: string }> }
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params
+  const supabase = await crearClienteServidor()
+
+  const [{ data: producto }, { data: config }] = await Promise.all([
+    supabase.from('productos')
+      .select('nombre, descripcion, precio, precio_descuento, imagenes_producto(url, orden)')
+      .eq('slug', slug)
+      .eq('esta_activo', true)
+      .single(),
+    supabase.from('configuracion_tienda')
+      .select('nombre_tienda')
+      .single(),
+  ])
+
+  if (!producto) return {}
+
+  const imagenes = [...(producto.imagenes_producto ?? [])].sort((a: any, b: any) => a.orden - b.orden)
+  const imagenPrincipal = imagenes[0]?.url ?? null
+  const precio = producto.precio_descuento ?? producto.precio
+  const nombreTienda = config?.nombre_tienda ?? 'Tienda'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
+
+  return {
+    title: `${producto.nombre} — ${nombreTienda}`,
+    description: producto.descripcion ?? `${producto.nombre} disponible en ${nombreTienda}`,
+    openGraph: {
+      title: producto.nombre,
+      description: producto.descripcion ?? `$${precio} — ${nombreTienda}`,
+      url: `${siteUrl}/producto/${slug}`,
+      siteName: nombreTienda,
+      images: imagenPrincipal
+        ? [{ url: imagenPrincipal, width: 800, height: 800, alt: producto.nombre }]
+        : [],
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: producto.nombre,
+      description: producto.descripcion ?? `$${precio} — ${nombreTienda}`,
+      images: imagenPrincipal ? [imagenPrincipal] : [],
+    },
+  }
+}
 
 export default async function PáginaProducto({ params }: Props) {
   const { slug } = await params

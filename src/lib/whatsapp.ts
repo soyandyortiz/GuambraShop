@@ -93,8 +93,18 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
   return encodeURIComponent(mensaje)
 }
 
+export function normalizarTelefono(telefono: string): string {
+  // Eliminar todo excepto dígitos
+  let tel = telefono.replace(/\D/g, '')
+  // Número local Ecuador: 09XXXXXXXX (10 dígitos) → 5939XXXXXXXX
+  if (tel.length === 10 && tel.startsWith('0')) {
+    tel = '593' + tel.slice(1)
+  }
+  return tel
+}
+
 export function generarEnlaceWhatsApp(telefono: string, mensajeCodificado: string): string {
-  const tel = telefono.replace(/\D/g, '')
+  const tel = normalizarTelefono(telefono)
   return `https://wa.me/${tel}?text=${mensajeCodificado}`
 }
 
@@ -114,7 +124,7 @@ export function generarMensajePromocion(
 }
 
 export function generarEnlacePromocion(telefono: string, mensajePersonalizado: string): string {
-  const tel = telefono.replace(/\D/g, '')
+  const tel = normalizarTelefono(telefono)
   return `https://wa.me/${tel}?text=${encodeURIComponent(mensajePersonalizado)}`
 }
 

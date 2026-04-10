@@ -2,7 +2,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { redirect } from 'next/navigation'
 import {
   Package, Tag, Ticket, Users, MessageSquare,
-  ShoppingBag, TrendingUp, AlertTriangle, CheckCircle2, Power
+  ShoppingBag, TrendingUp, AlertTriangle, CheckCircle2, Power, ExternalLink
 } from 'lucide-react'
 import Link from 'next/link'
 import type { MensajeAdmin } from '@/types'
@@ -122,6 +122,16 @@ export default async function PáginaDashboard() {
           }
         </div>
       </div>
+
+      {/* Botón Ver tienda */}
+      <Link
+        href="/"
+        target="_blank"
+        className="flex items-center justify-center gap-2.5 w-full h-12 rounded-2xl bg-primary text-white font-bold text-sm shadow-md shadow-primary/30 hover:bg-primary/90 active:scale-[0.98] transition-all"
+      >
+        <ExternalLink className="w-4 h-4" />
+        VER TIENDA ONLINE
+      </Link>
 
       {/* Tarjetas de estadísticas */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
