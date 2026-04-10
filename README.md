@@ -84,24 +84,33 @@ El seed carga los datos iniciales de la tienda (nombre, WhatsApp, etc.).
 3. Guarda el archivo
 4. En Supabase → SQL Editor → **"New query"**, pega el contenido modificado y haz clic en **"Run"**
 
-### Paso 1.5 — Crear el usuario administrador del cliente
+### Paso 1.5 — Crear los usuarios del sistema
 
-El cliente necesita un usuario para entrar al panel de administración (`/admin`).
+El sistema maneja dos roles. Crea **únicamente estos dos usuarios** en Supabase → Authentication → Users → "Add user" → "Create new user":
 
-1. En el menú izquierdo de Supabase, haz clic en **"Authentication"** (ícono de candado)
-2. Haz clic en **"Users"** en el submenú
-3. Haz clic en el botón **"Add user"** → **"Create new user"**
-4. Llena los campos:
-   - **Email:** el correo del cliente, ej: `margarita@gmail.com`
-   - **Password:** crea una contraseña temporal, ej: `Margarita2024`
-   - **Auto Confirm User:** activa esta opción (toggle en azul)
-5. Antes de guardar, haz clic en **"Advanced settings"** y agrega en **"User Metadata"** (es un JSON):
-   ```json
-   { "rol": "admin" }
-   ```
-6. Haz clic en **"Create user"**
+#### Usuario Superadmin (tú, el desarrollador)
+
+| Campo | Valor |
+|---|---|
+| **Email** | `0604511089@tiendademo.local` (o tu cédula) |
+| **Password** | Una contraseña segura que solo tú conozcas |
+| **Auto Confirm User** | Activado |
+| **User Metadata** | `{ "rol": "superadmin" }` |
+
+> El superadmin te da control total: activar/suspender tienda, gestionar cobros, resetear contraseña del admin.
+
+#### Usuario Admin (el cliente)
+
+| Campo | Valor |
+|---|---|
+| **Email** | El correo real del cliente, ej: `margarita@gmail.com` |
+| **Password** | Contraseña temporal, ej: `Margarita2024` |
+| **Auto Confirm User** | Activado |
+| **User Metadata** | `{ "rol": "admin" }` |
 
 > El sistema crea automáticamente la fila en la tabla `perfiles` gracias al trigger `tr_crear_perfil_al_registrar`.
+
+> **IMPORTANTE — Usuario demo:** El código incluye un modo demo para que clientes potenciales prueben el sistema antes de comprar. Este modo **solo se activa si existe el usuario `demo@tiendademo.local`** en Supabase Auth. Para proyectos de clientes reales **NO crees ese usuario** y el modo demo quedará completamente inactivo — no afecta el rendimiento ni el funcionamiento de la tienda.
 
 ### Paso 1.6 — Verificar el Storage (almacenamiento de imágenes)
 
@@ -193,8 +202,11 @@ En la pantalla de configuración antes de hacer deploy:
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://XXXXX.supabase.co` (el de tu cliente) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJhbG...` (la clave anon del cliente) |
+| `SUPABASE_SERVICE_ROLE_KEY` | La clave `service_role secret` de Supabase → Project Settings → API |
 | `NEXT_PUBLIC_SITE_URL` | Lo dejas vacío por ahora — lo actualizas después |
 | `NEXT_PUBLIC_SOPORTE_WHATSAPP` | `0982650929` (tu número de soporte) |
+
+> `SUPABASE_SERVICE_ROLE_KEY` es necesaria para que el superadmin pueda resetear la contraseña del admin desde el dashboard. Nunca lleva el prefijo `NEXT_PUBLIC_` y nunca se expone al navegador.
 
 3. Haz clic en **"Deploy"** (botón negro)
 4. Espera 3-5 minutos mientras Vercel compila el proyecto
@@ -349,9 +361,11 @@ tiendademo/
 
 - [ ] Migraciones ejecutadas en orden en Supabase
 - [ ] Seed personalizado con nombre y WhatsApp del cliente ejecutado
-- [ ] Usuario admin creado con metadato `{ "rol": "admin" }`
+- [ ] Usuario **superadmin** creado con metadato `{ "rol": "superadmin" }`
+- [ ] Usuario **admin** creado con metadato `{ "rol": "admin" }`
+- [ ] **NO** se creó el usuario `demo@tiendademo.local` (solo es para la tienda demo propia)
 - [ ] Buckets de Storage creados (`productos` y `tienda`)
-- [ ] Variables de entorno configuradas en Vercel
+- [ ] Variables de entorno configuradas en Vercel (incluida `SUPABASE_SERVICE_ROLE_KEY`)
 - [ ] Deploy exitoso en Vercel (sin errores en rojo)
 - [ ] `NEXT_PUBLIC_SITE_URL` actualizado con la URL real
 - [ ] Tienda visible en el navegador
