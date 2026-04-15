@@ -11,7 +11,7 @@ import { DemoStore } from '@/lib/supabase/demo-store'
 import { useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, Ticket,
-  Megaphone, Truck, Settings, MessageSquare, Users, LogOut, Star
+  Megaphone, Truck, Settings, MessageSquare, LogOut, Star
 } from 'lucide-react'
 import type { Rol } from '@/types'
 
@@ -22,7 +22,6 @@ const navegacion = [
   { href: '/admin/dashboard/cupones',     icono: <Ticket className="w-4 h-4" />,           etiqueta: 'Cupones' },
   { href: '/admin/dashboard/promociones', icono: <Megaphone className="w-4 h-4" />,        etiqueta: 'Promociones' },
   { href: '/admin/dashboard/envios',      icono: <Truck className="w-4 h-4" />,            etiqueta: 'Envíos' },
-  { href: '/admin/dashboard/leads',       icono: <Users className="w-4 h-4" />,            etiqueta: 'Leads' },
   { href: '/admin/dashboard/resenas',     icono: <Star className="w-4 h-4" />,             etiqueta: 'Reseñas' },
   { href: '/admin/dashboard/mensajes',    icono: <MessageSquare className="w-4 h-4" />,    etiqueta: 'Mensajes' },
   { href: '/admin/dashboard/perfil',      icono: <Settings className="w-4 h-4" />,         etiqueta: 'Perfil tienda' },

@@ -12,7 +12,6 @@ import { usarCarrito } from '@/hooks/usar-carrito'
 import { usarFavoritos } from '@/hooks/usar-favoritos'
 import { toast } from 'sonner'
 import { generarEnlaceWhatsApp } from '@/lib/whatsapp'
-import { ModalLead, yaCapturado } from '@/components/tienda/modal-lead'
 import { FormularioResena } from '@/components/tienda/formulario-resena'
 
 interface Producto {
@@ -45,7 +44,6 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   const [talla, setTalla] = useState<string | null>(null)
   const [cantidad, setCantidad] = useState(1)
   const [tabActiva, setTabActiva] = useState<'desc' | 'resenas'>('desc')
-  const [mostrarLead, setMostrarLead] = useState(false)
   const [mostrarFormResena, setMostrarFormResena] = useState(false)
 
   const variante = variantes.find(v => v.id === varianteId)
@@ -80,11 +78,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
       toast.error('Selecciona una talla')
       return
     }
-    if (!yaCapturado()) {
-      setMostrarLead(true)
-    } else {
-      ejecutarAgregar()
-    }
+    ejecutarAgregar()
   }
 
   async function compartir() {
@@ -400,14 +394,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
         </div>
       </div>
 
-      {/* Modal lead */}
-      {mostrarLead && (
-        <ModalLead
-          nombreProducto={producto.nombre}
-          onConfirmado={() => { setMostrarLead(false); ejecutarAgregar() }}
-          onCerrar={() => setMostrarLead(false)}
-        />
-      )}
+
     </div>
   )
 }
