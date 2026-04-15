@@ -9,6 +9,7 @@ import { usarCarrito } from '@/hooks/usar-carrito'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { TipoProducto } from '@/types'
+import { ModalAgendar } from '@/components/tienda/modal-agendar'
 
 interface Props {
   id: string
@@ -33,6 +34,7 @@ export function TarjetaProducto({
   const { esFavorito, toggleFavorito } = usarFavoritos()
   const { agregar } = usarCarrito()
   const [agregando, setAgregando] = useState(false)
+  const [modalAgendarAbierto, setModalAgendarAbierto] = useState(false)
 
   const fav = esFavorito(id)
   const descuento = precio_descuento ? calcularDescuento(precio, precio_descuento) : 0
@@ -41,7 +43,7 @@ export function TarjetaProducto({
     e.preventDefault()
     e.stopPropagation()
     if (tipo_producto === 'servicio') {
-      router.push(`/producto/${slug}`)
+      setModalAgendarAbierto(true)
       return
     }
     if (agregando) return
@@ -60,6 +62,7 @@ export function TarjetaProducto({
   }
 
   return (
+    <>
     <div className="bg-card rounded-2xl overflow-hidden border border-card-border hover:shadow-md hover:border-border-strong transition-all duration-300 flex flex-col">
 
       {/* Imagen — clic navega al producto */}
@@ -185,5 +188,18 @@ export function TarjetaProducto({
         </div>
       </div>
     </div>
+
+    {/* Modal de agendamiento para servicios */}
+    {modalAgendarAbierto && tipo_producto === 'servicio' && (
+      <ModalAgendar
+        productoId={id}
+        nombre={nombre}
+        slug={slug}
+        imagenUrl={imagen_url}
+        precio={precio_descuento ?? precio}
+        onCerrar={() => setModalAgendarAbierto(false)}
+      />
+    )}
+    </>
   )
 }
