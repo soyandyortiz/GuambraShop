@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 
 export interface ConteosAdmin {
@@ -13,6 +13,9 @@ export function usarConteosAdmin(): ConteosAdmin {
   const [pedidosPendientes, setPedidosPendientes] = useState(0)
   const [citasPendientes, setCitasPendientes]     = useState(0)
   const [cargando, setCargando]                   = useState(true)
+  // Nombre de canal único por instancia del hook — evita colisión cuando el
+  // cliente Supabase es singleton y múltiples componentes llaman al hook.
+  const canalId = useRef(`conteos-admin-${Math.random().toString(36).slice(2)}`)
 
   const fetchConteos = useCallback(async () => {
     const supabase = crearClienteSupabase()
@@ -37,7 +40,7 @@ export function usarConteosAdmin(): ConteosAdmin {
     // Suscripción en tiempo real — actualiza al cambiar pedidos o citas
     const supabase = crearClienteSupabase()
     const canal = supabase
-      .channel('conteos-admin')
+      .channel(canalId.current)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, fetchConteos)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'citas' },   fetchConteos)
       .subscribe()
