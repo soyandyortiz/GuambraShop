@@ -30,6 +30,10 @@ export interface ConfiguracionTienda {
   esta_activa: boolean
   mensaje_suspension: string
   info_pago: string | null
+  habilitar_citas: boolean
+  hora_apertura: string
+  hora_cierre: string
+  duracion_cita_minutos: number
   creado_en: string
   actualizado_en: string
 }

@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Loader2, Save, Plus, Trash2, Store, Image as ImageIcon, MapPin, Share2, User, Star, Palette, Hash, Eye, EyeOff, Lock, Pencil, GripVertical } from 'lucide-react'
+import { Loader2, Save, Plus, Trash2, Store, Image as ImageIcon, MapPin, Share2, User, Star, Palette, Hash, Eye, EyeOff, Lock, Pencil, GripVertical, Calendar } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { SubidorImagenes } from '@/components/ui/subidor-imagenes'
 import { cn } from '@/lib/utils'
@@ -26,6 +26,10 @@ interface ConfigTienda {
   simbolo_moneda: string
   politicas_negocio: string | null
   meta_descripcion: string | null
+  habilitar_citas: boolean
+  hora_apertura: string
+  hora_cierre: string
+  duracion_cita_minutos: number
 }
 
 interface Direccion {
@@ -99,9 +103,18 @@ type CamposMiCuenta = z.infer<typeof schemaMiCuenta>
 type CamposDireccion = z.infer<typeof schemaDireccion>
 type CamposRed = z.infer<typeof schemaRed>
 
+const schemaCitas = z.object({
+  habilitar_citas: z.boolean(),
+  hora_apertura: z.string().min(1),
+  hora_cierre: z.string().min(1),
+  duracion_cita_minutos: z.number().min(5),
+})
+type CamposCitas = z.infer<typeof schemaCitas>
+
 // ─── Tabs ────────────────────────────────────────────────────
 const TABS = [
   { id: 'general', label: 'General', icon: Store },
+  { id: 'citas', label: 'Citas y Reservas', icon: Calendar },
   { id: 'imagenes', label: 'Imágenes', icon: ImageIcon },
   { id: 'colores', label: 'Colores', icon: Palette },
   { id: 'direcciones', label: 'Direcciones', icon: MapPin },
@@ -145,6 +158,7 @@ export function FormularioPerfil({ config, direcciones: dirInic, redes: redesIni
       {/* Contenido */}
       <div className="rounded-2xl bg-card border border-card-border p-5">
         {tab === 'general' && <TabGeneral config={config} />}
+        {tab === 'citas' && <TabCitas config={config} />}
         {tab === 'imagenes' && <TabImagenes config={config} />}
         {tab === 'colores' && <TabColores config={config} />}
         {tab === 'direcciones' && <TabDirecciones direccionesInic={dirInic} />}
@@ -855,6 +869,75 @@ function FormRed({ red, onGuardado, onCancelar }: {
         </button>
         <BtnGuardar guardando={guardando} exito={exito} className="flex-1" />
       </div>
+    </form>
+  )
+}
+
+// ─── Tab Citas ────────────────────────────────────────────────
+function TabCitas({ config }: { config: ConfigTienda }) {
+  const [guardando, setGuardando] = useState(false)
+  const [exito, setExito] = useState(false)
+  const { register, handleSubmit, formState: { errors } } = useForm<CamposCitas>({
+    resolver: zodResolver(schemaCitas),
+    defaultValues: {
+      habilitar_citas: config.habilitar_citas,
+      hora_apertura: config.hora_apertura,
+      hora_cierre: config.hora_cierre,
+      duracion_cita_minutos: config.duracion_cita_minutos,
+    },
+  })
+
+  async function onSubmit(datos: CamposCitas) {
+    setGuardando(true)
+    const supabase = crearClienteSupabase()
+    const { error } = await supabase.from('configuracion_tienda').update({
+      habilitar_citas: datos.habilitar_citas,
+      hora_apertura: datos.hora_apertura,
+      hora_cierre: datos.hora_cierre,
+      duracion_cita_minutos: datos.duracion_cita_minutos,
+    }).eq('id', config.id)
+    
+    setGuardando(false)
+    if (error) {
+      toast.error('Error al guardar configuración de citas')
+      return
+    }
+
+    setExito(true)
+    toast.success('Cambios guardados correctamente')
+    setTimeout(() => window.location.reload(), 1200)
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+      <div>
+        <h3 className="text-sm font-bold text-foreground">Gestión de Citas y Servicios</h3>
+        <p className="text-xs text-foreground-muted mt-0.5">Configura si tu tienda vende servicios agendables y en qué horarios operas.</p>
+      </div>
+
+      <div className="flex bg-background-subtle border border-border p-4 rounded-xl flex-col gap-2">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" {...register('habilitar_citas')} className="w-5 h-5 rounded" />
+          <span className="font-semibold text-foreground text-sm">Habilitar módulo de servicios y agendamiento</span>
+        </label>
+        <p className="text-xs text-foreground-muted ml-8">
+          Al activar esta opción, podrás crear productos de tipo "Servicio" y el sistema permitirá a tus clientes reservar fechas y horas en el carrito.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Campo label="Hora de apertura" error={errors.hora_apertura?.message}>
+          <input type="time" {...register('hora_apertura')} className={inputCls} />
+        </Campo>
+        <Campo label="Hora de cierre" error={errors.hora_cierre?.message}>
+          <input type="time" {...register('hora_cierre')} className={inputCls} />
+        </Campo>
+        <Campo label="Duración por cita (minutos)" error={errors.duracion_cita_minutos?.message}>
+          <input type="number" step="5" min="5" {...register('duracion_cita_minutos', { valueAsNumber: true })} className={inputCls} placeholder="30" />
+        </Campo>
+      </div>
+
+      <BtnGuardar guardando={guardando} exito={exito} className="w-full sm:w-60" />
     </form>
   )
 }
