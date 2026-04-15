@@ -11,9 +11,8 @@ export interface OpcionEnvio {
   tipo: 'tienda' | 'envio'
   provincia?: string
   ciudad?: string
-  empresaEnvio?: string
-  tiempoEntrega?: string
-  costoEnvio?: number
+  direccion?: string
+  detallesDireccion?: string
 }
 
 export interface DatosMensaje {
@@ -57,23 +56,22 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
     ? `Cupon *${cupon.codigo}*: _-${fmt(cupon.descuento)}_\n`
     : ''
 
-  // Envío — ciudad puede ser null/undefined en la DB
+  // Envío
   let lineaEnvio = ''
-  let costoEnvio = 0
   if (envio.tipo === 'tienda') {
     lineaEnvio = `Entrega: *Retiro en tienda* (sin costo de envio)\n`
   } else {
-    costoEnvio = envio.costoEnvio ?? 0
     const destino = [envio.ciudad, envio.provincia].filter(Boolean).join(', ')
     lineaEnvio =
-      `Entrega: *Envio a* ${destino}\n` +
-      `   Empresa: ${envio.empresaEnvio}  |  Tiempo: ${envio.tiempoEntrega}\n` +
-      `   Costo: *+${fmt(costoEnvio)}*\n`
+      `Entrega: *Envio a domicilio*\n` +
+      (destino ? `   Destino: ${destino}\n` : '') +
+      (envio.direccion ? `   Direccion: ${envio.direccion}\n` : '') +
+      (envio.detallesDireccion ? `   Detalles: ${envio.detallesDireccion}\n` : '')
   }
 
   // Total
   const descuento = cupon?.descuento ?? 0
-  const total = subtotalBase - descuento + costoEnvio
+  const total = subtotalBase - descuento
 
   // URLs de productos
   const urlsProductos = items

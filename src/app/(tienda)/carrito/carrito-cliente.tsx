@@ -14,13 +14,7 @@ import { toast } from 'sonner'
 import { generarMensajeWhatsApp, generarEnlaceWhatsApp } from '@/lib/whatsapp'
 import { PROVINCIAS_ECUADOR, CODIGOS_PAIS } from '@/lib/ecuador'
 
-interface ZonaEnvio {
-  id: string; provincia: string; ciudad: string | null
-  empresa_envio: string; precio: number; tiempo_entrega: string | null
-}
-
 interface Props {
-  zonas: ZonaEnvio[]
   whatsapp: string
   nombreTienda: string
   simboloMoneda: string
@@ -44,7 +38,7 @@ type Paso = 'carrito' | 'envio' | 'datos'
 const INPUT_BASE =
   'w-full h-11 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all'
 
-export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }: Props) {
+export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda }: Props) {
   const { items, quitar, actualizarCantidad, limpiar, subtotal, hidratado } = usarCarrito()
 
   const [confirmarVaciar, setConfirmarVaciar] = useState(false)
@@ -52,7 +46,6 @@ export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }:
   const [cupon, setCupon] = useState<Cupon | null>(null)
   const [validandoCupon, setValidandoCupon] = useState(false)
   const [tipoEnvio, setTipoEnvio] = useState<'tienda' | 'envio' | null>(null)
-  const [zonaId, setZonaId] = useState<string | null>(null)
   const [paso, setPaso] = useState<Paso>('carrito')
   const [creandoPedido, setCreandoPedido] = useState(false)
   const [pedidoCreado, setPedidoCreado] = useState<PedidoCreado | null>(null)
@@ -68,14 +61,12 @@ export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }:
   const [direccion, setDireccion] = useState('')
   const [detallesDir, setDetallesDir] = useState('')
 
-  const zona = zonas.find(z => z.id === zonaId)
-  const costoEnvio = tipoEnvio === 'envio' && zona ? zona.precio : 0
   const descuentoCupon = cupon
     ? cupon.tipo_descuento === 'porcentaje'
       ? (subtotal * cupon.valor_descuento) / 100
       : cupon.valor_descuento
     : 0
-  const total = subtotal - descuentoCupon + costoEnvio
+  const total = subtotal - descuentoCupon
 
   const ciudadesDisponibles =
     PROVINCIAS_ECUADOR.find(p => p.nombre === provincia)?.ciudades ?? []
@@ -106,7 +97,6 @@ export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }:
   // --- Avanzar al paso datos ---
   function continuarADatos() {
     if (!tipoEnvio) { toast.error('Selecciona el método de entrega'); return }
-    if (tipoEnvio === 'envio' && !zonaId) { toast.error('Selecciona una zona de envío'); return }
     setPaso('datos')
   }
 
@@ -153,17 +143,11 @@ export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }:
           cantidad: i.cantidad,
           subtotal: +(i.precio * i.cantidad).toFixed(2),
         })),
-        zona_envio_id: zonaId ?? null,
-        nombre_zona: zona
-          ? (zona.ciudad ? `${zona.ciudad}, ${zona.provincia}` : zona.provincia)
-          : null,
-        empresa_envio: zona?.empresa_envio ?? null,
-        tiempo_entrega: zona?.tiempo_entrega ?? null,
         simbolo_moneda: simboloMoneda,
         subtotal: +subtotal.toFixed(2),
         descuento_cupon: +descuentoCupon.toFixed(2),
         cupon_codigo: cupon?.codigo ?? null,
-        costo_envio: +costoEnvio.toFixed(2),
+        costo_envio: 0,
         total: +total.toFixed(2),
       })
       .select('numero_orden')
@@ -202,11 +186,10 @@ export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }:
         ? { tipo: 'tienda' }
         : {
             tipo: 'envio',
-            provincia: zona?.provincia,
-            ciudad: zona?.ciudad || undefined,
-            empresaEnvio: zona?.empresa_envio,
-            tiempoEntrega: zona?.tiempo_entrega ?? undefined,
-            costoEnvio: zona?.precio,
+            provincia,
+            ciudad,
+            direccion: direccion.trim(),
+            detallesDireccion: detallesDir.trim() || undefined,
           },
       siteUrl: window.location.origin,
       simboloMoneda,
@@ -400,13 +383,9 @@ export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }:
                 <span className="font-medium text-success">-{formatearPrecio(descuentoCupon, simboloMoneda)}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm">
-              <span className="text-foreground-muted">Envío</span>
-              <span className="font-medium text-foreground-muted">Se calcula en el siguiente paso</span>
-            </div>
             <div className="border-t border-border pt-2 flex justify-between">
-              <span className="font-bold text-foreground">Total estimado</span>
-              <span className="font-bold text-primary text-lg">{formatearPrecio(subtotal - descuentoCupon, simboloMoneda)}</span>
+              <span className="font-bold text-foreground">Total</span>
+              <span className="font-bold text-primary text-lg">{formatearPrecio(total, simboloMoneda)}</span>
             </div>
           </div>
 
@@ -425,7 +404,7 @@ export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }:
           <h2 className="text-base font-bold text-foreground">¿Cómo quieres recibir tu pedido?</h2>
 
           {/* Retiro en tienda */}
-          <button onClick={() => { setTipoEnvio('tienda'); setZonaId(null) }}
+          <button onClick={() => setTipoEnvio('tienda')}
             className={cn(
               'flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all',
               tipoEnvio === 'tienda' ? 'border-primary bg-primary/5' : 'border-border bg-card hover:border-primary/40'
@@ -442,55 +421,22 @@ export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }:
           </button>
 
           {/* Envío a domicilio */}
-          <div className={cn(
-            'rounded-2xl border-2 overflow-hidden transition-all',
-            tipoEnvio === 'envio' ? 'border-primary' : 'border-border'
-          )}>
-            <button onClick={() => setTipoEnvio('envio')}
-              className={cn(
-                'flex items-center gap-4 p-4 text-left w-full transition-all',
-                tipoEnvio === 'envio' ? 'bg-primary/5' : 'bg-card hover:bg-background-subtle'
-              )}>
-              <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0',
-                tipoEnvio === 'envio' ? 'bg-primary text-white' : 'bg-background-subtle text-foreground-muted')}>
-                <Truck className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-foreground">Envío a domicilio</p>
-                <p className="text-xs text-foreground-muted">Selecciona tu ciudad</p>
-              </div>
-            </button>
+          <button onClick={() => setTipoEnvio('envio')}
+            className={cn(
+              'flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all',
+              tipoEnvio === 'envio' ? 'border-primary bg-primary/5' : 'border-border bg-card hover:border-primary/40'
+            )}>
+            <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0',
+              tipoEnvio === 'envio' ? 'bg-primary text-white' : 'bg-background-subtle text-foreground-muted')}>
+              <Truck className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-foreground">Envío a domicilio</p>
+              <p className="text-xs text-foreground-muted">Coordinaremos el costo por WhatsApp</p>
+            </div>
+          </button>
 
-            {tipoEnvio === 'envio' && (
-              <div className="border-t border-border max-h-52 overflow-y-auto">
-                {zonas.length === 0 ? (
-                  <p className="text-sm text-foreground-muted text-center py-4">Sin zonas de envío disponibles</p>
-                ) : (
-                  zonas.map(z => (
-                    <button key={z.id} onClick={() => setZonaId(z.id)}
-                      className={cn(
-                        'flex items-center justify-between w-full px-4 py-3 text-left border-b border-border last:border-0 transition-all',
-                        zonaId === z.id ? 'bg-primary/10' : 'hover:bg-background-subtle'
-                      )}>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">
-                          {z.ciudad ? `${z.ciudad}, ${z.provincia}` : z.provincia}
-                        </p>
-                        <p className="text-xs text-foreground-muted">
-                          {z.empresa_envio}{z.tiempo_entrega ? ` · ${z.tiempo_entrega}` : ''}
-                        </p>
-                      </div>
-                      <p className={cn('text-sm font-bold flex-shrink-0 ml-3', zonaId === z.id ? 'text-primary' : 'text-foreground')}>
-                        {formatearPrecio(z.precio, simboloMoneda)}
-                      </p>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Resumen final */}
+          {/* Resumen */}
           {tipoEnvio && (
             <div className="bg-card border border-card-border rounded-2xl p-4 flex flex-col gap-1.5">
               <div className="flex justify-between text-sm">
@@ -503,12 +449,6 @@ export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }:
                   <span className="font-medium text-success">-{formatearPrecio(descuentoCupon, simboloMoneda)}</span>
                 </div>
               )}
-              {costoEnvio > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-foreground-muted">Envío</span>
-                  <span className="font-medium">+{formatearPrecio(costoEnvio, simboloMoneda)}</span>
-                </div>
-              )}
               <div className="border-t border-border pt-2 flex justify-between mt-1">
                 <span className="font-bold text-foreground">Total</span>
                 <span className="font-bold text-primary text-lg">{formatearPrecio(total, simboloMoneda)}</span>
@@ -518,7 +458,7 @@ export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }:
 
           <button
             onClick={continuarADatos}
-            disabled={!tipoEnvio || (tipoEnvio === 'envio' && !zonaId)}
+            disabled={!tipoEnvio}
             className="w-full h-13 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm shadow-primary/30 py-4">
             Continuar <ChevronRight className="w-4 h-4" />
           </button>
@@ -666,9 +606,11 @@ export function CarritoCliente({ zonas, whatsapp, nombreTienda, simboloMoneda }:
           <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex flex-col gap-1">
             <div className="flex justify-between text-sm">
               <span className="text-foreground-muted">
-                {tipoEnvio === 'tienda' ? 'Entrega en local físico' : `Envío a ${zona?.ciudad ?? zona?.provincia}`}
+                {tipoEnvio === 'tienda' ? 'Entrega en local físico' : 'Envío a domicilio'}
               </span>
-              <span className="font-medium text-foreground">{costoEnvio > 0 ? formatearPrecio(costoEnvio, simboloMoneda) : 'Gratis'}</span>
+              <span className="font-medium text-foreground-muted">
+                {tipoEnvio === 'tienda' ? 'Gratis' : 'A coordinar'}
+              </span>
             </div>
             <div className="flex justify-between pt-1 border-t border-primary/20">
               <span className="font-bold text-foreground">Total del pedido</span>
