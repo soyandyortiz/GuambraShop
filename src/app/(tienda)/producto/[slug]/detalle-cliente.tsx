@@ -18,6 +18,7 @@ interface Producto {
   id: string; nombre: string; slug: string; descripcion: string | null
   precio: number; precio_descuento: number | null; etiquetas: string[]
   requiere_tallas: boolean; categoria: { id: string; nombre: string; slug: string } | null
+  tipo_producto: 'producto' | 'servicio'
 }
 interface Imagen { id: string; url: string; orden: number }
 interface Variante { id: string; nombre: string; descripcion: string | null; precio_variante: number | null; orden: number }
@@ -32,9 +33,15 @@ interface Props {
   resenas: Resena[]
   whatsapp: string
   nombreTienda: string
+  configCitas: {
+    habilitar_citas?: boolean
+    hora_apertura?: string
+    hora_cierre?: string
+    duracion_cita_minutos?: number
+  }
 }
 
-export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, resenas, whatsapp }: Props) {
+export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, resenas, whatsapp, configCitas }: Props) {
   const router = useRouter()
   const { agregar } = usarCarrito()
   const { esFavorito, toggleFavorito } = usarFavoritos()
@@ -45,6 +52,8 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   const [cantidad, setCantidad] = useState(1)
   const [tabActiva, setTabActiva] = useState<'desc' | 'resenas'>('desc')
   const [mostrarFormResena, setMostrarFormResena] = useState(false)
+  const [citaFecha, setCitaFecha] = useState<string>('')
+  const [citaHora, setCitaHora] = useState<string>('')
 
   const variante = variantes.find(v => v.id === varianteId)
   const precioBase = variante?.precio_variante ?? producto.precio_descuento ?? producto.precio
@@ -65,8 +74,14 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
       precio: precioBase,
       variante_id: varianteId ?? undefined,
       nombre_variante: variante?.nombre,
+      tipo_producto: producto.tipo_producto,
       talla: talla ?? undefined,
       cantidad,
+      cita: producto.tipo_producto === 'servicio' && citaFecha && citaHora ? {
+        fecha: citaFecha,
+        hora_inicio: citaHora,
+        hora_fin: '00:00:00'
+      } : undefined
     })
     toast.success('Añadido al carrito', {
       action: { label: 'Ver carrito', onClick: () => router.push('/carrito') },
@@ -76,6 +91,10 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   function agregarAlCarrito() {
     if (producto.requiere_tallas && !talla) {
       toast.error('Selecciona una talla')
+      return
+    }
+    if (producto.tipo_producto === 'servicio' && (!citaFecha || !citaHora)) {
+      toast.error('Selecciona el día y la hora para tu cita')
       return
     }
     ejecutarAgregar()
@@ -270,6 +289,31 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                     {t.talla}
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Citas */}
+          {producto.tipo_producto === 'servicio' && configCitas.habilitar_citas && (
+            <div className="px-4 py-4 border-t border-border lg:px-8">
+              <p className="text-xs font-semibold text-foreground mb-2.5">Agenda tu cita</p>
+              <div className="flex flex-col gap-3">
+                <input 
+                  type="date" 
+                  value={citaFecha}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setCitaFecha(e.target.value)}
+                  className="w-full h-11 px-3 rounded-xl border border-input-border text-sm bg-input-bg text-foreground"
+                />
+                <input 
+                  type="time" 
+                  value={citaHora}
+                  min={configCitas.hora_apertura}
+                  max={configCitas.hora_cierre}
+                  step={((configCitas.duracion_cita_minutos || 30) * 60).toString()}
+                  onChange={(e) => setCitaHora(e.target.value)}
+                  className="w-full h-11 px-3 rounded-xl border border-input-border text-sm bg-input-bg text-foreground"
+                />
               </div>
             </div>
           )}

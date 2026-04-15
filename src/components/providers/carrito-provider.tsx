@@ -2,16 +2,24 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 
+import { TipoProducto } from '@/types'
+
 export interface ItemCarrito {
   producto_id: string
   nombre: string
   slug: string
+  tipo_producto: TipoProducto
   imagen_url: string | null
   precio: number
   variante_id?: string
   nombre_variante?: string
   talla?: string
   cantidad: number
+  cita?: {
+    fecha: string
+    hora_inicio: string
+    hora_fin: string
+  }
 }
 
 interface CarritoContextType {
@@ -41,8 +49,9 @@ function guardarCarrito(items: ItemCarrito[]) {
   localStorage.setItem(CLAVE, JSON.stringify(items))
 }
 
-function claveItem(item: Pick<ItemCarrito, 'producto_id' | 'variante_id' | 'talla'>) {
-  return `${item.producto_id}|${item.variante_id ?? ''}|${item.talla ?? ''}`
+function claveItem(item: Pick<ItemCarrito, 'producto_id' | 'variante_id' | 'talla' | 'cita'>) {
+  const citaStr = item.cita ? `${item.cita.fecha}|${item.cita.hora_inicio}` : ''
+  return `${item.producto_id}|${item.variante_id ?? ''}|${item.talla ?? ''}|${citaStr}`
 }
 
 export function CarritoProvider({ children }: { children: ReactNode }) {
@@ -71,19 +80,19 @@ export function CarritoProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const quitar = useCallback((producto_id: string, variante_id?: string, talla?: string) => {
+  const quitar = useCallback((producto_id: string, variante_id?: string, talla?: string, cita?: ItemCarrito['cita']) => {
     setItems(prev => {
-      const nuevos = prev.filter(i => claveItem(i) !== claveItem({ producto_id, variante_id, talla }))
+      const nuevos = prev.filter(i => claveItem(i) !== claveItem({ producto_id, variante_id, talla, cita }))
       guardarCarrito(nuevos)
       return nuevos
     })
   }, [])
 
-  const actualizarCantidad = useCallback((producto_id: string, cantidad: number, variante_id?: string, talla?: string) => {
+  const actualizarCantidad = useCallback((producto_id: string, cantidad: number, variante_id?: string, talla?: string, cita?: ItemCarrito['cita']) => {
     setItems(prev => {
       const nuevos = cantidad <= 0
-        ? prev.filter(i => claveItem(i) !== claveItem({ producto_id, variante_id, talla }))
-        : prev.map(i => claveItem(i) === claveItem({ producto_id, variante_id, talla }) ? { ...i, cantidad } : i)
+        ? prev.filter(i => claveItem(i) !== claveItem({ producto_id, variante_id, talla, cita }))
+        : prev.map(i => claveItem(i) === claveItem({ producto_id, variante_id, talla, cita }) ? { ...i, cantidad } : i)
       guardarCarrito(nuevos)
       return nuevos
     })

@@ -58,7 +58,7 @@ export default async function PáginaProducto({ params }: Props) {
     supabase.from('productos')
       .select(`
         id, nombre, slug, descripcion, precio, precio_descuento,
-        etiquetas, requiere_tallas,
+        etiquetas, requiere_tallas, tipo_producto,
         imagenes_producto(id, url, orden),
         variantes_producto(id, nombre, descripcion, precio_variante, esta_activa, orden),
         tallas_producto(id, talla, disponible, orden),
@@ -69,7 +69,7 @@ export default async function PáginaProducto({ params }: Props) {
       .eq('esta_activo', true)
       .single(),
     supabase.from('configuracion_tienda')
-      .select('whatsapp, nombre_tienda, simbolo_moneda')
+      .select('whatsapp, nombre_tienda, simbolo_moneda, habilitar_citas, hora_apertura, hora_cierre, duracion_cita_minutos')
       .single(),
   ])
 
@@ -93,6 +93,7 @@ export default async function PáginaProducto({ params }: Props) {
         precio_descuento: producto.precio_descuento,
         etiquetas: producto.etiquetas ?? [],
         requiere_tallas: producto.requiere_tallas,
+        tipo_producto: producto.tipo_producto ?? 'producto',
         categoria: Array.isArray(producto.categoria) ? (producto.categoria[0] ?? null) as { id: string; nombre: string; slug: string } | null : producto.categoria as { id: string; nombre: string; slug: string } | null,
       }}
       imagenes={imagenes as { id: string; url: string; orden: number }[]}
@@ -101,6 +102,12 @@ export default async function PáginaProducto({ params }: Props) {
       resenas={resenas as { id: string; nombre_cliente: string; calificacion: number; comentario: string | null; creado_en: string }[]}
       whatsapp={config?.whatsapp ?? ''}
       nombreTienda={config?.nombre_tienda ?? 'Tienda'}
+      configCitas={{
+        habilitar_citas: config?.habilitar_citas,
+        hora_apertura: config?.hora_apertura,
+        hora_cierre: config?.hora_cierre,
+        duracion_cita_minutos: config?.duracion_cita_minutos,
+      }}
     />
   )
 }

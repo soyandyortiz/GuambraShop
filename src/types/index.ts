@@ -108,11 +108,26 @@ export interface ResenaProducto {
   creado_en: string
 }
 
+export type TipoProducto = 'producto' | 'servicio'
+
+export interface Cita {
+  id: string
+  pedido_id: string | null
+  producto_id: string
+  fecha: string
+  hora_inicio: string
+  hora_fin: string
+  estado: 'pendiente' | 'reservada' | 'confirmada' | 'cancelada'
+  creado_en: string
+  actualizado_en: string
+}
+
 export interface Producto {
   id: string
   nombre: string
   slug: string
   descripcion: string | null
+  tipo_producto: TipoProducto
   precio: number
   precio_descuento: number | null
   categoria_id: string | null
@@ -195,12 +210,18 @@ export interface ItemPedido {
   producto_id: string
   nombre: string
   slug: string
+  tipo_producto: TipoProducto
   imagen_url: string | null
   precio: number
   variante?: string
   talla?: string
   cantidad: number
   subtotal: number
+  cita?: {
+    fecha: string
+    hora_inicio: string
+    hora_fin: string
+  }
 }
 
 export interface Pedido {
@@ -235,10 +256,16 @@ export interface ItemCarrito {
   producto_id: string
   nombre: string
   slug: string
+  tipo_producto: TipoProducto
   imagen_url: string | null
   precio: number
   variante_id?: string
   nombre_variante?: string
   talla?: string
   cantidad: number
+  cita?: {
+    fecha: string
+    hora_inicio: string
+    hora_fin: string
+  }
 }
