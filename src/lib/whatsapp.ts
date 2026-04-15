@@ -5,6 +5,8 @@ export interface ItemCarrito {
   cantidad: number
   precio: number
   slug: string
+  tipo_producto?: string
+  cita?: { fecha: string; hora_inicio: string }
 }
 
 export interface OpcionEnvio {
@@ -40,10 +42,16 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
       const extras: string[] = []
       if (item.variante) extras.push(`Variante: ${item.variante}`)
       if (item.talla)    extras.push(`Talla: ${item.talla}`)
+      
+      let detalleCita = ''
+      if (item.tipo_producto === 'servicio' && item.cita) {
+        detalleCita = `\n   📅 *Cita:* ${new Date(item.cita.fecha + 'T00:00:00').toLocaleDateString('es-EC')} - ${item.cita.hora_inicio.slice(0, 5)}`
+      }
 
       return (
         `*${i + 1}. ${item.nombre}*` +
         (extras.length ? `\n   _${extras.join(' | ')}_` : '') +
+        detalleCita +
         `\n   Cant: ${item.cantidad}  |  ${fmt(item.precio)} c/u  |  Subtotal: *${fmt(subtotal)}*`
       )
     })
@@ -58,8 +66,12 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
 
   // Envío
   let lineaEnvio = ''
+  const soloServicios = items.every(i => i.tipo_producto === 'servicio')
+
   if (envio.tipo === 'tienda') {
-    lineaEnvio = `Entrega: *Retiro en tienda* (sin costo de envio)\n`
+    lineaEnvio = soloServicios 
+      ? `Atencion: *Local fisico*\n`
+      : `Entrega: *Retiro en tienda* (sin costo de envio)\n`
   } else {
     const destino = [envio.ciudad, envio.provincia].filter(Boolean).join(', ')
     lineaEnvio =

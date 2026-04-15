@@ -190,14 +190,16 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda }: Props)
     const msg = generarMensajeWhatsApp({
       numeroPedido: data.numero_orden,
       nombreTienda,
-      items: items.map(i => ({
-        nombre: i.nombre,
-        variante: i.nombre_variante,
-        talla: i.talla,
-        cantidad: i.cantidad,
-        precio: i.precio,
-        slug: i.slug,
-      })),
+        items: items.map(i => ({
+          nombre: i.nombre,
+          variante: i.nombre_variante,
+          talla: i.talla,
+          cantidad: i.cantidad,
+          precio: i.precio,
+          slug: i.slug,
+          tipo_producto: i.tipo_producto,
+          cita: i.cita,
+        })),
       cupon: cupon ? { codigo: cupon.codigo, descuento: descuentoCupon } : undefined,
       envio: tipoEnvio === 'tienda'
         ? { tipo: 'tienda' }
@@ -328,17 +330,24 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda }: Props)
                 </div>
                 <p className="text-sm font-bold text-primary mt-1">{formatearPrecio(item.precio, simboloMoneda)}</p>
                 <div className="flex items-center justify-between mt-2">
-                  <div className="flex items-center bg-background-subtle rounded-xl p-1 gap-2">
-                    <button onClick={() => actualizarCantidad(item.producto_id, item.cantidad - 1, item.variante_id, item.talla)}
-                      className="w-7 h-7 rounded-lg bg-card border border-border flex items-center justify-center text-foreground hover:border-primary/40 transition-all">
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span className="w-5 text-center text-sm font-bold tabular-nums">{item.cantidad}</span>
-                    <button onClick={() => actualizarCantidad(item.producto_id, item.cantidad + 1, item.variante_id, item.talla)}
-                      className="w-7 h-7 rounded-lg bg-card border border-border flex items-center justify-center text-foreground hover:border-primary/40 transition-all">
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
+                  {item.tipo_producto === 'servicio' ? (
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/5 px-2 py-1 rounded-lg">
+                      <Calendar className="w-3.5 h-3.5" />
+                      Espacio único Reservado
+                    </div>
+                  ) : (
+                    <div className="flex items-center bg-background-subtle rounded-xl p-1 gap-2">
+                      <button onClick={() => actualizarCantidad(item.producto_id, item.cantidad - 1, item.variante_id, item.talla)}
+                        className="w-7 h-7 rounded-lg bg-card border border-border flex items-center justify-center text-foreground hover:border-primary/40 transition-all">
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="w-5 text-center text-sm font-bold tabular-nums">{item.cantidad}</span>
+                      <button onClick={() => actualizarCantidad(item.producto_id, item.cantidad + 1, item.variante_id, item.talla)}
+                        className="w-7 h-7 rounded-lg bg-card border border-border flex items-center justify-center text-foreground hover:border-primary/40 transition-all">
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <p className="text-xs text-foreground-muted font-medium">
                       = {formatearPrecio(item.precio * item.cantidad, simboloMoneda)}
@@ -438,7 +447,9 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda }: Props)
               <Store className="w-5 h-5" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-bold text-foreground">Entrega en local físico</p>
+              <p className="text-sm font-bold text-foreground">
+                {soloServicios ? 'Atención en local físico' : 'Entrega en local físico'}
+              </p>
               <p className="text-xs text-foreground-muted">Sin costo adicional</p>
             </div>
             <span className="text-sm font-bold text-success">Gratis</span>

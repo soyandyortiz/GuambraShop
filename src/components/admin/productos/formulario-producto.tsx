@@ -213,6 +213,37 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
         </Botón>
       </div>
 
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => setValue('tipo_producto', 'producto')}
+          className={cn(
+            "p-4 rounded-2xl border-2 text-center transition-all",
+            watch('tipo_producto') === 'producto' 
+              ? "border-primary bg-primary/5 text-primary" 
+              : "border-border bg-card text-foreground-muted hover:border-primary/40"
+          )}
+        >
+          <Package className="w-6 h-6 mx-auto mb-2" />
+          <p className="text-sm font-bold">Producto de Venta</p>
+          <p className="text-[10px] opacity-70">Ropa, accesorios, artículos físicos</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setValue('tipo_producto', 'servicio')}
+          className={cn(
+            "p-4 rounded-2xl border-2 text-center transition-all",
+            watch('tipo_producto') === 'servicio' 
+              ? "border-primary bg-primary/5 text-primary" 
+              : "border-border bg-card text-foreground-muted hover:border-primary/40"
+          )}
+        >
+          <Save className="w-6 h-6 mx-auto mb-2" />
+          <p className="text-sm font-bold">Servicio con Agenda</p>
+          <p className="text-[10px] opacity-70">Citas, turnos, atención presencial</p>
+        </button>
+      </div>
+
       {errorGlobal && (
         <div className="rounded-xl bg-danger/10 border border-danger/20 px-4 py-3 text-sm text-danger">
           {errorGlobal}
@@ -236,16 +267,6 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
             error={errors.slug?.message}
             {...register('slug')}
           />
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-foreground block">Tipo</label>
-            <select
-              {...register('tipo_producto')}
-              className="w-full h-11 px-4 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="producto">Producto Físico</option>
-              <option value="servicio">Servicio (Agendable)</option>
-            </select>
-          </div>
           {/* Selector de categoría en 2 pasos */}
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-foreground block">Categoría</label>
@@ -312,12 +333,14 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
             placeholder="0.00"
             {...register('precio_descuento')}
           />
-          <Input
-            etiqueta="Stock base (Opcional)"
-            type="number"
-            placeholder="Ej: 50"
-            {...register('stock')}
-          />
+          {watch('tipo_producto') === 'producto' && (
+            <Input
+              etiqueta="Stock base (Opcional)"
+              type="number"
+              placeholder="Ej: 50"
+              {...register('stock')}
+            />
+          )}
         </div>
       </Sección>
 
@@ -346,7 +369,9 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
                 <Input placeholder="Nombre (ej: Color Rojo)" error={errors.variantes?.[i]?.nombre?.message} {...register(`variantes.${i}.nombre`)} />
                 <Input placeholder="Descripción (opcional)" {...register(`variantes.${i}.descripcion`)} />
                 <Input type="number" step="0.01" placeholder="Precio (reemplaza al base)" {...register(`variantes.${i}.precio_variante`)} />
-                <Input type="number" placeholder="Stock (Opc)" {...register(`variantes.${i}.stock_variante`)} />
+                {watch('tipo_producto') === 'producto' && (
+                  <Input type="number" placeholder="Stock (Opc)" {...register(`variantes.${i}.stock_variante`)} />
+                )}
               </div>
             </div>
           ))}
@@ -361,70 +386,72 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       </Sección>
 
       {/* Sección: Tallas */}
-      <Sección titulo="Tallas">
-        <div className="flex flex-col gap-4">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <div className="relative">
-              <input type="checkbox" className="sr-only" {...register('requiere_tallas')} />
-              <div className={cn('w-11 h-6 rounded-full transition-colors', requiereTallas ? 'bg-primary' : 'bg-border')}>
-                <div className={cn('absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform', requiereTallas && 'translate-x-5')} />
+      {watch('tipo_producto') === 'producto' && (
+        <Sección titulo="Tallas">
+          <div className="flex flex-col gap-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <div className="relative">
+                <input type="checkbox" className="sr-only" {...register('requiere_tallas')} />
+                <div className={cn('w-11 h-6 rounded-full transition-colors', requiereTallas ? 'bg-primary' : 'bg-border')}>
+                  <div className={cn('absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform', requiereTallas && 'translate-x-5')} />
+                </div>
               </div>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">Este producto tiene tallas</p>
-              <p className="text-xs text-foreground-muted">Ej: S, M, L, XL o EU 36, EU 37</p>
-            </div>
-          </label>
+              <div>
+                <p className="text-sm font-medium text-foreground">Este producto tiene tallas</p>
+                <p className="text-xs text-foreground-muted">Ej: S, M, L, XL o EU 36, EU 37</p>
+              </div>
+            </label>
 
-          {requiereTallas && (
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap gap-2">
-                {tallaFields.map((field, i) => (
-                  <div key={field.id} className="flex items-center gap-1">
-                    <input
-                      {...register(`tallas.${i}.talla`)}
-                      placeholder="Ej: M"
-                      className="w-20 h-9 px-3 text-sm text-center rounded-xl border border-input-border bg-input-bg focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                    <label className="flex items-center gap-1 text-xs text-foreground-muted">
-                      <input type="checkbox" {...register(`tallas.${i}.disponible`)} className="rounded" />
-                      Disp.
-                    </label>
-                    <input
-                      {...register(`tallas.${i}.stock_talla`)}
-                      placeholder="Stock"
-                      type="number"
-                      className="w-16 h-9 px-2 text-xs rounded-xl border border-input-border bg-input-bg focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                    <button type="button" onClick={() => removeTalla(i)} className="text-foreground-muted hover:text-danger transition-colors ml-1">
-                      <Trash2 className="w-3.5 h-3.5" />
+            {requiereTallas && (
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap gap-2">
+                  {tallaFields.map((field, i) => (
+                    <div key={field.id} className="flex items-center gap-1">
+                      <input
+                        {...register(`tallas.${i}.talla`)}
+                        placeholder="Ej: M"
+                        className="w-20 h-9 px-3 text-sm text-center rounded-xl border border-input-border bg-input-bg focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <label className="flex items-center gap-1 text-xs text-foreground-muted">
+                        <input type="checkbox" {...register(`tallas.${i}.disponible`)} className="rounded" />
+                        Disp.
+                      </label>
+                      <input
+                        {...register(`tallas.${i}.stock_talla`)}
+                        placeholder="Stock"
+                        type="number"
+                        className="w-16 h-9 px-2 text-xs rounded-xl border border-input-border bg-input-bg focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <button type="button" onClick={() => removeTalla(i)} className="text-foreground-muted hover:text-danger transition-colors ml-1">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {['XS','S','M','L','XL','XXL','36','37','38','39','40','41','42'].map(t => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => appendTalla({ talla: t, disponible: true })}
+                      className="px-2.5 h-7 text-xs rounded-lg border border-border text-foreground-muted hover:border-primary hover:text-primary transition-all"
+                    >
+                      +{t}
                     </button>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => appendTalla({ talla: '', disponible: true })}
+                  className="flex items-center gap-2 text-sm text-primary font-medium w-fit"
+                >
+                  <Ruler className="w-4 h-4" /> Talla personalizada
+                </button>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                {['XS','S','M','L','XL','XXL','36','37','38','39','40','41','42'].map(t => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => appendTalla({ talla: t, disponible: true })}
-                    className="px-2.5 h-7 text-xs rounded-lg border border-border text-foreground-muted hover:border-primary hover:text-primary transition-all"
-                  >
-                    +{t}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => appendTalla({ talla: '', disponible: true })}
-                className="flex items-center gap-2 text-sm text-primary font-medium w-fit"
-              >
-                <Ruler className="w-4 h-4" /> Talla personalizada
-              </button>
-            </div>
-          )}
-        </div>
-      </Sección>
+            )}
+          </div>
+        </Sección>
+      )}
 
       {/* Sección: Etiquetas */}
       <Sección titulo="Etiquetas" descripcion="Separadas por coma. Mejoran la búsqueda interna.">
