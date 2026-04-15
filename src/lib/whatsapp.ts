@@ -17,6 +17,7 @@ export interface OpcionEnvio {
 }
 
 export interface DatosMensaje {
+  numeroPedido?: string
   nombreTienda: string
   items: ItemCarrito[]
   cupon?: { codigo: string; descuento: number }
@@ -29,7 +30,7 @@ export interface DatosMensaje {
 const SEP = '-'.repeat(30)
 
 export function generarMensajeWhatsApp(datos: DatosMensaje): string {
-  const { nombreTienda, items, cupon, envio, siteUrl, simboloMoneda = '$' } = datos
+  const { numeroPedido, nombreTienda, items, cupon, envio, siteUrl, simboloMoneda = '$' } = datos
 
   const fmt = (n: number) => `${simboloMoneda}${n.toFixed(2)}`
 
@@ -80,8 +81,9 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
     .join('\n')
 
   const mensaje =
-    `*Nuevo pedido - ${nombreTienda}*\n\n` +
-    `*DETALLE DEL PEDIDO:*\n\n` +
+    `*Nuevo pedido - ${nombreTienda}*\n` +
+    (numeroPedido ? `*N\u00ba de orden: ${numeroPedido}*\n` : '') +
+    `\n*DETALLE DEL PEDIDO:*\n\n` +
     `${lineasProductos}\n\n` +
     `${SEP}\n` +
     `${lineaCupon}` +

@@ -184,6 +184,48 @@ export interface Lead {
   creado_en: string
 }
 
+export type EstadoPedido = 'pendiente' | 'confirmado' | 'en_proceso' | 'enviado' | 'entregado' | 'cancelado'
+export type TipoPedido = 'delivery' | 'local'
+
+export interface ItemPedido {
+  producto_id: string
+  nombre: string
+  slug: string
+  imagen_url: string | null
+  precio: number
+  variante?: string
+  talla?: string
+  cantidad: number
+  subtotal: number
+}
+
+export interface Pedido {
+  id: string
+  numero_orden: string
+  tipo: TipoPedido
+  nombres: string
+  email: string
+  whatsapp: string
+  provincia: string | null
+  ciudad: string | null
+  direccion: string | null
+  detalles_direccion: string | null
+  items: ItemPedido[]
+  zona_envio_id: string | null
+  nombre_zona: string | null
+  empresa_envio: string | null
+  tiempo_entrega: string | null
+  simbolo_moneda: string
+  subtotal: number
+  descuento_cupon: number
+  cupon_codigo: string | null
+  costo_envio: number
+  total: number
+  estado: EstadoPedido
+  creado_en: string
+  actualizado_en: string
+}
+
 // Carrito (solo en cliente, no persiste en DB)
 export interface ItemCarrito {
   producto_id: string

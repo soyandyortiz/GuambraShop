@@ -1,8 +1,8 @@
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { redirect } from 'next/navigation'
 import {
-  Package, Tag, Ticket, Users, MessageSquare,
-  ShoppingBag, TrendingUp, AlertTriangle, CheckCircle2, Power, ExternalLink
+  Package, Tag, Ticket, MessageSquare,
+  ShoppingBag, TrendingUp, AlertTriangle, CheckCircle2, Power, ExternalLink, ClipboardList
 } from 'lucide-react'
 import Link from 'next/link'
 import type { MensajeAdmin } from '@/types'
@@ -28,7 +28,7 @@ export default async function PáginaDashboard() {
     { count: productosActivos },
     { count: totalCategorias },
     { count: totalCupones },
-    { count: totalLeads },
+    { count: totalPedidos },
     { data: mensajes },
     { data: config },
   ] = await Promise.all([
@@ -36,7 +36,7 @@ export default async function PáginaDashboard() {
     supabase.from('productos').select('*', { count: 'exact', head: true }).eq('esta_activo', true),
     supabase.from('categorias').select('*', { count: 'exact', head: true }).eq('esta_activa', true),
     supabase.from('cupones').select('*', { count: 'exact', head: true }).eq('esta_activo', true),
-    supabase.from('leads').select('*', { count: 'exact', head: true }),
+    supabase.from('pedidos').select('*', { count: 'exact', head: true }),
     supabase.from('mensajes_admin').select('*').order('creado_en', { ascending: false }).limit(5),
     supabase.from('configuracion_tienda').select('id, nombre_tienda, esta_activa, mensaje_suspension, info_pago, cobro_activo, fecha_inicio_sistema, dias_pago').single(),
   ])
@@ -73,13 +73,13 @@ export default async function PáginaDashboard() {
       href: '/admin/dashboard/cupones',
     },
     {
-      etiqueta: 'Leads capturados',
-      valor: totalLeads ?? 0,
+      etiqueta: 'Pedidos',
+      valor: totalPedidos ?? 0,
       total: null,
-      icono: <Users className="w-5 h-5" />,
+      icono: <ClipboardList className="w-5 h-5" />,
       color: 'text-warning',
       bg: 'bg-warning/10',
-      href: '/admin/dashboard/leads',
+      href: '/admin/dashboard/pedidos',
     },
   ]
 
@@ -164,7 +164,7 @@ export default async function PáginaDashboard() {
             { href: '/admin/dashboard/categorias',      etiqueta: 'Categorías',     icono: <Tag className="w-4 h-4" />,     color: 'text-violet-500', bg: 'bg-violet-500/10' },
             { href: '/admin/dashboard/cupones',         etiqueta: 'Cupones',        icono: <Ticket className="w-4 h-4" />,  color: 'text-success', bg: 'bg-success/10' },
             { href: '/admin/dashboard/promociones',     etiqueta: 'Promociones',    icono: <TrendingUp className="w-4 h-4" />, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-            { href: '/admin/dashboard/leads',           etiqueta: 'Ver leads',      icono: <Users className="w-4 h-4" />,   color: 'text-warning', bg: 'bg-warning/10' },
+            { href: '/admin/dashboard/pedidos',         etiqueta: 'Ver pedidos',    icono: <ClipboardList className="w-4 h-4" />, color: 'text-warning', bg: 'bg-warning/10' },
             { href: '/admin/dashboard/perfil',          etiqueta: 'Perfil tienda',  icono: <ShoppingBag className="w-4 h-4" />, color: 'text-primary', bg: 'bg-primary/10' },
           ].map((item) => (
             <Link
