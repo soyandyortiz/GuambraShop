@@ -53,6 +53,9 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   const [talla, setTalla] = useState<string | null>(null)
   const [cantidad, setCantidad] = useState(1)
   const [tabActiva, setTabActiva] = useState<'desc' | 'resenas'>('desc')
+  const [mostrarFormResena, setMostrarFormResena] = useState(false)
+  const [citaFecha, setCitaFecha] = useState<string>('')
+  const [citaHora, setCitaHora] = useState<string>('')
   const [horasOcupadas, setHorasOcupadas] = useState<string[]>([])
   const [cargandoHoras, setCargandoHoras] = useState(false)
 
