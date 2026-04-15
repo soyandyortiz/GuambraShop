@@ -115,22 +115,66 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
   }
 
   function exportarCSV() {
-    const filas = filtrados.map(p => [
-      p.numero_orden,
-      p.tipo === 'delivery' ? 'DELIVERY' : 'LOCAL',
-      p.nombres, p.email, p.whatsapp,
-      p.tipo === 'delivery' ? `${p.ciudad ?? ''} ${p.provincia ?? ''}`.trim() : 'Local físico',
-      `${p.simbolo_moneda}${p.total.toFixed(2)}`,
-      ESTADOS[p.estado].etiqueta,
-      new Date(p.creado_en).toLocaleDateString('es-EC'),
-    ].join(','))
-    const csv = ['N° Orden,Tipo,Nombres,Email,WhatsApp,Destino,Total,Estado,Fecha', ...filas].join('\n')
+    // Escapa un valor para CSV: encierra en comillas si contiene coma, comilla o salto de línea
+    const esc = (v: string | number | null | undefined): string => {
+      const s = v == null ? '' : String(v)
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"`
+        : s
+    }
+
+    const encabezado = [
+      'N° Orden', 'Fecha', 'Hora', 'Estado', 'Tipo',
+      'Nombres', 'Email', 'WhatsApp',
+      'Ciudad', 'Provincia', 'Dirección',
+      'Productos', 'Cantidad total',
+      'Subtotal', 'Cupón', 'Descuento cupón', 'Costo envío', 'Total',
+      'Moneda',
+    ]
+
+    const filas = filtrados.map(p => {
+      const fecha  = new Date(p.creado_en)
+      const items  = p.items as any[]
+      const productosTexto = items
+        .map(i => {
+          const extras = [i.variante || i.nombre_variante, i.talla ? `T:${i.talla}` : null].filter(Boolean).join(' ')
+          return `${i.nombre}${extras ? ` (${extras})` : ''} x${i.cantidad}`
+        })
+        .join(' | ')
+      const cantidadTotal = items.reduce((s: number, i: any) => s + i.cantidad, 0)
+
+      return [
+        esc(p.numero_orden),
+        esc(fecha.toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric' })),
+        esc(fecha.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })),
+        esc(ESTADOS[p.estado].etiqueta),
+        esc(p.tipo === 'delivery' ? 'Delivery' : 'Local'),
+        esc(p.nombres),
+        esc(p.email),
+        esc(p.whatsapp),
+        esc(p.ciudad),
+        esc(p.provincia),
+        esc(p.tipo === 'delivery' ? [p.direccion, p.detalles_direccion].filter(Boolean).join(' — ') : 'Retiro en tienda'),
+        esc(productosTexto),
+        esc(cantidadTotal),
+        esc(p.subtotal.toFixed(2)),
+        esc(p.cupon_codigo),
+        esc(p.descuento_cupon > 0 ? p.descuento_cupon.toFixed(2) : ''),
+        esc(p.costo_envio > 0 ? p.costo_envio.toFixed(2) : ''),
+        esc(p.total.toFixed(2)),
+        esc(p.simbolo_moneda),
+      ].join(',')
+    })
+
+    const csv = [encabezado.join(','), ...filas].join('\n')
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = `pedidos_${new Date().toISOString().split('T')[0]}.csv`; a.click()
+    a.href = url
+    a.download = `pedidos_${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
     URL.revokeObjectURL(url)
-    toast.success(`${filtrados.length} pedidos exportados`)
+    toast.success(`${filtrados.length} pedido${filtrados.length !== 1 ? 's' : ''} exportado${filtrados.length !== 1 ? 's' : ''}`)
   }
 
   function abrirWhatsApp(pedido: Pedido) {
