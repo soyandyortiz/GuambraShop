@@ -768,8 +768,16 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosP
               </a>
 
               <Link
+                href={`/pedido/${pedidoCreado.numero_orden}`}
+                className="flex items-center justify-center gap-2 w-full h-11 mt-3 rounded-2xl border border-primary/30 bg-primary/5 text-sm font-semibold text-primary hover:bg-primary/10 transition-all"
+              >
+                <Package className="w-4 h-4" />
+                Ver estado de mi pedido
+              </Link>
+
+              <Link
                 href="/"
-                className="flex items-center justify-center gap-2 w-full h-11 mt-3 rounded-2xl border border-border text-sm font-medium text-foreground-muted hover:text-foreground hover:border-primary/40 transition-all"
+                className="flex items-center justify-center gap-2 w-full h-11 mt-2 rounded-2xl border border-border text-sm font-medium text-foreground-muted hover:text-foreground hover:border-primary/40 transition-all"
               >
                 Seguir comprando
               </Link>
