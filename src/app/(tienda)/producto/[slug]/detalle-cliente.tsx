@@ -53,11 +53,16 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   const [talla, setTalla] = useState<string | null>(null)
   const [cantidad, setCantidad] = useState(1)
   const [tabActiva, setTabActiva] = useState<'desc' | 'resenas'>('desc')
-  const [mostrarFormResena, setMostrarFormResena] = useState(false)
-  const [citaFecha, setCitaFecha] = useState<string>('')
-  const [citaHora, setCitaHora] = useState<string>('')
   const [horasOcupadas, setHorasOcupadas] = useState<string[]>([])
   const [cargandoHoras, setCargandoHoras] = useState(false)
+
+  // Asegurar que configCitas tenga valores por defecto si vienen nulos
+  const configValida = {
+    habilitar_citas: configCitas?.habilitar_citas ?? true,
+    hora_apertura: configCitas?.hora_apertura ?? '09:00',
+    hora_cierre: configCitas?.hora_cierre ?? '18:00',
+    duracion: configCitas?.duracion_cita_minutos ?? 30
+  }
 
   useEffect(() => {
     if (producto.tipo_producto !== 'servicio' || !citaFecha) return
@@ -82,11 +87,10 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
     setCitaHora('')
   }, [citaFecha, producto.id, producto.tipo_producto])
 
-  const slots: string[] = []
-  if (configCitas.hora_apertura && configCitas.hora_cierre) {
-    let actual = new Date(`1970-01-01T${configCitas.hora_apertura}:00`)
-    const cierre = new Date(`1970-01-01T${configCitas.hora_cierre}:00`)
-    const step = configCitas.duracion_cita_minutos || 30
+  if (configValida.hora_apertura && configValida.hora_cierre) {
+    let actual = new Date(`1970-01-01T${configValida.hora_apertura}`)
+    const cierre = new Date(`1970-01-01T${configValida.hora_cierre}`)
+    const step = configValida.duracion
     
     while (actual < cierre) {
       slots.push(actual.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))
@@ -112,14 +116,13 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
       imagen_url: imagenes[0]?.url ?? null,
       precio: precioBase,
       variante_id: varianteId ?? undefined,
-      nombre_variante: variante?.nombre,
       tipo_producto: producto.tipo_producto,
       talla: talla ?? undefined,
       cantidad,
-      cita: producto.tipo_producto === 'servicio' && citaFecha && citaHora ? {
+      cita: producto.tipo_producto === 'servicio' ? {
         fecha: citaFecha,
         hora_inicio: citaHora,
-        hora_fin: '00:00:00'
+        hora_fin: '00:00' // Opcional, se puede calcular sumando la duración
       } : undefined
     })
     toast.success('Añadido al carrito', {
@@ -333,7 +336,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
           )}
 
           {/* Citas */}
-          {producto.tipo_producto === 'servicio' && configCitas.habilitar_citas && (
+          {producto.tipo_producto === 'servicio' && (
             <div className="px-4 py-4 border-t border-border lg:px-8">
               <p className="text-xs font-semibold text-foreground mb-2.5 flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-primary" /> Selecciona el Día
@@ -347,7 +350,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                   className="w-full h-11 px-3 rounded-xl border border-input-border text-sm bg-input-bg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 
-                {citaFecha && (
+                {citaFecha ? (
                   <div>
                     <p className="text-xs font-semibold text-foreground mb-2.5 flex items-center gap-1.5">
                       <Clock className="w-4 h-4 text-primary" /> Horarios Disponibles
@@ -363,6 +366,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                           return (
                             <button
                               key={hora}
+                              type="button"
                               disabled={ocupada}
                               onClick={() => setCitaHora(hora)}
                               className={cn(
@@ -381,6 +385,8 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                       </div>
                     )}
                   </div>
+                ) : (
+                  <p className="text-xs text-foreground-muted italic">Selecciona una fecha para ver horarios disponibles</p>
                 )}
               </div>
             </div>
