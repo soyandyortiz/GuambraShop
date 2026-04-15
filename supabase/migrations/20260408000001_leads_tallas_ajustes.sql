@@ -2,18 +2,6 @@
 -- MIGRACIÓN 2: Leads, Tallas y ajustes de productos
 -- ============================================================
 
--- ============================================================
--- TABLA 16: LEADS
--- Se captura el teléfono la primera vez que el cliente
--- intenta agregar al carrito. Exportable a Excel desde el admin.
--- ============================================================
-create table leads (
-  id          uuid primary key default gen_random_uuid(),
-  telefono    text not null unique,
-  creado_en   timestamptz default now()
-);
-
-create index idx_leads_creado_en on leads(creado_en desc);
 
 -- ============================================================
 -- TABLA 17: TALLAS DE PRODUCTO
@@ -40,24 +28,6 @@ create index idx_tallas_producto on tallas_producto(producto_id, orden);
 alter table productos
   add column requiere_tallas boolean not null default false;
 
--- ============================================================
--- RLS: LEADS
--- ============================================================
-alter table leads enable row level security;
-
--- El público puede insertar su propio lead
-create policy "publico_registrar_lead" on leads
-  for insert with check (
-    telefono is not null and
-    length(telefono) >= 7
-  );
-
--- Solo admin y superadmin pueden ver y exportar leads
-create policy "admin_ver_leads" on leads
-  for select using (obtener_rol() in ('admin', 'superadmin'));
-
-create policy "admin_eliminar_lead" on leads
-  for delete using (obtener_rol() in ('admin', 'superadmin'));
 
 -- ============================================================
 -- RLS: TALLAS

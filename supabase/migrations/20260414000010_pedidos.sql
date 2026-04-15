@@ -27,12 +27,6 @@ CREATE TABLE IF NOT EXISTS pedidos (
   -- Items del carrito (JSON)
   items               jsonb       NOT NULL DEFAULT '[]',
 
-  -- Zona de envío (snapshot + FK)
-  zona_envio_id       uuid        REFERENCES zonas_envio(id) ON DELETE SET NULL,
-  nombre_zona         text,
-  empresa_envio       text,
-  tiempo_entrega      text,
-
   -- Resumen financiero
   simbolo_moneda      text        NOT NULL DEFAULT '$',
   subtotal            numeric(10,2) NOT NULL DEFAULT 0,

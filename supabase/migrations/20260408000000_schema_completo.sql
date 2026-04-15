@@ -322,23 +322,6 @@ create table promociones (
 );
 
 
--- ============================================================
--- TABLA 15: ZONAS DE ENVÍO
--- Administradas por el admin. Se muestran al cliente en el carrito.
--- ============================================================
-create table zonas_envio (
-  id             uuid primary key default gen_random_uuid(),
-  provincia      text not null,
-  ciudad         text,
-  empresa_envio  text not null,
-  precio         numeric(10,2) not null check (precio >= 0),
-  tiempo_entrega text,
-  esta_activa    boolean not null default true,
-  orden          int not null default 0,
-  creado_en      timestamptz default now()
-);
-
-create index idx_zonas_envio_activa on zonas_envio(esta_activa, orden);
 
 
 -- ============================================================
@@ -366,7 +349,6 @@ alter table likes_producto          enable row level security;
 alter table resenas_producto        enable row level security;
 alter table cupones                 enable row level security;
 alter table promociones             enable row level security;
-alter table zonas_envio             enable row level security;
 
 -- ────────────────────────────────────────────
 -- PERFILES
@@ -530,11 +512,3 @@ create policy "publico_ver_promociones_activas" on promociones
 create policy "admin_gestionar_promociones" on promociones
   for all using (obtener_rol() in ('admin', 'superadmin'));
 
--- ────────────────────────────────────────────
--- ZONAS DE ENVÍO
--- ────────────────────────────────────────────
-create policy "publico_ver_zonas_activas" on zonas_envio
-  for select using (esta_activa = true);
-
-create policy "admin_gestionar_zonas_envio" on zonas_envio
-  for all using (obtener_rol() in ('admin', 'superadmin'));
