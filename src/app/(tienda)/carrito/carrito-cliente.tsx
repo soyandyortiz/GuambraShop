@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   ShoppingCart, Trash2, Plus, Minus, Tag, Truck,
   Store, ChevronRight, Loader2, MessageCircle, Package,
-  CheckCircle2, User, Mail, Phone, MapPin, ChevronDown
+  CheckCircle2, User, Mail, Phone, MapPin, ChevronDown, Calendar
 } from 'lucide-react'
 import { usarCarrito } from '@/hooks/usar-carrito'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
