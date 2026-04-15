@@ -196,6 +196,34 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosP
         .then(() => {})
     }
 
+    // Notificación Telegram (fire-and-forget, no bloquea el flujo)
+    fetch('/api/telegram/notificar-pedido', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        numero_orden: data.numero_orden,
+        nombres: nombres.trim(),
+        whatsapp: whatsappCompleto,
+        tipo: tipoEnvio === 'tienda' ? 'local' : 'delivery',
+        ciudad: tipoEnvio === 'envio' ? ciudad : null,
+        provincia: tipoEnvio === 'envio' ? provincia : null,
+        items: items.map(i => ({
+          nombre: i.nombre,
+          cantidad: i.cantidad,
+          subtotal: +(i.precio * i.cantidad).toFixed(2),
+          variante: i.nombre_variante ?? null,
+          talla: i.talla ?? null,
+          tipo_producto: i.tipo_producto,
+        })),
+        subtotal: +subtotal.toFixed(2),
+        descuento_cupon: +descuentoCupon.toFixed(2),
+        cupon_codigo: cupon?.codigo ?? null,
+        costo_envio: 0,
+        total: +total.toFixed(2),
+        simbolo_moneda: simboloMoneda,
+      }),
+    }).catch(() => {/* silencioso si falla */})
+
     // Generar mensaje WhatsApp con número de pedido
     const msg = generarMensajeWhatsApp({
       numeroPedido: data.numero_orden,
