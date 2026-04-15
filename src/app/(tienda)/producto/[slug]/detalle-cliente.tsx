@@ -90,6 +90,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
     setCitaHora('')
   }, [citaFecha, producto.id, producto.tipo_producto])
 
+  const slots: string[] = []
   if (configValida.hora_apertura && configValida.hora_cierre) {
     let actual = new Date(`1970-01-01T${configValida.hora_apertura}`)
     const cierre = new Date(`1970-01-01T${configValida.hora_cierre}`)
