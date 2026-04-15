@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, Ticket, Megaphone,
-  Settings, MessageSquare, ShoppingBag, LogOut, Star, ClipboardList
+  Settings, MessageSquare, ShoppingBag, LogOut, Star, ClipboardList, CalendarDays
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -27,6 +27,7 @@ const navegacion: PropsNavItem[] = [
   { href: '/admin/dashboard/cupones',       icono: <Ticket className="w-4 h-4" />,           etiqueta: 'Cupones' },
   { href: '/admin/dashboard/promociones',   icono: <Megaphone className="w-4 h-4" />,        etiqueta: 'Promociones' },
   { href: '/admin/dashboard/pedidos',       icono: <ClipboardList className="w-4 h-4" />,    etiqueta: 'Pedidos' },
+  { href: '/admin/dashboard/calendario',    icono: <CalendarDays className="w-4 h-4" />,      etiqueta: 'Calendario' },
   { href: '/admin/dashboard/resenas',       icono: <Star className="w-4 h-4" />,             etiqueta: 'Reseñas' },
   { href: '/admin/dashboard/mensajes',      icono: <MessageSquare className="w-4 h-4" />,    etiqueta: 'Mensajes' },
   { href: '/admin/dashboard/perfil',        icono: <Settings className="w-4 h-4" />,         etiqueta: 'Perfil tienda' },
