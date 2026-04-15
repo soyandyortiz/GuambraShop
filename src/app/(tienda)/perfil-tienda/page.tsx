@@ -149,6 +149,42 @@ export default async function PáginaPerfilTienda() {
           </div>
         )}
 
+        {/* ── Horario de atención ─────────────────── */}
+        {(config?.horario_atencion as any[] | null)?.length && (
+          <div className="mt-5">
+            <p className="text-xs font-semibold text-foreground-muted uppercase tracking-wide mb-3 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-primary" />
+              Horario de atención
+            </p>
+            <div className="rounded-2xl border border-card-border bg-card overflow-hidden">
+              {(config!.horario_atencion as any[]).map((dia: any, idx: number) => {
+                const esHoy = new Date().getDay() === (dia.dia === 7 ? 0 : dia.dia)
+                return (
+                  <div
+                    key={dia.dia}
+                    className={cn(
+                      'flex items-center justify-between px-4 py-2.5 text-sm border-b border-border last:border-0',
+                      esHoy && 'bg-primary/5'
+                    )}
+                  >
+                    <span className={cn('font-medium', esHoy ? 'text-primary font-bold' : 'text-foreground')}>
+                      {dia.nombre}
+                      {esHoy && <span className="ml-1.5 text-[10px] font-bold bg-primary text-white px-1.5 py-0.5 rounded-full">Hoy</span>}
+                    </span>
+                    {dia.abierto ? (
+                      <span className="text-foreground-muted text-xs font-mono">
+                        {dia.apertura} – {dia.cierre}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-danger font-semibold">Cerrado</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ── Métodos de pago ─────────────────────── */}
         {(metodosPago?.length ?? 0) > 0 && (
           <div className="mt-5">
@@ -226,42 +262,6 @@ export default async function PáginaPerfilTienda() {
         )}
 
 
-
-        {/* ── Horario de atención ─────────────────── */}
-        {(config?.horario_atencion as any[] | null)?.length && (
-          <div className="mt-5">
-            <p className="text-xs font-semibold text-foreground-muted uppercase tracking-wide mb-3 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-primary" />
-              Horario de atención
-            </p>
-            <div className="rounded-2xl border border-card-border bg-card overflow-hidden">
-              {(config!.horario_atencion as any[]).map((dia: any, idx: number) => {
-                const esHoy = new Date().getDay() === (dia.dia === 7 ? 0 : dia.dia)
-                return (
-                  <div
-                    key={dia.dia}
-                    className={cn(
-                      'flex items-center justify-between px-4 py-2.5 text-sm border-b border-border last:border-0',
-                      esHoy && 'bg-primary/5'
-                    )}
-                  >
-                    <span className={cn('font-medium', esHoy ? 'text-primary font-bold' : 'text-foreground')}>
-                      {dia.nombre}
-                      {esHoy && <span className="ml-1.5 text-[10px] font-bold bg-primary text-white px-1.5 py-0.5 rounded-full">Hoy</span>}
-                    </span>
-                    {dia.abierto ? (
-                      <span className="text-foreground-muted text-xs font-mono">
-                        {dia.apertura} – {dia.cierre}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-danger font-semibold">Cerrado</span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
 
         {/* ── Promociones (posts) ─────────────────── */}
         {(promociones?.length ?? 0) > 0 && (
