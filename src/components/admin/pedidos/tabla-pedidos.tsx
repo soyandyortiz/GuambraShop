@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useMemo } from 'react'
 import {
   Search, Truck, Store, ChevronDown, ChevronUp,
-  Package, Phone, Mail, MapPin, Download, ShoppingBag, Calendar
+  Package, Phone, Mail, MapPin, Download, ShoppingBag,
+  Calendar, MessageCircle, X, Filter, Clock, CheckCircle2,
+  AlertCircle, RotateCcw, XCircle, Send, ArrowUpDown
 } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
@@ -11,67 +13,103 @@ import { toast } from 'sonner'
 import { cn, formatearPrecio } from '@/lib/utils'
 import type { Pedido, EstadoPedido, ItemPedido } from '@/types'
 
-const ESTADOS: Record<EstadoPedido, { etiqueta: string; color: string }> = {
-  pendiente:   { etiqueta: 'Pendiente',   color: 'bg-warning/15 text-warning border-warning/30' },
-  confirmado:  { etiqueta: 'Confirmado',  color: 'bg-blue-500/15 text-blue-600 border-blue-300' },
-  en_proceso:  { etiqueta: 'En proceso',  color: 'bg-orange-500/15 text-orange-600 border-orange-300' },
-  enviado:     { etiqueta: 'Enviado',     color: 'bg-indigo-500/15 text-indigo-600 border-indigo-300' },
-  entregado:   { etiqueta: 'Entregado',   color: 'bg-success/15 text-success border-success/30' },
-  cancelado:   { etiqueta: 'Cancelado',   color: 'bg-danger/15 text-danger border-danger/30' },
+const ESTADOS: Record<EstadoPedido, { etiqueta: string; color: string; icono: React.ReactNode }> = {
+  pendiente:   { etiqueta: 'Pendiente',   color: 'bg-warning/15 text-warning border-warning/30',         icono: <Clock className="w-3 h-3" /> },
+  confirmado:  { etiqueta: 'Confirmado',  color: 'bg-blue-500/15 text-blue-600 border-blue-300',         icono: <CheckCircle2 className="w-3 h-3" /> },
+  en_proceso:  { etiqueta: 'En proceso',  color: 'bg-orange-500/15 text-orange-600 border-orange-300',   icono: <RotateCcw className="w-3 h-3" /> },
+  enviado:     { etiqueta: 'Enviado',     color: 'bg-indigo-500/15 text-indigo-600 border-indigo-300',   icono: <Send className="w-3 h-3" /> },
+  entregado:   { etiqueta: 'Entregado',   color: 'bg-success/15 text-success border-success/30',         icono: <CheckCircle2 className="w-3 h-3" /> },
+  cancelado:   { etiqueta: 'Cancelado',   color: 'bg-danger/15 text-danger border-danger/30',            icono: <XCircle className="w-3 h-3" /> },
 }
 
-type Filtro = 'todos' | 'delivery' | 'local'
+type FiltroTipo   = 'todos' | 'delivery' | 'local'
+type FiltroEstado = EstadoPedido | 'todos'
+type FiltroFecha  = 'todos' | 'hoy' | 'semana' | 'mes'
+type OrdenSort    = 'reciente' | 'antiguo' | 'mayor' | 'menor'
 
 interface Props { pedidos: Pedido[] }
 
 export function TablaPedidos({ pedidos: pedidosInic }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [pedidos, setPedidos] = useState<Pedido[]>(pedidosInic)
-  const [busqueda, setBusqueda] = useState('')
-  const [filtro, setFiltro] = useState<Filtro>('todos')
-  const [expandido, setExpandido] = useState<string | null>(null)
+  const [pedidos, setPedidos]         = useState<Pedido[]>(pedidosInic)
+  const [busqueda, setBusqueda]       = useState('')
+  const [filtroTipo, setFiltroTipo]   = useState<FiltroTipo>('todos')
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos')
+  const [filtroFecha, setFiltroFecha] = useState<FiltroFecha>('todos')
+  const [ordenSort, setOrdenSort]     = useState<OrdenSort>('reciente')
+  const [expandido, setExpandido]     = useState<string | null>(null)
+  const [modalPedido, setModalPedido] = useState<Pedido | null>(null)
   const [actualizando, setActualizando] = useState<string | null>(null)
 
-  const filtrados = pedidos.filter(p => {
-    const coincideFiltro = filtro === 'todos' || p.tipo === filtro
-    const texto = busqueda.toLowerCase()
-    const coincideBusqueda =
-      !texto ||
-      p.numero_orden.toLowerCase().includes(texto) ||
-      p.nombres.toLowerCase().includes(texto) ||
-      p.email.toLowerCase().includes(texto) ||
-      p.whatsapp.includes(texto)
-    return coincideFiltro && coincideBusqueda
-  })
+  // Filtrado y ordenamiento
+  const filtrados = useMemo(() => {
+    const ahora = new Date()
+    const inicioHoy    = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
+    const inicioSemana = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const inicioMes    = new Date(ahora.getFullYear(), ahora.getMonth(), 1)
 
+    let result = pedidos.filter(p => {
+      // Filtro tipo
+      if (filtroTipo !== 'todos' && p.tipo !== filtroTipo) return false
+      // Filtro estado
+      if (filtroEstado !== 'todos' && p.estado !== filtroEstado) return false
+      // Filtro fecha
+      if (filtroFecha !== 'todos') {
+        const f = new Date(p.creado_en)
+        if (filtroFecha === 'hoy'    && f < inicioHoy)    return false
+        if (filtroFecha === 'semana' && f < inicioSemana) return false
+        if (filtroFecha === 'mes'    && f < inicioMes)    return false
+      }
+      // Búsqueda
+      const texto = busqueda.toLowerCase()
+      if (texto) {
+        const coincide =
+          p.numero_orden.toLowerCase().includes(texto) ||
+          p.nombres.toLowerCase().includes(texto) ||
+          p.email.toLowerCase().includes(texto) ||
+          p.whatsapp.includes(texto)
+        if (!coincide) return false
+      }
+      return true
+    })
+
+    // Ordenar
+    result = [...result].sort((a, b) => {
+      switch (ordenSort) {
+        case 'reciente': return new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime()
+        case 'antiguo':  return new Date(a.creado_en).getTime() - new Date(b.creado_en).getTime()
+        case 'mayor':    return b.total - a.total
+        case 'menor':    return a.total - b.total
+      }
+    })
+    return result
+  }, [pedidos, filtroTipo, filtroEstado, filtroFecha, busqueda, ordenSort])
+
+  // Stats
+  const totalHoy      = pedidos.filter(p => new Date(p.creado_en).toDateString() === new Date().toDateString()).length
+  const totalPendientes = pedidos.filter(p => p.estado === 'pendiente').length
   const totalDelivery = pedidos.filter(p => p.tipo === 'delivery').length
   const totalLocal    = pedidos.filter(p => p.tipo === 'local').length
-  const totalHoy      = pedidos.filter(p => {
-    const hoy = new Date().toDateString()
-    return new Date(p.creado_en).toDateString() === hoy
-  }).length
+
+  const hayFiltros = filtroTipo !== 'todos' || filtroEstado !== 'todos' || filtroFecha !== 'todos' || busqueda
 
   async function cambiarEstado(id: string, nuevoEstado: EstadoPedido) {
     setActualizando(id)
     const supabase = crearClienteSupabase()
     let error = null
-    
     if (nuevoEstado === 'confirmado') {
       const { error: rpcError } = await supabase.rpc('confirmar_pedido', { p_pedido_id: id })
       error = rpcError
     } else {
       const { error: updateError } = await supabase
-        .from('pedidos')
-        .update({ estado: nuevoEstado })
-        .eq('id', id)
+        .from('pedidos').update({ estado: nuevoEstado }).eq('id', id)
       error = updateError
     }
-    
     setActualizando(null)
-
     if (error) { toast.error('Error al actualizar el estado'); return }
     setPedidos(ps => ps.map(p => p.id === id ? { ...p, estado: nuevoEstado } : p))
+    if (modalPedido?.id === id) setModalPedido(prev => prev ? { ...prev, estado: nuevoEstado } : null)
     toast.success('Estado actualizado')
     startTransition(() => router.refresh())
   }
@@ -80,9 +118,7 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
     const filas = filtrados.map(p => [
       p.numero_orden,
       p.tipo === 'delivery' ? 'DELIVERY' : 'LOCAL',
-      p.nombres,
-      p.email,
-      p.whatsapp,
+      p.nombres, p.email, p.whatsapp,
       p.tipo === 'delivery' ? `${p.ciudad ?? ''} ${p.provincia ?? ''}`.trim() : 'Local físico',
       `${p.simbolo_moneda}${p.total.toFixed(2)}`,
       ESTADOS[p.estado].etiqueta,
@@ -92,11 +128,19 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url
-    a.download = `pedidos_${new Date().toISOString().split('T')[0]}.csv`
-    a.click()
+    a.href = url; a.download = `pedidos_${new Date().toISOString().split('T')[0]}.csv`; a.click()
     URL.revokeObjectURL(url)
     toast.success(`${filtrados.length} pedidos exportados`)
+  }
+
+  function abrirWhatsApp(pedido: Pedido) {
+    const num = pedido.whatsapp.replace(/\D/g, '')
+    const msg = `Hola ${pedido.nombres.split(' ')[0]}, te escribimos sobre tu pedido ${pedido.numero_orden}.`
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank')
+  }
+
+  function limpiarFiltros() {
+    setBusqueda(''); setFiltroTipo('todos'); setFiltroEstado('todos'); setFiltroFecha('todos')
   }
 
   return (
@@ -105,64 +149,124 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total pedidos', val: pedidos.length, color: 'text-primary', bg: 'bg-primary/10' },
-          { label: 'Hoy',           val: totalHoy,       color: 'text-blue-500', bg: 'bg-blue-500/10' },
-          { label: 'Delivery',      val: totalDelivery,  color: 'text-orange-500', bg: 'bg-orange-500/10' },
-          { label: 'Local físico',  val: totalLocal,     color: 'text-success', bg: 'bg-success/10' },
+          { label: 'Total pedidos', val: pedidos.length,     color: 'text-primary',      bg: 'bg-primary/10',      action: () => { limpiarFiltros() } },
+          { label: 'Pendientes',    val: totalPendientes,    color: 'text-warning',      bg: 'bg-warning/10',      action: () => { limpiarFiltros(); setFiltroEstado('pendiente') } },
+          { label: 'Delivery',      val: totalDelivery,      color: 'text-orange-500',   bg: 'bg-orange-500/10',   action: () => { limpiarFiltros(); setFiltroTipo('delivery') } },
+          { label: 'Hoy',           val: totalHoy,           color: 'text-blue-500',     bg: 'bg-blue-500/10',     action: () => { limpiarFiltros(); setFiltroFecha('hoy') } },
         ].map(s => (
-          <div key={s.label} className="rounded-xl bg-card border border-card-border p-3 text-center">
+          <button key={s.label} onClick={s.action}
+            className="rounded-xl bg-card border border-card-border p-3 text-center hover:border-border-strong transition-all active:scale-[0.97] cursor-pointer">
             <p className={cn('text-xl font-bold', s.color)}>{s.val}</p>
             <p className="text-xs text-foreground-muted mt-0.5">{s.label}</p>
-          </div>
+          </button>
         ))}
       </div>
 
-      {/* Controles */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        {/* Filtro tipo */}
-        <div className="flex rounded-xl border border-border overflow-hidden flex-shrink-0">
-          {(['todos', 'delivery', 'local'] as Filtro[]).map(f => (
-            <button key={f} onClick={() => setFiltro(f)}
-              className={cn(
-                'px-3 py-2 text-xs font-semibold capitalize transition-all',
-                filtro === f
-                  ? 'bg-primary text-white'
-                  : 'bg-card text-foreground-muted hover:text-foreground hover:bg-background-subtle'
-              )}>
-              {f === 'todos' ? 'Todos' : f === 'delivery' ? 'Delivery' : 'Local'}
-            </button>
-          ))}
-        </div>
-
-        {/* Búsqueda */}
+      {/* Búsqueda + CSV */}
+      <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
-          <input
-            type="text"
-            placeholder="Buscar por orden, nombre, email…"
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
+          <input type="text" placeholder="Buscar orden, nombre, email, teléfono…"
+            value={busqueda} onChange={e => setBusqueda(e.target.value)}
             className="w-full h-10 pl-9 pr-4 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
-
         <button onClick={exportarCSV}
-          className="flex items-center gap-2 h-10 px-4 rounded-xl border border-border text-foreground-muted text-sm font-medium hover:text-foreground hover:border-primary/40 transition-all flex-shrink-0">
+          className="flex items-center gap-2 h-10 px-3 rounded-xl border border-border text-foreground-muted text-sm font-medium hover:text-foreground hover:border-primary/40 transition-all flex-shrink-0">
           <Download className="w-4 h-4" />
-          CSV
+          <span className="hidden sm:inline">CSV</span>
         </button>
       </div>
 
-      {/* Lista de pedidos */}
+      {/* Filtros */}
+      <div className="flex flex-col gap-2">
+        {/* Tipo */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-semibold text-foreground-muted uppercase tracking-wide w-14 flex-shrink-0">Tipo</span>
+          <div className="flex rounded-xl border border-border overflow-hidden flex-shrink-0">
+            {(['todos', 'delivery', 'local'] as FiltroTipo[]).map(f => (
+              <button key={f} onClick={() => setFiltroTipo(f)}
+                className={cn('px-3 py-2 text-xs font-semibold capitalize transition-all',
+                  filtroTipo === f ? 'bg-primary text-white' : 'bg-card text-foreground-muted hover:text-foreground hover:bg-background-subtle'
+                )}>
+                {f === 'todos' ? 'Todos' : f === 'delivery' ? 'Delivery' : 'Local'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Estado */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-semibold text-foreground-muted uppercase tracking-wide w-14 flex-shrink-0">Estado</span>
+          <div className="flex flex-wrap gap-1">
+            <button onClick={() => setFiltroEstado('todos')}
+              className={cn('px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all',
+                filtroEstado === 'todos' ? 'bg-foreground text-background border-foreground' : 'bg-card text-foreground-muted border-border hover:border-border-strong'
+              )}>
+              Todos
+            </button>
+            {(Object.keys(ESTADOS) as EstadoPedido[]).map(est => (
+              <button key={est} onClick={() => setFiltroEstado(est)}
+                className={cn('px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1',
+                  filtroEstado === est ? ESTADOS[est].color : 'bg-card text-foreground-muted border-border hover:border-border-strong'
+                )}>
+                {ESTADOS[est].icono}
+                {ESTADOS[est].etiqueta}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Fecha + Orden */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-semibold text-foreground-muted uppercase tracking-wide w-14 flex-shrink-0">Fecha</span>
+          <div className="flex rounded-xl border border-border overflow-hidden flex-shrink-0">
+            {([['todos', 'Todos'], ['hoy', 'Hoy'], ['semana', 'Semana'], ['mes', 'Mes']] as [FiltroFecha, string][]).map(([f, label]) => (
+              <button key={f} onClick={() => setFiltroFecha(f)}
+                className={cn('px-3 py-2 text-xs font-semibold transition-all',
+                  filtroFecha === f ? 'bg-primary text-white' : 'bg-card text-foreground-muted hover:text-foreground hover:bg-background-subtle'
+                )}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {/* Sort */}
+          <div className="ml-auto flex items-center gap-1">
+            <ArrowUpDown className="w-3.5 h-3.5 text-foreground-muted" />
+            <select value={ordenSort} onChange={e => setOrdenSort(e.target.value as OrdenSort)}
+              className="text-xs bg-card border border-border rounded-lg px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer">
+              <option value="reciente">Más reciente</option>
+              <option value="antiguo">Más antiguo</option>
+              <option value="mayor">Mayor total</option>
+              <option value="menor">Menor total</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Limpiar filtros */}
+        {hayFiltros && (
+          <button onClick={limpiarFiltros}
+            className="flex items-center gap-1.5 text-xs text-foreground-muted hover:text-primary transition-colors self-start">
+            <X className="w-3.5 h-3.5" />
+            Limpiar filtros
+          </button>
+        )}
+      </div>
+
+      {/* Lista */}
       {filtrados.length === 0 ? (
         <div className="rounded-2xl bg-card border border-card-border p-12 text-center">
           <ShoppingBag className="w-10 h-10 text-foreground-muted/40 mx-auto mb-3" />
           <p className="text-sm font-medium text-foreground">Sin pedidos</p>
           <p className="text-xs text-foreground-muted mt-1">
-            {busqueda || filtro !== 'todos'
-              ? 'Ningún resultado para ese filtro'
-              : 'Los pedidos de clientes aparecerán aquí'}
+            {hayFiltros ? 'Ningún resultado para esos filtros' : 'Los pedidos de clientes aparecerán aquí'}
           </p>
+          {hayFiltros && (
+            <button onClick={limpiarFiltros}
+              className="mt-3 text-xs text-primary hover:underline">
+              Limpiar filtros
+            </button>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -175,74 +279,57 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                 className="rounded-2xl bg-card border border-card-border overflow-hidden transition-all">
 
                 {/* Fila principal */}
-                <div className="px-4 py-3 flex items-center gap-3">
+                <div className="px-3 py-3 flex items-center gap-2.5">
                   {/* Tipo icono */}
-                  <div className={cn(
-                    'w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0',
-                    pedido.tipo === 'delivery' ? 'bg-orange-500/10' : 'bg-success/10'
-                  )}>
+                  <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0',
+                    pedido.tipo === 'delivery' ? 'bg-orange-500/10' : 'bg-success/10')}>
                     {pedido.tipo === 'delivery'
                       ? <Truck className="w-4 h-4 text-orange-500" />
-                      : <Store className="w-4 h-4 text-success" />
-                    }
+                      : <Store className="w-4 h-4 text-success" />}
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-sm font-bold text-foreground">{pedido.numero_orden}</span>
-                      <span className={cn(
-                        'text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide',
-                        pedido.tipo === 'delivery'
-                          ? 'bg-orange-500/10 text-orange-600 border-orange-300'
-                          : 'bg-success/10 text-success border-success/30'
-                      )}>
-                        {pedido.tipo === 'delivery' ? 'Delivery' : 'Local'}
+                      <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full border flex items-center gap-0.5', estado.color)}>
+                        {estado.icono}
+                        {estado.etiqueta}
                       </span>
                     </div>
                     <p className="text-xs text-foreground-muted truncate">{pedido.nombres}</p>
                   </div>
 
-                  {/* Total */}
+                  {/* Total + fecha */}
                   <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-bold text-primary">
-                      {formatearPrecio(pedido.total, pedido.simbolo_moneda)}
-                    </p>
+                    <p className="text-sm font-bold text-primary">{formatearPrecio(pedido.total, pedido.simbolo_moneda)}</p>
                     <p className="text-[10px] text-foreground-muted">
-                      {new Date(pedido.creado_en).toLocaleDateString('es-EC', {
-                        day: '2-digit', month: 'short'
-                      })}
+                      {new Date(pedido.creado_en).toLocaleDateString('es-EC', { day: '2-digit', month: 'short' })}
                     </p>
                   </div>
 
-                  {/* Estado */}
-                  <div className="flex-shrink-0 relative">
+                  {/* Cambiar estado */}
+                  <div className="flex-shrink-0">
                     {actualizando === pedido.id ? (
-                      <div className="w-28 h-8 rounded-lg bg-background-subtle flex items-center justify-center">
-                        <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      <div className="w-6 h-6 flex items-center justify-center">
+                        <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                       </div>
                     ) : (
                       <div className="relative">
-                        <select
-                          value={pedido.estado}
+                        <select value={pedido.estado}
                           onChange={e => cambiarEstado(pedido.id, e.target.value as EstadoPedido)}
-                          className={cn(
-                            'text-[11px] font-bold px-2 pr-6 py-1.5 rounded-lg border appearance-none cursor-pointer focus:outline-none',
-                            estado.color
-                          )}
-                        >
+                          className={cn('text-[11px] font-bold pl-2 pr-5 py-1.5 rounded-lg border appearance-none cursor-pointer focus:outline-none', estado.color)}>
                           {Object.entries(ESTADOS).map(([val, { etiqueta }]) => (
                             <option key={val} value={val}>{etiqueta}</option>
                           ))}
                         </select>
-                        <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" />
+                        <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" />
                       </div>
                     )}
                   </div>
 
                   {/* Expand */}
-                  <button
-                    onClick={() => setExpandido(abierto ? null : pedido.id)}
+                  <button onClick={() => setExpandido(abierto ? null : pedido.id)}
                     className="w-8 h-8 flex items-center justify-center rounded-lg text-foreground-muted hover:bg-background-subtle transition-all flex-shrink-0">
                     {abierto ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
@@ -252,29 +339,37 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                 {abierto && (
                   <div className="border-t border-border px-4 py-4 flex flex-col gap-4 bg-background-subtle/40">
 
-                    {/* Contacto */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div className="flex items-center gap-2 text-sm text-foreground-muted">
-                        <Mail className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="truncate">{pedido.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-foreground-muted">
-                        <Phone className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span>{pedido.whatsapp}</span>
-                      </div>
-                      {pedido.tipo === 'delivery' && (
-                        <div className="flex items-start gap-2 text-sm text-foreground-muted sm:col-span-2">
-                          <MapPin className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                          <span>
-                            {pedido.direccion}
-                            {pedido.detalles_direccion && ` — ${pedido.detalles_direccion}`}
-                            <span className="font-medium text-foreground"> · {pedido.ciudad}, {pedido.provincia}</span>
-                            {pedido.nombre_zona && (
-                              <span className="text-xs"> ({pedido.empresa_envio}{pedido.tiempo_entrega ? ` · ${pedido.tiempo_entrega}` : ''})</span>
-                            )}
-                          </span>
+                    {/* Contacto + botones */}
+                    <div className="flex flex-col gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="flex items-center gap-2 text-sm text-foreground-muted">
+                          <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span className="truncate">{pedido.email}</span>
                         </div>
-                      )}
+                        <div className="flex items-center gap-2 text-sm text-foreground-muted">
+                          <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>{pedido.whatsapp}</span>
+                        </div>
+                        {pedido.tipo === 'delivery' && (
+                          <div className="flex items-start gap-2 text-sm text-foreground-muted sm:col-span-2">
+                            <MapPin className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                            <span>
+                              {pedido.direccion}
+                              {pedido.detalles_direccion && ` — ${pedido.detalles_direccion}`}
+                              <span className="font-medium text-foreground"> · {pedido.ciudad}, {pedido.provincia}</span>
+                              {pedido.nombre_zona && (
+                                <span className="text-xs"> ({pedido.empresa_envio}{pedido.tiempo_entrega ? ` · ${pedido.tiempo_entrega}` : ''})</span>
+                              )}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {/* Acción rápida WhatsApp */}
+                      <button onClick={() => abrirWhatsApp(pedido)}
+                        className="flex items-center justify-center gap-2 w-full h-9 rounded-xl bg-[#25D366]/10 border border-[#25D366]/30 text-[#1a9e4b] text-xs font-semibold hover:bg-[#25D366]/20 transition-all">
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        Contactar por WhatsApp
+                      </button>
                     </div>
 
                     {/* Items */}
@@ -291,8 +386,7 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                                 ? <img src={item.imagen_url} alt={item.nombre} className="w-full h-full object-cover" />
                                 : item.tipo_producto === 'servicio'
                                   ? <Calendar className="w-4 h-4 text-foreground-muted/40" />
-                                  : <Package className="w-3.5 h-3.5 text-foreground-muted/40" />
-                              }
+                                  : <Package className="w-3.5 h-3.5 text-foreground-muted/40" />}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
@@ -346,6 +440,7 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                         <span className="text-primary">{formatearPrecio(pedido.total, pedido.simbolo_moneda)}</span>
                       </div>
                     </div>
+
                   </div>
                 )}
               </div>
@@ -356,6 +451,7 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
 
       <p className="text-xs text-foreground-muted text-center">
         {filtrados.length} de {pedidos.length} pedidos
+        {hayFiltros && <> · <button onClick={limpiarFiltros} className="text-primary hover:underline">limpiar filtros</button></>}
       </p>
     </div>
   )
