@@ -12,6 +12,7 @@ interface Producto {
   id: string; nombre: string; slug: string; precio: number
   precio_descuento: number | null; imagen_url: string | null
   etiquetas: string[]; variante_count: number
+  tipo_producto?: 'producto' | 'servicio'
 }
 
 interface Props {
@@ -59,7 +60,7 @@ export function TiendaPrincipal({
     const supabase = crearClienteSupabase()
     let query = supabase
       .from('productos')
-      .select('id, nombre, slug, precio, precio_descuento, etiquetas, imagenes_producto(url, orden), variantes_producto(id)')
+      .select('id, nombre, slug, precio, precio_descuento, etiquetas, tipo_producto, imagenes_producto(url, orden), variantes_producto(id)')
       .eq('esta_activo', true)
       .order('creado_en', { ascending: false })
       .range(nuevoOffset, nuevoOffset + LIMITE - 1)
@@ -78,6 +79,7 @@ export function TiendaPrincipal({
         precio: p.precio,
         precio_descuento: p.precio_descuento,
         etiquetas: p.etiquetas || [],
+        tipo_producto: p.tipo_producto,
         imagen_url: p.imagenes_producto?.sort((a: any, b: any) => a.orden - b.orden)[0]?.url || null,
         variante_count: p.variantes_producto?.length || 0
       }))
