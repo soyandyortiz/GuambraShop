@@ -6,7 +6,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Plus, Trash2, Tag, Save, ArrowLeft, Ruler, Package } from 'lucide-react'
+import { Plus, Trash2, Tag, Save, ArrowLeft, Ruler, Package, Video } from 'lucide-react'
 import { useEffect } from 'react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { Input } from '@/components/ui/input'
@@ -25,6 +25,7 @@ const esquema = z.object({
   categoria_id:     z.string().optional(),
   esta_activo:      z.boolean(),
   etiquetas:        z.string().optional(),
+  url_video:        z.string().optional(),
   requiere_tallas:  z.boolean(),
   tipo_producto:    z.enum(['producto', 'servicio']),
   stock:            z.string().optional(),
@@ -83,6 +84,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       categoria_id: producto?.categoria_id ?? '',
       esta_activo: producto?.esta_activo ?? true,
       etiquetas: producto?.etiquetas?.join(', ') ?? '',
+      url_video: producto?.url_video ?? '',
       requiere_tallas: producto?.requiere_tallas ?? false,
       tipo_producto: producto?.tipo_producto ?? 'producto',
       stock: producto?.stock?.toString() ?? '',
@@ -129,6 +131,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       categoria_id: datos.categoria_id || null,
       esta_activo: datos.esta_activo,
       etiquetas: etiquetasArray,
+      url_video: datos.url_video?.trim() || null,
       requiere_tallas: datos.requiere_tallas,
       tipo_producto: datos.tipo_producto,
       stock: datos.stock ? parseInt(datos.stock, 10) : null,
@@ -460,6 +463,21 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
           <input
             {...register('etiquetas')}
             placeholder="oferta, nuevo, importado, temporada"
+            className="w-full h-11 pl-9 pr-4 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+      </Sección>
+
+      {/* Sección: Video */}
+      <Sección
+        titulo={watch('tipo_producto') === 'servicio' ? 'Video del servicio' : 'Video del producto'}
+        descripcion="Pega el enlace de YouTube o Vimeo. Si no hay video, el botón no aparece en la tienda."
+      >
+        <div className="relative">
+          <Video className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
+          <input
+            {...register('url_video')}
+            placeholder="https://www.youtube.com/watch?v=..."
             className="w-full h-11 pl-9 pr-4 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>

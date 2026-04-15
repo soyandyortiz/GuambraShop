@@ -58,7 +58,7 @@ export default async function PáginaProducto({ params }: Props) {
     supabase.from('productos')
       .select(`
         id, nombre, slug, descripcion, precio, precio_descuento,
-        etiquetas, requiere_tallas, tipo_producto,
+        etiquetas, requiere_tallas, tipo_producto, url_video,
         imagenes_producto(id, url, orden),
         variantes_producto(id, nombre, descripcion, precio_variante, esta_activa, orden),
         tallas_producto(id, talla, disponible, orden),
@@ -94,6 +94,7 @@ export default async function PáginaProducto({ params }: Props) {
         etiquetas: producto.etiquetas ?? [],
         requiere_tallas: producto.requiere_tallas,
         tipo_producto: producto.tipo_producto ?? 'producto',
+        url_video: producto.url_video ?? null,
         categoria: Array.isArray(producto.categoria) ? (producto.categoria[0] ?? null) as { id: string; nombre: string; slug: string } | null : producto.categoria as { id: string; nombre: string; slug: string } | null,
       }}
       imagenes={imagenes as { id: string; url: string; orden: number }[]}

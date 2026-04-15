@@ -136,6 +136,7 @@ export interface Producto {
   esta_activo: boolean
   requiere_tallas: boolean
   etiquetas: string[]
+  url_video?: string | null
   creado_en: string
   actualizado_en: string
   // Relaciones (joins)

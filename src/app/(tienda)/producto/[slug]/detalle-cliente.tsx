@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Star, ShoppingCart,
   Heart, Share2, MessageCircle, Package, Tag,
-  Calendar, Clock
+  Calendar, Clock, PlayCircle, X
 } from 'lucide-react'
 import Link from 'next/link'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
@@ -21,6 +21,7 @@ interface Producto {
   precio: number; precio_descuento: number | null; etiquetas: string[]
   requiere_tallas: boolean; categoria: { id: string; nombre: string; slug: string } | null
   tipo_producto: 'producto' | 'servicio'
+  url_video?: string | null
 }
 interface Imagen { id: string; url: string; orden: number }
 interface Variante { id: string; nombre: string; descripcion: string | null; precio_variante: number | null; orden: number }
@@ -58,6 +59,16 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   const [citaHora, setCitaHora] = useState<string>('')
   const [horasOcupadas, setHorasOcupadas] = useState<string[]>([])
   const [cargandoHoras, setCargandoHoras] = useState(false)
+  const [videoAbierto, setVideoAbierto] = useState(false)
+
+  // Convierte URL de YouTube/Vimeo a embed
+  function urlEmbed(url: string): string | null {
+    const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`
+    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/)
+    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1`
+    return null // URL genérica — se abre en nueva pestaña
+  }
 
   // Asegurar que configCitas tenga valores por defecto si vienen nulos
   const configValida = {
@@ -164,6 +175,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   const siguienteImg = () => setImgActiva(i => (i + 1) % imagenes.length)
 
   return (
+    <>
     <div className="max-w-5xl mx-auto">
 
       {/* ── Layout: columna en móvil, 2 columnas en laptop ── */}
@@ -415,17 +427,36 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
           </div>
 
           {/* Botones de acción */}
-          <div className="px-4 py-4 border-t border-border flex gap-3 lg:px-8">
-            <button onClick={consultarWhatsApp}
-              className="flex-1 h-12 rounded-2xl border-2 border-primary text-primary text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/5 active:scale-[0.97] transition-all">
-              <MessageCircle className="w-4 h-4" />
-              Consultar
-            </button>
-            <button onClick={agregarAlCarrito}
-              className="flex-1 h-12 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.97] transition-all shadow-sm shadow-primary/30">
-              <ShoppingCart className="w-4 h-4" />
-              Añadir al carrito
-            </button>
+          <div className="px-4 py-4 border-t border-border flex flex-col gap-2.5 lg:px-8">
+            {/* Botón video — solo si hay URL */}
+            {producto.url_video && (
+              <button
+                onClick={() => {
+                  const embed = urlEmbed(producto.url_video!)
+                  if (embed) {
+                    setVideoAbierto(true)
+                  } else {
+                    window.open(producto.url_video!, '_blank', 'noopener,noreferrer')
+                  }
+                }}
+                className="w-full h-11 rounded-2xl border-2 border-blue-500 text-blue-600 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-blue-50 active:scale-[0.97] transition-all"
+              >
+                <PlayCircle className="w-4 h-4" />
+                {producto.tipo_producto === 'servicio' ? 'Ver video del servicio' : 'Ver video del producto'}
+              </button>
+            )}
+            <div className="flex gap-3">
+              <button onClick={consultarWhatsApp}
+                className="flex-1 h-12 rounded-2xl border-2 border-primary text-primary text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/5 active:scale-[0.97] transition-all">
+                <MessageCircle className="w-4 h-4" />
+                Consultar
+              </button>
+              <button onClick={agregarAlCarrito}
+                className="flex-1 h-12 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.97] transition-all shadow-sm shadow-primary/30">
+                <ShoppingCart className="w-4 h-4" />
+                Añadir al carrito
+              </button>
+            </div>
           </div>
 
           {/* Tabs descripción / reseñas */}
@@ -518,5 +549,30 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
 
 
     </div>
+
+      {/* ── Modal de video ── */}
+      {videoAbierto && producto.url_video && urlEmbed(producto.url_video) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setVideoAbierto(false)} />
+          <div className="relative w-full max-w-3xl bg-black rounded-2xl overflow-hidden shadow-2xl">
+            <button
+              onClick={() => setVideoAbierto(false)}
+              className="absolute top-3 right-3 z-10 w-9 h-9 rounded-xl bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="aspect-video w-full">
+              <iframe
+                src={urlEmbed(producto.url_video!)!}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title={producto.nombre}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

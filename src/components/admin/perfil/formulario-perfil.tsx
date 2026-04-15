@@ -5,13 +5,21 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Loader2, Save, Plus, Trash2, Store, Image as ImageIcon, MapPin, Share2, User, Star, Palette, Hash, Eye, EyeOff, Lock, Pencil, GripVertical, Calendar, CreditCard, Landmark } from 'lucide-react'
+import { Loader2, Save, Plus, Trash2, Store, Image as ImageIcon, MapPin, Share2, User, Star, Palette, Hash, Eye, EyeOff, Lock, Pencil, GripVertical, Calendar, CreditCard, Landmark, Clock } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { SubidorImagenes } from '@/components/ui/subidor-imagenes'
 import { cn } from '@/lib/utils'
 import { PALETAS } from '@/lib/paletas'
 
 // ─── Tipos ───────────────────────────────────────────────────
+interface HorarioDia {
+  dia: number      // 1=Lun … 7=Dom
+  nombre: string
+  apertura: string
+  cierre: string
+  abierto: boolean
+}
+
 interface ConfigTienda {
   id: string
   nombre_tienda: string
@@ -30,6 +38,7 @@ interface ConfigTienda {
   hora_apertura: string
   hora_cierre: string
   duracion_cita_minutos: number
+  horario_atencion: HorarioDia[] | null
 }
 
 interface Direccion {
@@ -126,6 +135,7 @@ type CamposCitas = z.infer<typeof schemaCitas>
 // ─── Tabs ────────────────────────────────────────────────────
 const TABS = [
   { id: 'general',     label: 'General',        icon: Store      },
+  { id: 'horario',     label: 'Horario',         icon: Clock      },
   { id: 'citas',       label: 'Citas',           icon: Calendar   },
   { id: 'pagos',       label: 'Métodos de pago', icon: CreditCard },
   { id: 'imagenes',    label: 'Imágenes',        icon: ImageIcon  },
@@ -133,6 +143,17 @@ const TABS = [
   { id: 'direcciones', label: 'Direcciones',     icon: MapPin     },
   { id: 'redes',       label: 'Redes',           icon: Share2     },
   { id: 'micuenta',    label: 'Mi cuenta',       icon: User       },
+]
+
+// ─── Horario por defecto ──────────────────────────────────────
+const HORARIO_DEFAULT: HorarioDia[] = [
+  { dia: 1, nombre: 'Lunes',     apertura: '09:00', cierre: '18:00', abierto: true  },
+  { dia: 2, nombre: 'Martes',    apertura: '09:00', cierre: '18:00', abierto: true  },
+  { dia: 3, nombre: 'Miércoles', apertura: '09:00', cierre: '18:00', abierto: true  },
+  { dia: 4, nombre: 'Jueves',    apertura: '09:00', cierre: '18:00', abierto: true  },
+  { dia: 5, nombre: 'Viernes',   apertura: '09:00', cierre: '18:00', abierto: true  },
+  { dia: 6, nombre: 'Sábado',    apertura: '09:00', cierre: '14:00', abierto: true  },
+  { dia: 7, nombre: 'Domingo',   apertura: '09:00', cierre: '13:00', abierto: false },
 ]
 
 // ─── Componente principal ─────────────────────────────────────
@@ -171,6 +192,7 @@ export function FormularioPerfil({ config, direcciones: dirInic, redes: redesIni
       {/* Contenido */}
       <div className="rounded-2xl bg-card border border-card-border p-5">
         {tab === 'general'     && <TabGeneral config={config} />}
+        {tab === 'horario'     && <TabHorario config={config} />}
         {tab === 'citas'       && <TabCitas config={config} />}
         {tab === 'pagos'       && <TabMetodosPago metodosPagoInic={metodosPagoInic} />}
         {tab === 'imagenes'    && <TabImagenes config={config} />}
@@ -884,6 +906,98 @@ function FormRed({ red, onGuardado, onCancelar }: {
         <BtnGuardar guardando={guardando} exito={exito} className="flex-1" />
       </div>
     </form>
+  )
+}
+
+// ─── Tab Horario ──────────────────────────────────────────────
+function TabHorario({ config }: { config: ConfigTienda }) {
+  const [horario, setHorario] = useState<HorarioDia[]>(
+    config.horario_atencion && config.horario_atencion.length === 7
+      ? config.horario_atencion
+      : HORARIO_DEFAULT
+  )
+  const [guardando, setGuardando] = useState(false)
+  const [exito, setExito] = useState(false)
+
+  function actualizarDia(idx: number, campo: keyof HorarioDia, valor: string | boolean) {
+    setHorario(h => h.map((d, i) => i === idx ? { ...d, [campo]: valor } : d))
+  }
+
+  async function guardar() {
+    setGuardando(true)
+    const supabase = crearClienteSupabase()
+    const { error } = await supabase
+      .from('configuracion_tienda')
+      .update({ horario_atencion: horario })
+      .eq('id', config.id)
+    setGuardando(false)
+    if (error) { toast.error('Error al guardar'); return }
+    setExito(true)
+    toast.success('Horario guardado')
+    setTimeout(() => window.location.reload(), 1200)
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <h3 className="text-sm font-bold text-foreground">Horario de atención</h3>
+        <p className="text-xs text-foreground-muted mt-0.5">
+          Este horario aparece en tu perfil público para que los clientes sepan cuándo pueden visitarte o contactarte.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {horario.map((dia, idx) => (
+          <div
+            key={dia.dia}
+            className={cn(
+              'flex items-center gap-3 px-4 py-3 rounded-xl border transition-all',
+              dia.abierto ? 'border-card-border bg-card' : 'border-border bg-background-subtle opacity-60'
+            )}
+          >
+            {/* Toggle abierto/cerrado */}
+            <button
+              type="button"
+              onClick={() => actualizarDia(idx, 'abierto', !dia.abierto)}
+              className={cn(
+                'w-10 h-5 rounded-full transition-colors flex-shrink-0 relative',
+                dia.abierto ? 'bg-primary' : 'bg-border'
+              )}
+            >
+              <span className={cn(
+                'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform',
+                dia.abierto && 'translate-x-5'
+              )} />
+            </button>
+
+            {/* Nombre del día */}
+            <span className="w-24 text-sm font-semibold text-foreground flex-shrink-0">{dia.nombre}</span>
+
+            {dia.abierto ? (
+              <div className="flex items-center gap-2 flex-1 flex-wrap">
+                <input
+                  type="time"
+                  value={dia.apertura}
+                  onChange={e => actualizarDia(idx, 'apertura', e.target.value)}
+                  className="h-9 px-2 rounded-lg border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <span className="text-xs text-foreground-muted">–</span>
+                <input
+                  type="time"
+                  value={dia.cierre}
+                  onChange={e => actualizarDia(idx, 'cierre', e.target.value)}
+                  className="h-9 px-2 rounded-lg border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+            ) : (
+              <span className="text-xs text-foreground-muted italic ml-2">Cerrado</span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <BtnGuardar guardando={guardando} exito={exito} onClick={guardar} className="w-full sm:w-60" />
+    </div>
   )
 }
 
