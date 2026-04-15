@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Loader2, Save, Plus, Trash2, Store, Image as ImageIcon, MapPin, Share2, User, Star, Palette, Hash, Eye, EyeOff, Lock, Pencil, GripVertical, Calendar } from 'lucide-react'
+import { Loader2, Save, Plus, Trash2, Store, Image as ImageIcon, MapPin, Share2, User, Star, Palette, Hash, Eye, EyeOff, Lock, Pencil, GripVertical, Calendar, CreditCard, Landmark } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { SubidorImagenes } from '@/components/ui/subidor-imagenes'
 import { cn } from '@/lib/utils'
@@ -57,12 +57,24 @@ interface Perfil {
   telefono: string | null
 }
 
+interface MetodoPago {
+  id: string
+  banco: string
+  tipo_cuenta: 'corriente' | 'ahorros'
+  numero_cuenta: string
+  cedula_titular: string
+  nombre_titular: string
+  esta_activo: boolean
+  orden: number
+}
+
 interface Props {
   config: ConfigTienda
   direcciones: Direccion[]
   redes: RedSocial[]
   perfil: Perfil
   rol: string
+  metodosPago: MetodoPago[]
 }
 
 // ─── Schemas ─────────────────────────────────────────────────
@@ -113,17 +125,18 @@ type CamposCitas = z.infer<typeof schemaCitas>
 
 // ─── Tabs ────────────────────────────────────────────────────
 const TABS = [
-  { id: 'general', label: 'General', icon: Store },
-  { id: 'citas', label: 'Citas y Reservas', icon: Calendar },
-  { id: 'imagenes', label: 'Imágenes', icon: ImageIcon },
-  { id: 'colores', label: 'Colores', icon: Palette },
-  { id: 'direcciones', label: 'Direcciones', icon: MapPin },
-  { id: 'redes', label: 'Redes', icon: Share2 },
-  { id: 'micuenta', label: 'Mi cuenta', icon: User },
+  { id: 'general',     label: 'General',        icon: Store      },
+  { id: 'citas',       label: 'Citas',           icon: Calendar   },
+  { id: 'pagos',       label: 'Métodos de pago', icon: CreditCard },
+  { id: 'imagenes',    label: 'Imágenes',        icon: ImageIcon  },
+  { id: 'colores',     label: 'Colores',         icon: Palette    },
+  { id: 'direcciones', label: 'Direcciones',     icon: MapPin     },
+  { id: 'redes',       label: 'Redes',           icon: Share2     },
+  { id: 'micuenta',    label: 'Mi cuenta',       icon: User       },
 ]
 
 // ─── Componente principal ─────────────────────────────────────
-export function FormularioPerfil({ config, direcciones: dirInic, redes: redesInic, perfil, rol }: Props) {
+export function FormularioPerfil({ config, direcciones: dirInic, redes: redesInic, perfil, rol, metodosPago: metodosPagoInic }: Props) {
   const [tab, setTab] = useState('general')
 
   return (
@@ -157,13 +170,14 @@ export function FormularioPerfil({ config, direcciones: dirInic, redes: redesIni
 
       {/* Contenido */}
       <div className="rounded-2xl bg-card border border-card-border p-5">
-        {tab === 'general' && <TabGeneral config={config} />}
-        {tab === 'citas' && <TabCitas config={config} />}
-        {tab === 'imagenes' && <TabImagenes config={config} />}
-        {tab === 'colores' && <TabColores config={config} />}
+        {tab === 'general'     && <TabGeneral config={config} />}
+        {tab === 'citas'       && <TabCitas config={config} />}
+        {tab === 'pagos'       && <TabMetodosPago metodosPagoInic={metodosPagoInic} />}
+        {tab === 'imagenes'    && <TabImagenes config={config} />}
+        {tab === 'colores'     && <TabColores config={config} />}
         {tab === 'direcciones' && <TabDirecciones direccionesInic={dirInic} />}
-        {tab === 'redes' && <TabRedes redesInic={redesInic} />}
-        {tab === 'micuenta' && <TabMiCuenta perfil={perfil} rol={rol} />}
+        {tab === 'redes'       && <TabRedes redesInic={redesInic} />}
+        {tab === 'micuenta'    && <TabMiCuenta perfil={perfil} rol={rol} />}
       </div>
     </div>
   )
@@ -1112,6 +1126,191 @@ function SeccionPassword() {
         disabled={!actual || !nueva}
         className="w-full sm:w-60 self-end"
       />
+    </div>
+  )
+}
+
+// ─── Tab Métodos de Pago ──────────────────────────────────────
+function TabMetodosPago({ metodosPagoInic }: { metodosPagoInic: MetodoPago[] }) {
+  const [metodos, setMetodos] = useState<MetodoPago[]>(metodosPagoInic)
+  const [editando, setEditando] = useState<MetodoPago | null>(null)
+  const [creando, setCreando] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [eliminando, setEliminando] = useState<string | null>(null)
+
+  const vacío: Omit<MetodoPago, 'id' | 'orden'> = {
+    banco: '', tipo_cuenta: 'ahorros', numero_cuenta: '',
+    cedula_titular: '', nombre_titular: '', esta_activo: true,
+  }
+  const [form, setForm] = useState(vacío)
+
+  function abrirNuevo() { setForm(vacío); setEditando(null); setCreando(true) }
+  function abrirEditar(m: MetodoPago) { setForm({ banco: m.banco, tipo_cuenta: m.tipo_cuenta, numero_cuenta: m.numero_cuenta, cedula_titular: m.cedula_titular, nombre_titular: m.nombre_titular, esta_activo: m.esta_activo }); setEditando(m); setCreando(true) }
+  function cerrar() { setCreando(false); setEditando(null) }
+
+  async function guardar() {
+    if (!form.banco.trim() || !form.numero_cuenta.trim() || !form.cedula_titular.trim() || !form.nombre_titular.trim()) {
+      toast.error('Completa todos los campos'); return
+    }
+    setGuardando(true)
+    const supabase = crearClienteSupabase()
+
+    if (editando) {
+      const { error } = await supabase.from('metodos_pago').update({ ...form }).eq('id', editando.id)
+      if (error) { toast.error('Error al actualizar'); setGuardando(false); return }
+      setMetodos(ms => ms.map(m => m.id === editando.id ? { ...m, ...form } : m))
+      toast.success('Método actualizado')
+    } else {
+      const { data, error } = await supabase.from('metodos_pago').insert({ ...form, orden: metodos.length }).select().single()
+      if (error || !data) { toast.error('Error al guardar'); setGuardando(false); return }
+      setMetodos(ms => [...ms, data as MetodoPago])
+      toast.success('Método agregado')
+    }
+    setGuardando(false)
+    cerrar()
+  }
+
+  async function eliminar(id: string) {
+    setEliminando(id)
+    const supabase = crearClienteSupabase()
+    const { error } = await supabase.from('metodos_pago').delete().eq('id', id)
+    setEliminando(null)
+    if (error) { toast.error('Error al eliminar'); return }
+    setMetodos(ms => ms.filter(m => m.id !== id))
+    toast.success('Método eliminado')
+  }
+
+  async function toggleActivo(m: MetodoPago) {
+    const supabase = crearClienteSupabase()
+    await supabase.from('metodos_pago').update({ esta_activo: !m.esta_activo }).eq('id', m.id)
+    setMetodos(ms => ms.map(x => x.id === m.id ? { ...x, esta_activo: !x.esta_activo } : x))
+  }
+
+  const inputP = 'w-full h-10 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary'
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-foreground">Métodos de pago</h3>
+          <p className="text-xs text-foreground-muted mt-0.5">Aparecen en el perfil público y en la confirmación de pedidos</p>
+        </div>
+        <button onClick={abrirNuevo}
+          className="flex items-center gap-1.5 h-9 px-3 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-all">
+          <Plus className="w-3.5 h-3.5" /> Agregar
+        </button>
+      </div>
+
+      {/* Formulario inline */}
+      {creando && (
+        <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-4 flex flex-col gap-3">
+          <p className="text-sm font-bold text-foreground flex items-center gap-2">
+            <Landmark className="w-4 h-4 text-primary" />
+            {editando ? 'Editar método' : 'Nuevo método de pago'}
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-foreground-muted">Banco / Cooperativa *</label>
+              <input value={form.banco} onChange={e => setForm(f => ({ ...f, banco: e.target.value }))}
+                placeholder="Ej: Banco Pichincha" className={inputP} />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-foreground-muted">Tipo de cuenta *</label>
+              <select value={form.tipo_cuenta} onChange={e => setForm(f => ({ ...f, tipo_cuenta: e.target.value as 'corriente' | 'ahorros' }))}
+                className={inputP + ' cursor-pointer'}>
+                <option value="ahorros">Ahorros</option>
+                <option value="corriente">Corriente</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-foreground-muted">Número de cuenta *</label>
+              <input value={form.numero_cuenta} onChange={e => setForm(f => ({ ...f, numero_cuenta: e.target.value }))}
+                placeholder="Ej: 2100123456" className={inputP} />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-foreground-muted">Nombre del titular *</label>
+              <input value={form.nombre_titular} onChange={e => setForm(f => ({ ...f, nombre_titular: e.target.value }))}
+                placeholder="Ej: Juan Pérez Torres" className={inputP} />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-foreground-muted">Cédula del titular *</label>
+              <input value={form.cedula_titular} onChange={e => setForm(f => ({ ...f, cedula_titular: e.target.value }))}
+                placeholder="Ej: 0604511089" className={inputP} maxLength={13} />
+            </div>
+
+            <div className="flex items-center gap-2 pt-5">
+              <input type="checkbox" id="mp-activo" checked={form.esta_activo}
+                onChange={e => setForm(f => ({ ...f, esta_activo: e.target.checked }))}
+                className="w-4 h-4 accent-primary" />
+              <label htmlFor="mp-activo" className="text-xs font-medium text-foreground cursor-pointer">Visible en tienda</label>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={cerrar}
+              className="flex-1 h-10 rounded-xl border border-border text-sm font-medium text-foreground-muted hover:bg-background-subtle transition-all">
+              Cancelar
+            </button>
+            <button onClick={guardar} disabled={guardando}
+              className="flex-1 h-10 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
+              {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {editando ? 'Actualizar' : 'Guardar'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lista */}
+      {metodos.length === 0 && !creando ? (
+        <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+          <CreditCard className="w-8 h-8 text-foreground-muted/30 mx-auto mb-2" />
+          <p className="text-sm font-medium text-foreground-muted">Sin métodos de pago</p>
+          <p className="text-xs text-foreground-muted/70 mt-0.5">Agrega bancos o cooperativas para que los clientes puedan realizar transferencias</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {metodos.map(m => (
+            <div key={m.id} className={cn(
+              'rounded-xl border bg-card p-3 flex items-start gap-3 transition-all',
+              m.esta_activo ? 'border-card-border' : 'border-border opacity-60'
+            )}>
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Landmark className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-bold text-foreground">{m.banco}</p>
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">{m.tipo_cuenta}</span>
+                  {!m.esta_activo && <span className="text-[10px] text-foreground-muted italic">Oculto</span>}
+                </div>
+                <div className="mt-0.5 text-xs text-foreground-muted space-y-0.5">
+                  <p>Cuenta: <span className="font-mono font-semibold text-foreground">{m.numero_cuenta}</span></p>
+                  <p>Titular: <span className="font-semibold text-foreground">{m.nombre_titular}</span> · CI: <span className="font-mono">{m.cedula_titular}</span></p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button onClick={() => toggleActivo(m)} title={m.esta_activo ? 'Ocultar' : 'Mostrar'}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:bg-background-subtle transition-all">
+                  {m.esta_activo ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                </button>
+                <button onClick={() => abrirEditar(m)} title="Editar"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-primary hover:bg-primary/10 transition-all">
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => eliminar(m.id)} disabled={eliminando === m.id} title="Eliminar"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 disabled:opacity-50 transition-all">
+                  {eliminando === m.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

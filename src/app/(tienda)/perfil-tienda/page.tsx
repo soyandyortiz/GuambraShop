@@ -1,5 +1,5 @@
 import { crearClienteServidor } from '@/lib/supabase/servidor'
-import { MapPin, MessageCircle, Star, Package, ExternalLink, Tag } from 'lucide-react'
+import { MapPin, MessageCircle, Star, Package, ExternalLink, Tag, CreditCard, Landmark } from 'lucide-react'
 import Link from 'next/link'
 import { TarjetaProducto } from '@/components/tienda/tarjeta-producto'
 import { IconoRedSocial } from '@/components/tienda/icono-red-social'
@@ -19,6 +19,7 @@ export default async function PáginaPerfilTienda() {
     { data: productos },
     { count: totalProductos },
     { data: promociones },
+    { data: metodosPago },
   ] = await Promise.all([
     supabase.from('configuracion_tienda')
       .select('nombre_tienda, descripcion, logo_url, whatsapp, politicas_negocio, foto_perfil_url, foto_portada_url')
@@ -44,6 +45,10 @@ export default async function PáginaPerfilTienda() {
       .or(`inicia_en.is.null,inicia_en.lte.${ahora}`)
       .or(`termina_en.is.null,termina_en.gte.${ahora}`)
       .order('creado_en', { ascending: false }),
+    supabase.from('metodos_pago')
+      .select('id, banco, tipo_cuenta, numero_cuenta, cedula_titular, nombre_titular')
+      .eq('esta_activo', true)
+      .order('orden'),
   ])
 
   function imagenPrincipal(imgs: { url: string; orden: number }[]): string | null {
@@ -144,6 +149,38 @@ export default async function PáginaPerfilTienda() {
           </div>
         )}
 
+        {/* ── Métodos de pago ─────────────────────── */}
+        {(metodosPago?.length ?? 0) > 0 && (
+          <div className="mt-5">
+            <p className="text-xs font-semibold text-foreground-muted uppercase tracking-wide mb-3 flex items-center gap-1.5">
+              <CreditCard className="w-3.5 h-3.5 text-primary" />
+              Métodos de pago
+            </p>
+            <div className="flex flex-col gap-2">
+              {metodosPago!.map((mp: any) => (
+                <div key={mp.id} className="rounded-xl border border-card-border bg-card p-3 flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Landmark className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-bold text-foreground">{mp.banco}</p>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">
+                        {mp.tipo_cuenta}
+                      </span>
+                    </div>
+                    <div className="mt-1 grid grid-cols-1 gap-0.5 text-xs text-foreground-muted">
+                      <span>N° de cuenta: <span className="font-mono font-semibold text-foreground">{mp.numero_cuenta}</span></span>
+                      <span>Titular: <span className="font-semibold text-foreground">{mp.nombre_titular}</span></span>
+                      <span>Cédula: <span className="font-mono font-semibold text-foreground">{mp.cedula_titular}</span></span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── Direcciones ─────────────────────────── */}
         {(direcciones?.length ?? 0) > 0 && (
           <div className="mt-5">
@@ -182,21 +219,6 @@ export default async function PáginaPerfilTienda() {
                     </div>
                   </div>
 
-                  {/* Mapa embebido si tiene enlace */}
-                  {(dir as any).enlace_mapa && (
-                    <div className="w-full h-48 border-t border-border">
-                      <iframe
-                        src={(dir as any).enlace_mapa}
-                        width="100%"
-                        height="100%"
-                        style={{ border: 0 }}
-                        allowFullScreen
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                        title={`Mapa — ${dir.etiqueta}`}
-                      />
-                    </div>
-                  )}
                 </div>
               ))}
             </div>

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   ShoppingCart, Trash2, Plus, Minus, Tag, Truck,
   Store, ChevronRight, Loader2, MessageCircle, Package,
-  CheckCircle2, User, Mail, Phone, MapPin, ChevronDown, Calendar
+  CheckCircle2, User, Mail, Phone, MapPin, ChevronDown, Calendar, Landmark
 } from 'lucide-react'
 import { usarCarrito } from '@/hooks/usar-carrito'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
@@ -14,10 +14,20 @@ import { toast } from 'sonner'
 import { generarMensajeWhatsApp, generarEnlaceWhatsApp } from '@/lib/whatsapp'
 import { PROVINCIAS_ECUADOR, CODIGOS_PAIS } from '@/lib/ecuador'
 
+interface MetodoPago {
+  id: string
+  banco: string
+  tipo_cuenta: string
+  numero_cuenta: string
+  cedula_titular: string
+  nombre_titular: string
+}
+
 interface Props {
   whatsapp: string
   nombreTienda: string
   simboloMoneda: string
+  metodosPago: MetodoPago[]
 }
 
 interface Cupon {
@@ -38,7 +48,7 @@ type Paso = 'carrito' | 'envio' | 'datos'
 const INPUT_BASE =
   'w-full h-11 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all'
 
-export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda }: Props) {
+export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosPago }: Props) {
   const { items, quitar, actualizarCantidad, limpiar, subtotal, hidratado } = usarCarrito()
 
   const soloServicios = items.every(i => i.tipo_producto === 'servicio')
@@ -689,6 +699,35 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda }: Props)
               <p className="text-sm text-foreground-muted text-center mb-4">
                 Ahora comunícate con nuestro equipo de ventas por WhatsApp para confirmar y coordinar tu pedido.
               </p>
+
+              {/* Métodos de pago */}
+              {metodosPago.length > 0 && (
+                <div className="mb-4 rounded-2xl border border-border bg-background-subtle overflow-hidden">
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card">
+                    <Landmark className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                    <p className="text-xs font-bold text-foreground uppercase tracking-wide">Puedes pagar por transferencia</p>
+                  </div>
+                  <div className="divide-y divide-border">
+                    {metodosPago.map(mp => (
+                      <div key={mp.id} className="px-3 py-2.5 flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-bold text-foreground">{mp.banco}</p>
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">{mp.tipo_cuenta}</span>
+                        </div>
+                        <p className="text-xs text-foreground-muted">
+                          Cuenta: <span className="font-mono font-semibold text-foreground">{mp.numero_cuenta}</span>
+                        </p>
+                        <p className="text-xs text-foreground-muted">
+                          Titular: <span className="font-semibold text-foreground">{mp.nombre_titular}</span>
+                        </p>
+                        <p className="text-xs text-foreground-muted">
+                          Cédula: <span className="font-mono text-foreground">{mp.cedula_titular}</span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <a
                 href={pedidoCreado.whatsappUrl}

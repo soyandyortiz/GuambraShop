@@ -13,11 +13,13 @@ export default async function PáginaPerfil() {
     { data: direcciones },
     { data: redes },
     { data: perfil },
+    { data: metodosPago },
   ] = await Promise.all([
     supabase.from('configuracion_tienda').select('*').single(),
     supabase.from('direcciones_negocio').select('id, etiqueta, direccion, ciudad, provincia, pais, es_principal, enlace_mapa').order('es_principal', { ascending: false }),
     supabase.from('redes_sociales').select('*').order('orden'),
     supabase.from('perfiles').select('id, nombre, telefono, rol').eq('id', user.id).single(),
+    supabase.from('metodos_pago').select('*').order('orden'),
   ])
 
   if (!config) {
@@ -35,6 +37,7 @@ export default async function PáginaPerfil() {
       redes={redes ?? []}
       perfil={{ id: user.id, nombre: perfil?.nombre ?? null, telefono: perfil?.telefono ?? null }}
       rol={perfil?.rol ?? 'admin'}
+      metodosPago={(metodosPago as any) ?? []}
     />
   )
 }
