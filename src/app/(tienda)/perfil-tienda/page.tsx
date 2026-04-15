@@ -192,24 +192,22 @@ export default async function PáginaPerfilTienda() {
               <CreditCard className="w-3.5 h-3.5 text-primary" />
               Métodos de pago
             </p>
-            <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {metodosPago!.map((mp: any) => (
-                <div key={mp.id} className="rounded-xl border border-card-border bg-card p-3 flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Landmark className="w-4 h-4 text-primary" />
+                <div key={mp.id} className="rounded-xl border border-primary/20 bg-primary/5 p-3 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0">
+                      <Landmark className="w-3.5 h-3.5 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-foreground leading-tight truncate">{mp.banco}</p>
+                      <span className="text-[9px] font-semibold text-primary capitalize">{mp.tipo_cuenta}</span>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-bold text-foreground">{mp.banco}</p>
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">
-                        {mp.tipo_cuenta}
-                      </span>
-                    </div>
-                    <div className="mt-1 grid grid-cols-1 gap-0.5 text-xs text-foreground-muted">
-                      <span>N° de cuenta: <span className="font-mono font-semibold text-foreground">{mp.numero_cuenta}</span></span>
-                      <span>Titular: <span className="font-semibold text-foreground">{mp.nombre_titular}</span></span>
-                      <span>Cédula: <span className="font-mono font-semibold text-foreground">{mp.cedula_titular}</span></span>
-                    </div>
+                  <div className="flex flex-col gap-0.5 text-[11px] text-foreground-muted">
+                    <span className="font-mono font-semibold text-foreground text-xs">{mp.numero_cuenta}</span>
+                    <span className="truncate">{mp.nombre_titular}</span>
+                    <span className="font-mono">{mp.cedula_titular}</span>
                   </div>
                 </div>
               ))}
