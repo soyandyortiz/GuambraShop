@@ -1,9 +1,8 @@
 import { crearClienteServidor } from '@/lib/supabase/servidor'
-import { MapPin, MessageCircle, Star, Package, ExternalLink, Tag, CreditCard, Landmark, Clock } from 'lucide-react'
+import { MapPin, MessageCircle, Star, Package, ExternalLink, Tag, CreditCard, Landmark, Clock, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { TarjetaProducto } from '@/components/tienda/tarjeta-producto'
 import { IconoRedSocial } from '@/components/tienda/icono-red-social'
-import { ModalPoliticas } from '@/components/tienda/modal-politicas'
 import { generarEnlacePromocion } from '@/lib/whatsapp'
 import { formatearPrecio } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -322,7 +321,25 @@ export default async function PáginaPerfilTienda() {
 
         {/* ── Políticas ───────────────────────────── */}
         {config?.politicas_negocio && (
-          <ModalPoliticas politicas={config.politicas_negocio} />
+          <div className="mt-5">
+            <Link
+              href="/politicas"
+              className="w-full flex items-center justify-between p-4 rounded-2xl bg-card border border-card-border hover:border-primary/30 hover:shadow-sm transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-foreground">Políticas del negocio</p>
+                  <p className="text-xs text-foreground-muted">Términos, devoluciones y envíos</p>
+                </div>
+              </div>
+              <div className="text-xs font-semibold text-primary px-3 py-1.5 rounded-lg bg-primary/5 group-hover:bg-primary/10 transition-colors">
+                Ver más
+              </div>
+            </Link>
+          </div>
         )}
 
 
