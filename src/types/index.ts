@@ -95,6 +95,7 @@ export interface VarianteProducto {
   esta_activa: boolean
   orden: number
   creado_en: string
+  stock?: number | null
 }
 
 export interface ResenaProducto {
@@ -131,6 +132,7 @@ export interface Producto {
   precio: number
   precio_descuento: number | null
   categoria_id: string | null
+  stock?: number | null
   esta_activo: boolean
   requiere_tallas: boolean
   etiquetas: string[]
@@ -195,6 +197,7 @@ export interface TallaProducto {
   disponible: boolean
   orden: number
   creado_en: string
+  stock?: number | null
 }
 
 export interface Lead {

@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import {
   Search, Truck, Store, ChevronDown, ChevronUp,
-  Package, Phone, Mail, MapPin, Download, ShoppingBag
+  Package, Phone, Mail, MapPin, Download, ShoppingBag, Calendar
 } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
@@ -55,10 +55,19 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
   async function cambiarEstado(id: string, nuevoEstado: EstadoPedido) {
     setActualizando(id)
     const supabase = crearClienteSupabase()
-    const { error } = await supabase
-      .from('pedidos')
-      .update({ estado: nuevoEstado })
-      .eq('id', id)
+    let error = null
+    
+    if (nuevoEstado === 'confirmado') {
+      const { error: rpcError } = await supabase.rpc('confirmar_pedido', { p_pedido_id: id })
+      error = rpcError
+    } else {
+      const { error: updateError } = await supabase
+        .from('pedidos')
+        .update({ estado: nuevoEstado })
+        .eq('id', id)
+      error = updateError
+    }
+    
     setActualizando(null)
 
     if (error) { toast.error('Error al actualizar el estado'); return }
@@ -271,23 +280,37 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                     {/* Items */}
                     <div>
                       <p className="text-xs font-semibold text-foreground-muted uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                        <Package className="w-3.5 h-3.5" /> Productos
+                        <Package className="w-3.5 h-3.5" /> Productos y Servicios
                       </p>
                       <div className="flex flex-col gap-1.5">
-                        {(pedido.items as ItemPedido[]).map((item, i) => (
+                        {(pedido.items as any[]).map((item, i) => (
                           <div key={i} className="flex items-center gap-3 bg-card rounded-xl px-3 py-2 border border-border">
                             <div className="w-8 h-8 rounded-lg bg-background-subtle border border-border overflow-hidden flex-shrink-0 flex items-center justify-center">
                               {item.imagen_url
                                 // eslint-disable-next-line @next/next/no-img-element
                                 ? <img src={item.imagen_url} alt={item.nombre} className="w-full h-full object-cover" />
-                                : <Package className="w-3.5 h-3.5 text-foreground-muted/40" />
+                                : item.tipo_producto === 'servicio'
+                                  ? <Calendar className="w-4 h-4 text-foreground-muted/40" />
+                                  : <Package className="w-3.5 h-3.5 text-foreground-muted/40" />
                               }
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-foreground truncate">{item.nombre}</p>
-                              {(item.variante || item.talla) && (
-                                <p className="text-[10px] text-foreground-muted">
-                                  {[item.variante, item.talla && `Talla: ${item.talla}`].filter(Boolean).join(' · ')}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="text-xs font-semibold text-foreground truncate">{item.nombre}</p>
+                                {item.tipo_producto === 'servicio' && (
+                                  <span className="text-[9px] bg-blue-500/10 text-blue-600 px-1.5 py-[1px] rounded uppercase font-bold tracking-wide">
+                                    Servicio
+                                  </span>
+                                )}
+                              </div>
+                              {(item.variante || item.nombre_variante || item.talla) && (
+                                <p className="text-[10px] text-foreground-muted mt-[1px]">
+                                  {[item.variante || item.nombre_variante, item.talla && `Talla: ${item.talla}`].filter(Boolean).join(' · ')}
+                                </p>
+                              )}
+                              {item.cita && (
+                                <p className="text-[10px] text-foreground-muted mt-1 font-medium bg-background-subtle w-fit px-1.5 py-0.5 rounded">
+                                  📅 {new Date(`${item.cita.fecha}T00:00:00`).toLocaleDateString('es-EC')} · ⏰ {item.cita.hora_inicio.slice(0, 5)}
                                 </p>
                               )}
                             </div>

@@ -26,16 +26,20 @@ const esquema = z.object({
   esta_activo:      z.boolean(),
   etiquetas:        z.string().optional(),
   requiere_tallas:  z.boolean(),
+  tipo_producto:    z.enum(['producto', 'servicio']),
+  stock:            z.string().optional(),
   variantes: z.array(z.object({
     id:             z.string().optional(),
     nombre:         z.string().min(1, 'Nombre requerido'),
     descripcion:    z.string().optional(),
     precio_variante:z.string().optional(),
+    stock_variante: z.string().optional(),
   })),
   tallas: z.array(z.object({
     id:         z.string().optional(),
     talla:      z.string().min(1, 'Talla requerida'),
     disponible: z.boolean(),
+    stock_talla:z.string().optional(),
   })),
 })
 
@@ -80,13 +84,17 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       esta_activo: producto?.esta_activo ?? true,
       etiquetas: producto?.etiquetas?.join(', ') ?? '',
       requiere_tallas: producto?.requiere_tallas ?? false,
+      tipo_producto: producto?.tipo_producto ?? 'producto',
+      stock: producto?.stock?.toString() ?? '',
       variantes: producto?.variantes?.map(v => ({
         id: v.id, nombre: v.nombre,
         descripcion: v.descripcion ?? '',
         precio_variante: v.precio_variante?.toString() ?? '',
+        stock_variante: v.stock?.toString() ?? '',
       })) ?? [],
       tallas: producto?.tallas?.map(t => ({
         id: t.id, talla: t.talla, disponible: t.disponible,
+        stock_talla: t.stock?.toString() ?? '',
       })) ?? [],
     },
   })
@@ -122,6 +130,8 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       esta_activo: datos.esta_activo,
       etiquetas: etiquetasArray,
       requiere_tallas: datos.requiere_tallas,
+      tipo_producto: datos.tipo_producto,
+      stock: datos.stock ? parseInt(datos.stock, 10) : null,
     }
 
     let productoId = producto?.id
@@ -152,6 +162,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
           nombre: v.nombre,
           descripcion: v.descripcion ?? null,
           precio_variante: v.precio_variante ? Number(v.precio_variante) : null,
+          stock: v.stock_variante ? parseInt(v.stock_variante, 10) : null,
           orden: i,
         }))
       )
@@ -165,6 +176,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
           producto_id: productoId,
           talla: t.talla,
           disponible: t.disponible,
+          stock: t.stock_talla ? parseInt(t.stock_talla, 10) : null,
           orden: i,
         }))
       )
@@ -224,6 +236,16 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
             error={errors.slug?.message}
             {...register('slug')}
           />
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-foreground block">Tipo</label>
+            <select
+              {...register('tipo_producto')}
+              className="w-full h-11 px-4 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="producto">Producto Físico</option>
+              <option value="servicio">Servicio (Agendable)</option>
+            </select>
+          </div>
           {/* Selector de categoría en 2 pasos */}
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-foreground block">Categoría</label>
@@ -290,6 +312,12 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
             placeholder="0.00"
             {...register('precio_descuento')}
           />
+          <Input
+            etiqueta="Stock base (Opcional)"
+            type="number"
+            placeholder="Ej: 50"
+            {...register('stock')}
+          />
         </div>
       </Sección>
 
@@ -314,10 +342,11 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <Input placeholder="Nombre (ej: Color Rojo)" error={errors.variantes?.[i]?.nombre?.message} {...register(`variantes.${i}.nombre`)} />
                 <Input placeholder="Descripción (opcional)" {...register(`variantes.${i}.descripcion`)} />
                 <Input type="number" step="0.01" placeholder="Precio (reemplaza al base)" {...register(`variantes.${i}.precio_variante`)} />
+                <Input type="number" placeholder="Stock (Opc)" {...register(`variantes.${i}.stock_variante`)} />
               </div>
             </div>
           ))}
@@ -361,7 +390,13 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
                       <input type="checkbox" {...register(`tallas.${i}.disponible`)} className="rounded" />
                       Disp.
                     </label>
-                    <button type="button" onClick={() => removeTalla(i)} className="text-foreground-muted hover:text-danger transition-colors">
+                    <input
+                      {...register(`tallas.${i}.stock_talla`)}
+                      placeholder="Stock"
+                      type="number"
+                      className="w-16 h-9 px-2 text-xs rounded-xl border border-input-border bg-input-bg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <button type="button" onClick={() => removeTalla(i)} className="text-foreground-muted hover:text-danger transition-colors ml-1">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
