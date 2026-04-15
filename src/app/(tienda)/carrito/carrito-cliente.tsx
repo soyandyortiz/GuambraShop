@@ -41,6 +41,8 @@ const INPUT_BASE =
 export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda }: Props) {
   const { items, quitar, actualizarCantidad, limpiar, subtotal, hidratado } = usarCarrito()
 
+  const soloServicios = items.every(i => i.tipo_producto === 'servicio')
+
   const [confirmarVaciar, setConfirmarVaciar] = useState(false)
   const [codigoCupon, setCodigoCupon] = useState('')
   const [cupon, setCupon] = useState<Cupon | null>(null)
@@ -136,12 +138,14 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda }: Props)
           producto_id: i.producto_id,
           nombre: i.nombre,
           slug: i.slug,
+          tipo_producto: i.tipo_producto,
           imagen_url: i.imagen_url,
           precio: i.precio,
           variante: i.nombre_variante ?? null,
           talla: i.talla ?? null,
           cantidad: i.cantidad,
           subtotal: +(i.precio * i.cantidad).toFixed(2),
+          cita: i.cita,
         })),
         simbolo_moneda: simboloMoneda,
         subtotal: +subtotal.toFixed(2),
@@ -150,7 +154,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda }: Props)
         costo_envio: 0,
         total: +total.toFixed(2),
       })
-      .select('numero_orden')
+      .select('id, numero_orden')
       .single()
 
     setCreandoPedido(false)
@@ -158,6 +162,19 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda }: Props)
     if (error || !data) {
       toast.error('Error al crear el pedido. Intenta nuevamente.')
       return
+    }
+
+    const serviciosParaCita = items.filter(i => i.tipo_producto === 'servicio' && i.cita)
+    if (serviciosParaCita.length > 0) {
+      const citasPayload = serviciosParaCita.map(i => ({
+        pedido_id: data.id,
+        producto_id: i.producto_id,
+        fecha: i.cita!.fecha,
+        hora_inicio: i.cita!.hora_inicio,
+        hora_fin: i.cita!.hora_fin,
+        estado: 'pendiente'
+      }))
+      await supabase.from('citas').insert(citasPayload)
     }
 
     // Incrementar uso del cupón
@@ -389,9 +406,16 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda }: Props)
             </div>
           </div>
 
-          <button onClick={() => setPaso('envio')}
+          <button onClick={() => {
+            if (soloServicios) {
+              setTipoEnvio('tienda')
+              setPaso('datos')
+            } else {
+              setPaso('envio')
+            }
+          }}
             className="w-full h-13 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm shadow-primary/30 py-4">
-            Elegir entrega <ChevronRight className="w-4 h-4" />
+            {soloServicios ? 'Completar mis datos' : 'Elegir entrega'} <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -473,7 +497,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda }: Props)
           <h2 className="text-base font-bold text-foreground">Tus datos de contacto</h2>
 
           {/* ── Delivery: datos de dirección ── */}
-          {tipoEnvio === 'envio' && (
+          {tipoEnvio === 'envio' && !soloServicios && (
             <div className="bg-card border border-card-border rounded-2xl p-4 flex flex-col gap-3">
               <p className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wide">
                 <MapPin className="w-3.5 h-3.5 text-primary" /> Dirección de entrega
@@ -606,10 +630,10 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda }: Props)
           <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex flex-col gap-1">
             <div className="flex justify-between text-sm">
               <span className="text-foreground-muted">
-                {tipoEnvio === 'tienda' ? 'Entrega en local físico' : 'Envío a domicilio'}
+                {soloServicios ? 'Servicio(s) agendado(s)' : (tipoEnvio === 'tienda' ? 'Entrega en local físico' : 'Envío a domicilio')}
               </span>
               <span className="font-medium text-foreground-muted">
-                {tipoEnvio === 'tienda' ? 'Gratis' : 'A coordinar'}
+                {soloServicios ? '' : (tipoEnvio === 'tienda' ? 'Gratis' : 'A coordinar')}
               </span>
             </div>
             <div className="flex justify-between pt-1 border-t border-primary/20">

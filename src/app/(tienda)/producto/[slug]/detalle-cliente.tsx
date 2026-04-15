@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Star, ShoppingCart,
-  Heart, Share2, MessageCircle, Package, Tag
+  Heart, Share2, MessageCircle, Package, Tag,
+  Calendar, Clock
 } from 'lucide-react'
 import Link from 'next/link'
+import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { cn, formatearPrecio, calcularDescuento } from '@/lib/utils'
 import { usarCarrito } from '@/hooks/usar-carrito'
 import { usarFavoritos } from '@/hooks/usar-favoritos'
@@ -54,6 +56,43 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   const [mostrarFormResena, setMostrarFormResena] = useState(false)
   const [citaFecha, setCitaFecha] = useState<string>('')
   const [citaHora, setCitaHora] = useState<string>('')
+  const [horasOcupadas, setHorasOcupadas] = useState<string[]>([])
+  const [cargandoHoras, setCargandoHoras] = useState(false)
+
+  useEffect(() => {
+    if (producto.tipo_producto !== 'servicio' || !citaFecha) return
+
+    async function cargarCitas() {
+      setCargandoHoras(true)
+      const supabase = crearClienteSupabase()
+      
+      const { data } = await supabase
+        .from('citas')
+        .select('hora_inicio')
+        .eq('producto_id', producto.id)
+        .eq('fecha', citaFecha)
+        
+      if (data) {
+        setHorasOcupadas(data.map(c => c.hora_inicio.slice(0, 5)))
+      }
+      setCargandoHoras(false)
+    }
+    
+    cargarCitas()
+    setCitaHora('')
+  }, [citaFecha, producto.id, producto.tipo_producto])
+
+  const slots: string[] = []
+  if (configCitas.hora_apertura && configCitas.hora_cierre) {
+    let actual = new Date(`1970-01-01T${configCitas.hora_apertura}:00`)
+    const cierre = new Date(`1970-01-01T${configCitas.hora_cierre}:00`)
+    const step = configCitas.duracion_cita_minutos || 30
+    
+    while (actual < cierre) {
+      slots.push(actual.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))
+      actual.setMinutes(actual.getMinutes() + step)
+    }
+  }
 
   const variante = variantes.find(v => v.id === varianteId)
   const precioBase = variante?.precio_variante ?? producto.precio_descuento ?? producto.precio
@@ -296,24 +335,53 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
           {/* Citas */}
           {producto.tipo_producto === 'servicio' && configCitas.habilitar_citas && (
             <div className="px-4 py-4 border-t border-border lg:px-8">
-              <p className="text-xs font-semibold text-foreground mb-2.5">Agenda tu cita</p>
-              <div className="flex flex-col gap-3">
+              <p className="text-xs font-semibold text-foreground mb-2.5 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-primary" /> Selecciona el Día
+              </p>
+              <div className="flex flex-col gap-4">
                 <input 
                   type="date" 
                   value={citaFecha}
                   min={new Date().toISOString().split('T')[0]}
                   onChange={(e) => setCitaFecha(e.target.value)}
-                  className="w-full h-11 px-3 rounded-xl border border-input-border text-sm bg-input-bg text-foreground"
+                  className="w-full h-11 px-3 rounded-xl border border-input-border text-sm bg-input-bg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
-                <input 
-                  type="time" 
-                  value={citaHora}
-                  min={configCitas.hora_apertura}
-                  max={configCitas.hora_cierre}
-                  step={((configCitas.duracion_cita_minutos || 30) * 60).toString()}
-                  onChange={(e) => setCitaHora(e.target.value)}
-                  className="w-full h-11 px-3 rounded-xl border border-input-border text-sm bg-input-bg text-foreground"
-                />
+                
+                {citaFecha && (
+                  <div>
+                    <p className="text-xs font-semibold text-foreground mb-2.5 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-primary" /> Horarios Disponibles
+                    </p>
+                    {cargandoHoras ? (
+                      <div className="flex justify-center py-4">
+                        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {slots.length > 0 ? slots.map(hora => {
+                          const ocupada = horasOcupadas.includes(hora)
+                          return (
+                            <button
+                              key={hora}
+                              disabled={ocupada}
+                              onClick={() => setCitaHora(hora)}
+                              className={cn(
+                                'h-10 rounded-xl text-sm font-semibold transition-all flex items-center justify-center',
+                                ocupada ? 'bg-background-subtle text-foreground-muted/40 cursor-not-allowed line-through' :
+                                citaHora === hora ? 'bg-primary text-white shadow-md shadow-primary/20' :
+                                'bg-card border border-border text-foreground hover:border-primary/40'
+                              )}
+                            >
+                              {hora}
+                            </button>
+                          )
+                        }) : (
+                          <p className="text-xs text-foreground-muted col-span-full">No hay horarios configurados</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
