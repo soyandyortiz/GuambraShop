@@ -14,18 +14,19 @@ import {
   Megaphone, Settings, MessageSquare, LogOut, Star, ClipboardList, CalendarDays
 } from 'lucide-react'
 import type { Rol } from '@/types'
+import { usarConteosAdmin } from '@/hooks/usar-conteos-admin'
 
 const navegacion = [
-  { href: '/admin/dashboard',             icono: <LayoutDashboard className="w-4 h-4" />, etiqueta: 'Inicio' },
-  { href: '/admin/dashboard/productos',   icono: <Package className="w-4 h-4" />,         etiqueta: 'Productos' },
-  { href: '/admin/dashboard/categorias',  icono: <Tag className="w-4 h-4" />,              etiqueta: 'Categorías' },
-  { href: '/admin/dashboard/cupones',     icono: <Ticket className="w-4 h-4" />,           etiqueta: 'Cupones' },
-  { href: '/admin/dashboard/promociones', icono: <Megaphone className="w-4 h-4" />,        etiqueta: 'Promociones' },
-  { href: '/admin/dashboard/pedidos',      icono: <ClipboardList className="w-4 h-4" />,  etiqueta: 'Pedidos' },
-  { href: '/admin/dashboard/calendario',  icono: <CalendarDays className="w-4 h-4" />,    etiqueta: 'Calendario' },
-  { href: '/admin/dashboard/resenas',     icono: <Star className="w-4 h-4" />,             etiqueta: 'Reseñas' },
-  { href: '/admin/dashboard/mensajes',    icono: <MessageSquare className="w-4 h-4" />,    etiqueta: 'Mensajes' },
-  { href: '/admin/dashboard/perfil',      icono: <Settings className="w-4 h-4" />,         etiqueta: 'Perfil tienda' },
+  { href: '/admin/dashboard',             icono: <LayoutDashboard className="w-4 h-4" />, etiqueta: 'Inicio',        badge: null },
+  { href: '/admin/dashboard/productos',   icono: <Package className="w-4 h-4" />,         etiqueta: 'Productos',     badge: null },
+  { href: '/admin/dashboard/categorias',  icono: <Tag className="w-4 h-4" />,              etiqueta: 'Categorías',    badge: null },
+  { href: '/admin/dashboard/cupones',     icono: <Ticket className="w-4 h-4" />,           etiqueta: 'Cupones',       badge: null },
+  { href: '/admin/dashboard/promociones', icono: <Megaphone className="w-4 h-4" />,        etiqueta: 'Promociones',   badge: null },
+  { href: '/admin/dashboard/pedidos',     icono: <ClipboardList className="w-4 h-4" />,    etiqueta: 'Pedidos',       badge: 'pedidos' },
+  { href: '/admin/dashboard/calendario',  icono: <CalendarDays className="w-4 h-4" />,     etiqueta: 'Calendario',    badge: 'citas' },
+  { href: '/admin/dashboard/resenas',     icono: <Star className="w-4 h-4" />,             etiqueta: 'Reseñas',       badge: null },
+  { href: '/admin/dashboard/mensajes',    icono: <MessageSquare className="w-4 h-4" />,    etiqueta: 'Mensajes',      badge: null },
+  { href: '/admin/dashboard/perfil',      icono: <Settings className="w-4 h-4" />,         etiqueta: 'Perfil tienda', badge: null },
 ]
 
 interface PropsHeaderAdmin {
@@ -34,11 +35,30 @@ interface PropsHeaderAdmin {
   fotoPerfil?: string | null
 }
 
+function BadgeConteo({ count, activo }: { count: number; activo: boolean }) {
+  if (count === 0) return null
+  return (
+    <span className={cn(
+      'ml-auto min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center leading-none',
+      activo ? 'bg-white text-primary' : 'bg-danger text-white'
+    )}>
+      {count > 99 ? '99+' : count}
+    </span>
+  )
+}
+
 export function HeaderAdmin({ nombre, rol, fotoPerfil }: PropsHeaderAdmin) {
   const [menuAbierto, setMenuAbierto] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
   const esSuperadmin = rol === 'superadmin'
+  const { pedidosPendientes, citasPendientes } = usarConteosAdmin()
+
+  function obtenerBadge(badge: string | null) {
+    if (badge === 'pedidos') return pedidosPendientes
+    if (badge === 'citas')   return citasPendientes
+    return 0
+  }
 
   async function cerrarSesion() {
     DemoStore.limpiar()
@@ -109,6 +129,7 @@ export function HeaderAdmin({ nombre, rol, fotoPerfil }: PropsHeaderAdmin) {
             <div className="flex-1 overflow-y-auto py-3 px-2">
               {navegacion.map((item) => {
                 const activo = pathname === item.href
+                const count  = obtenerBadge(item.badge)
                 return (
                   <Link
                     key={item.href}
@@ -123,6 +144,7 @@ export function HeaderAdmin({ nombre, rol, fotoPerfil }: PropsHeaderAdmin) {
                   >
                     {item.icono}
                     {item.etiqueta}
+                    <BadgeConteo count={count} activo={activo} />
                   </Link>
                 )
               })}

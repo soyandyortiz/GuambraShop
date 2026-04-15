@@ -218,27 +218,29 @@ export function VistaCalendario({ citas: citasInic, mesActual }: Props) {
                     {dia}
                   </span>
 
-                  {/* Puntos de citas */}
+                  {/* Puntos de citas + badge pendientes */}
                   {(activas.length > 0 || pendientes.length > 0) && (
-                    <div className="flex flex-wrap gap-0.5 mt-1">
+                    <div className="flex flex-wrap gap-0.5 mt-1 items-center">
                       {/* Puntos activas (reservada=azul, confirmada=verde) */}
                       {activas.slice(0, 3).map(c => (
                         <span
                           key={c.id}
                           className={cn(
-                            'w-1.5 h-1.5 rounded-full',
+                            'w-1.5 h-1.5 rounded-full flex-shrink-0',
                             c.estado === 'confirmada' ? 'bg-green-500' : 'bg-blue-500'
                           )}
                         />
                       ))}
-                      {/* Punto pendiente (amarillo) si las hay */}
-                      {pendientes.length > 0 && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-                      )}
                       {/* Contador si hay más de 3 activas */}
                       {activas.length > 3 && (
-                        <span className="text-[8px] font-bold text-foreground-muted leading-none self-center">
+                        <span className="text-[8px] font-bold text-foreground-muted leading-none">
                           +{activas.length - 3}
+                        </span>
+                      )}
+                      {/* Badge rojo con conteo de pendientes */}
+                      {pendientes.length > 0 && (
+                        <span className="ml-auto min-w-[14px] h-[14px] px-0.5 rounded-full bg-danger text-white text-[8px] font-black flex items-center justify-center leading-none flex-shrink-0">
+                          {pendientes.length}
                         </span>
                       )}
                     </div>
