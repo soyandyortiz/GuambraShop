@@ -24,7 +24,7 @@ src/app/
 ├── (tienda)/              ← Tienda pública (sin auth)
 │   ├── page.tsx           ← Home
 │   ├── buscar/            ← Búsqueda + filtros de precio
-│   ├── carrito/           ← Carrito de compras
+│   ├── carrito/           ← Carrito de compras (flujo 3 pasos)
 │   ├── favoritos/         ← Productos guardados
 │   ├── categorias/        ← Listado de categorías
 │   ├── perfil-tienda/     ← Info pública del negocio
@@ -38,7 +38,8 @@ src/app/
         ├── cupones/
         ├── promociones/
         ├── envios/
-        ├── leads/         ← Teléfonos capturados
+        ├── pedidos/       ← Órdenes de clientes
+        ├── citas/         ← Agenda de servicios agendados
         ├── resenas/       ← Reseñas de productos
         ├── perfil/
         └── mensajes/
@@ -49,30 +50,35 @@ src/app/
 - `src/lib/supabase/cliente.ts` → componentes con `'use client'`
 - `src/lib/supabase/servidor.ts` → Server Components y Route Handlers
 
+## Middleware de auth
+
+`src/proxy.ts` exporta la función `proxy()` y el `config.matcher`. Protege `/admin/dashboard` redirigiendo a `/admin` si no hay sesión. El `middleware.ts` importa desde ahí.
+
 ## Tipos y utilidades
 
 - `src/types/index.ts` → todos los tipos TypeScript (reflejan las tablas de Supabase exactamente)
 - `src/lib/utils.ts` → `cn()`, `formatearPrecio()`, `calcularDescuento()`, `generarSlug()`, `generarSessionId()`
 - `src/lib/whatsapp.ts` → generadores de mensajes de WhatsApp
 - `src/lib/paletas.ts` → `PALETAS[]` y `obtenerPaleta(color)` — 8 paletas predefinidas
+- `src/lib/ecuador.ts` → `PROVINCIAS_ECUADOR[]` y `CODIGOS_PAIS[]`
 
 ## Theming dinámico
 
 El color de la tienda se lee de `configuracion_tienda.color_primario` en el `RootLayout` del servidor y se aplica como CSS variables globales (`--primary`, `--primary-hover`, `--primary-foreground`). Siempre usar `var(--primary)` o la clase `bg-primary` en lugar de colores hardcodeados.
 
-## Base de datos (17 tablas)
+## Base de datos (19 tablas)
 
 Schema en `supabase/migrations/`. Aplicar en orden cronológico.
 
 | Tabla | Propósito |
 |-------|-----------|
 | `perfiles` | Extiende auth.users con rol admin/superadmin |
-| `configuracion_tienda` | Una sola fila — datos del negocio + campos de cobro (`cobro_activo`, `fecha_inicio_sistema`, `dias_pago`) |
+| `configuracion_tienda` | Una sola fila — datos del negocio + citas (`habilitar_citas`, `hora_apertura`, `hora_cierre`, `duracion_cita_minutos`) + cobro (`cobro_activo`, `fecha_inicio_sistema`, `dias_pago`) |
 | `direcciones_negocio` | Múltiples direcciones físicas |
 | `redes_sociales` | Botones de redes sociales |
 | `mensajes_admin` | Del superadmin al admin |
 | `categorias` | Con subcategorías via parent_id |
-| `productos` | Full-text search en español |
+| `productos` | Full-text search en español; `tipo_producto: 'producto' \| 'servicio'` |
 | `imagenes_producto` | Máx 5 imágenes, orden=0 es la principal |
 | `variantes_producto` | precio_variante reemplaza al precio base |
 | `tallas_producto` | Tallas disponibles (aplica si `requiere_tallas=true`) |
@@ -83,6 +89,24 @@ Schema en `supabase/migrations/`. Aplicar en orden cronológico.
 | `promociones` | Modal: cuadrado / horizontal / vertical |
 | `zonas_envio` | Provincia, empresa, precio, tiempo |
 | `leads` | Teléfonos capturados por modal de promoción |
+| `pedidos` | Órdenes completas con `numero_orden` auto-generado; `tipo: 'delivery' \| 'local'`; `estado: 'pendiente' \| 'confirmado' \| ...` |
+| `citas` | Reservas de servicios agendados; vinculadas a un `pedido_id` y `producto_id` |
+
+## Productos vs Servicios
+
+`tipo_producto` en la tabla `productos` puede ser `'producto'` o `'servicio'`. Los servicios ocultan stock y tallas, y habilitan la selección de cita (fecha/hora) en el carrito y el detalle. Cuando `configuracion_tienda.habilitar_citas = true` el flujo de cita queda activo para servicios.
+
+## Flujo del carrito (3 pasos)
+
+`carrito-cliente.tsx` maneja el estado `paso: 'carrito' | 'envio' | 'datos'`:
+
+1. **carrito** — ver ítems, aplicar cupón
+2. **envio** — elegir retiro en tienda o delivery (selecciona zona de `zonas_envio`). Para carritos con solo servicios este paso se salta.
+3. **datos** — nombre, email, teléfono del cliente → crea una fila en `pedidos` → genera enlace WhatsApp
+
+## Modo demo
+
+El sitio puede correr en modo demo (sin Supabase real). `DemoProvider` expone `usarModoDemo()`. Los datos se persisten en localStorage mediante `DemoStore` (`src/lib/supabase/demo-store.ts`). El hook `useDemoDatos(tabla, datosServidor)` (`src/hooks/usar-demo-datos.ts`) intercala datos de servidor con los cambios locales demo. En modo demo los cambios no llegan a Supabase.
 
 ## Roles
 
@@ -113,10 +137,6 @@ Se crean en Supabase Auth con metadatos `{ "rol": "superadmin" }` o `{ "rol": "a
 |-------|-----------|
 | `tienda_carrito` | Items del carrito (`ItemCarrito[]`) |
 | `tienda_session_id` | UUID para likes anónimos |
-
-El carrito vive en `CarritoProvider` (contexto global). Antes de enviar a WhatsApp el cliente elige:
-1. Retiro en tienda física (sin costo)
-2. Envío a ciudad → selecciona de `zonas_envio`
 
 Hooks personalizados: `usar-carrito.ts`, `usar-favoritos.ts`, `usar-subir-imagen.ts`.
 
