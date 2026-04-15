@@ -84,6 +84,7 @@ export default async function PáginaInicio() {
           <TiendaPrincipal
             precioMinGlobal={precioMinGlobal}
             precioMaxGlobal={precioMaxGlobal}
+            categorias={categorias ?? []}
           />
           <FooterTienda />
         </div>
