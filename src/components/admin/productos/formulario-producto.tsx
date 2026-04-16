@@ -6,7 +6,8 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Plus, Trash2, Tag, Save, ArrowLeft, Ruler, Package, Video } from 'lucide-react'
+import { Plus, Trash2, Tag, Save, ArrowLeft, Ruler, Package, Video, ImagePlus, X } from 'lucide-react'
+import { usarSubirImagen } from '@/hooks/usar-subir-imagen'
 import { useEffect } from 'react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { Input } from '@/components/ui/input'
@@ -35,6 +36,7 @@ const esquema = z.object({
     descripcion:    z.string().optional(),
     precio_variante:z.string().optional(),
     stock_variante: z.string().optional(),
+    imagen_url:     z.string().optional(),
   })),
   tallas: z.array(z.object({
     id:         z.string().optional(),
@@ -63,6 +65,8 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
   )
   const [relacionados, setRelacionados] = useState<string[]>([])
   const [errorGlobal, setErrorGlobal] = useState('')
+  const [subiendoVariante, setSubiendoVariante] = useState<number | null>(null)
+  const { subirImagen: subirImagenVariante, eliminarImagen: eliminarImagenVariante } = usarSubirImagen('productos')
 
   // Selector de categoría en 2 pasos
   const categoriasParent = categorias.filter(c => !c.parent_id)
@@ -92,7 +96,8 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
         id: v.id, nombre: v.nombre,
         descripcion: v.descripcion ?? '',
         precio_variante: v.precio_variante?.toString() ?? '',
-        stock_variante: v.stock?.toString() ?? '',
+        stock_variante: (v as any).stock?.toString() ?? '',
+        imagen_url: v.imagen_url ?? '',
       })) ?? [],
       tallas: producto?.tallas?.map(t => ({
         id: t.id, talla: t.talla, disponible: t.disponible,
@@ -166,6 +171,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
           descripcion: v.descripcion ?? null,
           precio_variante: v.precio_variante ? Number(v.precio_variante) : null,
           stock: v.stock_variante ? parseInt(v.stock_variante, 10) : null,
+          imagen_url: v.imagen_url?.trim() || null,
           orden: i,
         }))
       )
@@ -358,29 +364,79 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       </Sección>
 
       {/* Sección: Variantes */}
-      <Sección titulo="Variantes" descripcion="Agrega opciones como color, material, etc. El precio de la variante reemplaza al precio base.">
+      <Sección titulo="Variantes" descripcion="Agrega opciones como color, material, etc. El precio de la variante reemplaza al precio base. Cada variante puede tener su propia imagen.">
         <div className="flex flex-col gap-3">
-          {varianteFields.map((field, i) => (
-            <div key={field.id} className="rounded-xl border border-border p-4 flex flex-col gap-3 bg-background-subtle">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-foreground-muted">Variante {i + 1}</span>
-                <button type="button" onClick={() => removeVariante(i)} className="text-foreground-muted hover:text-danger transition-colors">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+          {varianteFields.map((field, i) => {
+            const imagenActual = watch(`variantes.${i}.imagen_url`)
+            return (
+              <div key={field.id} className="rounded-xl border border-border p-4 flex flex-col gap-3 bg-background-subtle">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground-muted">Variante {i + 1}</span>
+                  <button type="button" onClick={() => removeVariante(i)} className="text-foreground-muted hover:text-danger transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <Input placeholder="Nombre (ej: Color Rojo)" error={errors.variantes?.[i]?.nombre?.message} {...register(`variantes.${i}.nombre`)} />
+                  <Input placeholder="Descripción (opcional)" {...register(`variantes.${i}.descripcion`)} />
+                  <Input type="number" step="0.01" placeholder="Precio (reemplaza al base)" {...register(`variantes.${i}.precio_variante`)} />
+                  {watch('tipo_producto') === 'producto' && (
+                    <Input type="number" placeholder="Stock (Opc)" {...register(`variantes.${i}.stock_variante`)} />
+                  )}
+                </div>
+
+                {/* Imagen de variante */}
+                <div className="flex items-center gap-3">
+                  {imagenActual ? (
+                    <div className="relative w-16 h-16 flex-shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={imagenActual} alt="Variante" className="w-full h-full object-cover rounded-lg border border-border" />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await eliminarImagenVariante(imagenActual)
+                          setValue(`variantes.${i}.imagen_url`, '')
+                        }}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-danger text-white flex items-center justify-center shadow"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : null}
+                  <label className={cn(
+                    'flex items-center gap-2 text-xs font-medium cursor-pointer px-3 py-2 rounded-lg border border-dashed transition-all',
+                    subiendoVariante === i
+                      ? 'border-primary/40 text-primary/60 cursor-wait'
+                      : 'border-border text-foreground-muted hover:border-primary/50 hover:text-primary'
+                  )}>
+                    <ImagePlus className="w-3.5 h-3.5" />
+                    {subiendoVariante === i ? 'Subiendo…' : imagenActual ? 'Cambiar imagen' : 'Agregar imagen'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      disabled={subiendoVariante === i}
+                      onChange={async (e) => {
+                        const archivo = e.target.files?.[0]
+                        if (!archivo) return
+                        setSubiendoVariante(i)
+                        const url = await subirImagenVariante(archivo)
+                        if (url) setValue(`variantes.${i}.imagen_url`, url)
+                        setSubiendoVariante(null)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                  {imagenActual && (
+                    <span className="text-[11px] text-foreground-muted">Esta imagen se mostrará al seleccionar esta variante</span>
+                  )}
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <Input placeholder="Nombre (ej: Color Rojo)" error={errors.variantes?.[i]?.nombre?.message} {...register(`variantes.${i}.nombre`)} />
-                <Input placeholder="Descripción (opcional)" {...register(`variantes.${i}.descripcion`)} />
-                <Input type="number" step="0.01" placeholder="Precio (reemplaza al base)" {...register(`variantes.${i}.precio_variante`)} />
-                {watch('tipo_producto') === 'producto' && (
-                  <Input type="number" placeholder="Stock (Opc)" {...register(`variantes.${i}.stock_variante`)} />
-                )}
-              </div>
-            </div>
-          ))}
+            )
+          })}
           <button
             type="button"
-            onClick={() => appendVariante({ nombre: '', descripcion: '', precio_variante: '' })}
+            onClick={() => appendVariante({ nombre: '', descripcion: '', precio_variante: '', imagen_url: '' })}
             className="flex items-center gap-2 text-sm text-primary hover:text-primary-hover font-medium transition-colors"
           >
             <Plus className="w-4 h-4" /> Agregar variante

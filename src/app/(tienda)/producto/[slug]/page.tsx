@@ -60,7 +60,7 @@ export default async function PáginaProducto({ params }: Props) {
         id, nombre, slug, descripcion, precio, precio_descuento,
         etiquetas, requiere_tallas, tipo_producto, url_video,
         imagenes_producto(id, url, orden),
-        variantes_producto(id, nombre, descripcion, precio_variante, esta_activa, orden),
+        variantes_producto(id, nombre, descripcion, precio_variante, imagen_url, esta_activa, orden),
         tallas_producto(id, talla, disponible, orden),
         resenas_producto(id, nombre_cliente, calificacion, comentario, creado_en, es_visible),
         categoria:categorias(id, nombre, slug)
@@ -98,7 +98,7 @@ export default async function PáginaProducto({ params }: Props) {
         categoria: Array.isArray(producto.categoria) ? (producto.categoria[0] ?? null) as { id: string; nombre: string; slug: string } | null : producto.categoria as { id: string; nombre: string; slug: string } | null,
       }}
       imagenes={imagenes as { id: string; url: string; orden: number }[]}
-      variantes={variantes as { id: string; nombre: string; descripcion: string | null; precio_variante: number | null; orden: number }[]}
+      variantes={variantes as { id: string; nombre: string; descripcion: string | null; precio_variante: number | null; imagen_url?: string | null; orden: number }[]}
       tallas={tallas as { id: string; talla: string; disponible: boolean; orden: number }[]}
       resenas={resenas as { id: string; nombre_cliente: string; calificacion: number; comentario: string | null; creado_en: string }[]}
       whatsapp={config?.whatsapp ?? ''}

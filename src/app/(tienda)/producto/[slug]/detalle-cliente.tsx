@@ -24,7 +24,7 @@ interface Producto {
   url_video?: string | null
 }
 interface Imagen { id: string; url: string; orden: number }
-interface Variante { id: string; nombre: string; descripcion: string | null; precio_variante: number | null; orden: number }
+interface Variante { id: string; nombre: string; descripcion: string | null; precio_variante: number | null; imagen_url?: string | null; orden: number }
 interface Talla { id: string; talla: string; disponible: boolean; orden: number }
 interface Resena { id: string; nombre_cliente: string; calificacion: number; comentario: string | null; creado_en: string }
 
@@ -50,6 +50,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   const { esFavorito, toggleFavorito } = usarFavoritos()
 
   const [imgActiva, setImgActiva] = useState(0)
+  const [imagenVariante, setImagenVariante] = useState<string | null>(variantes[0]?.imagen_url ?? null)
   const [varianteId, setVarianteId] = useState<string | null>(variantes[0]?.id ?? null)
   const [talla, setTalla] = useState<string | null>(null)
   const [cantidad, setCantidad] = useState(1)
@@ -187,7 +188,14 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
           {/* Carrusel principal */}
           <div className="relative bg-background-subtle">
             <div className="aspect-square overflow-hidden">
-              {imagenes.length > 0 ? (
+              {imagenVariante ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={imagenVariante}
+                  alt={producto.nombre}
+                  className="w-full h-full object-contain p-4"
+                />
+              ) : imagenes.length > 0 ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={imagenes[imgActiva].url}
@@ -246,7 +254,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
           {imagenes.length > 1 && (
             <div className="flex gap-2 px-4 py-3 bg-background-subtle border-t border-border overflow-x-auto scrollbar-none">
               {imagenes.map((img, i) => (
-                <button key={img.id} onClick={() => setImgActiva(i)}
+                <button key={img.id} onClick={() => { setImgActiva(i); setImagenVariante(null) }}
                   className={cn(
                     'flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 transition-all bg-white',
                     i === imgActiva ? 'border-primary' : 'border-border hover:border-primary/40'
@@ -312,14 +320,21 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
               <p className="text-xs font-semibold text-foreground mb-2.5">Variante</p>
               <div className="flex flex-wrap gap-2">
                 {variantes.map(v => (
-                  <button key={v.id} onClick={() => setVarianteId(v.id)}
-                    className={cn('px-3 py-2 rounded-xl border text-sm transition-all',
+                  <button key={v.id} onClick={() => {
+                    setVarianteId(v.id)
+                    setImagenVariante(v.imagen_url ?? null)
+                  }}
+                    className={cn('flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all',
                       varianteId === v.id
                         ? 'border-primary bg-primary/5 text-primary font-semibold'
                         : 'border-border text-foreground hover:border-primary/40')}>
+                    {v.imagen_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={v.imagen_url} alt={v.nombre} className="w-6 h-6 rounded-md object-cover border border-border flex-shrink-0" />
+                    )}
                     <span className="font-medium">{v.nombre}</span>
                     {v.precio_variante && (
-                      <span className="ml-1.5 text-xs text-foreground-muted">
+                      <span className="ml-0.5 text-xs text-foreground-muted">
                         {formatearPrecio(v.precio_variante)}
                       </span>
                     )}

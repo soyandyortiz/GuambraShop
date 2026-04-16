@@ -92,6 +92,7 @@ export interface VarianteProducto {
   nombre: string
   descripcion: string | null
   precio_variante: number | null
+  imagen_url?: string | null
   esta_activa: boolean
   orden: number
   creado_en: string
