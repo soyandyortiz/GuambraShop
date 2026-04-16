@@ -531,7 +531,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosP
             </div>
             <div className="flex-1">
               <p className="text-sm font-bold text-foreground">Envío a domicilio</p>
-              <p className="text-xs text-foreground-muted">Coordinaremos el costo por WhatsApp</p>
+              <p className="text-xs text-foreground-muted">El costo se calcula según tu ciudad</p>
             </div>
           </button>
 
