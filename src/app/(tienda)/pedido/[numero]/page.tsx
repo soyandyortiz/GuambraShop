@@ -32,7 +32,7 @@ export default async function PáginaSeguimientoPedido({
   const [{ data: pedido }, { data: config }] = await Promise.all([
     supabase
       .from('pedidos')
-      .select('numero_orden, tipo, nombres, whatsapp, ciudad, provincia, direccion, detalles_direccion, items, simbolo_moneda, subtotal, descuento_cupon, cupon_codigo, costo_envio, total, estado, nombre_zona, empresa_envio, tiempo_entrega, creado_en')
+      .select('numero_orden, tipo, nombres, whatsapp, ciudad, provincia, direccion, detalles_direccion, items, simbolo_moneda, subtotal, descuento_cupon, cupon_codigo, costo_envio, total, estado, creado_en')
       .eq('numero_orden', numero.toUpperCase())
       .maybeSingle(),
     supabase
@@ -191,11 +191,6 @@ export default async function PáginaSeguimientoPedido({
               {pedido.direccion}
               {pedido.detalles_direccion && ` — ${pedido.detalles_direccion}`}
               <span className="text-foreground font-medium"> · {pedido.ciudad}, {pedido.provincia}</span>
-              {pedido.nombre_zona && (
-                <span className="text-xs block mt-0.5 text-foreground-muted">
-                  {pedido.empresa_envio}{pedido.tiempo_entrega ? ` · ${pedido.tiempo_entrega}` : ''}
-                </span>
-              )}
             </span>
           </div>
         )}
