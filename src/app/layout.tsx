@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const supabase = await crearClienteServidor()
   const { data: config } = await supabase
     .from('configuracion_tienda')
-    .select('nombre_tienda, meta_descripcion, favicon_url, logo_url, foto_portada_url')
+    .select('nombre_tienda, meta_descripcion, favicon_url, logo_url, foto_portada_url, foto_perfil_url')
     .single()
 
   const nombre      = config?.nombre_tienda ?? 'Tienda'
