@@ -222,6 +222,71 @@ En la pantalla de configuración antes de hacer deploy:
 
 ---
 
+## PARTE 3.5 — Notificaciones por Telegram (opcional pero recomendado)
+
+Cuando un cliente hace un pedido, el admin puede recibir una notificación automática en Telegram. El código ya está implementado — solo hay que crear el bot y agregar dos variables en Vercel.
+
+### Paso A — Crear el bot con BotFather
+
+1. Abre Telegram y busca **@BotFather**
+2. Escribe `/newbot`
+3. Ponle un nombre visible (ej: `Notificaciones Tienda Margarita`)
+4. Ponle un username que termine en `bot` (ej: `tiendamargarita_notif_bot`)
+5. BotFather te entrega el **token** → guárdalo, se ve así:
+   ```
+   8671299741:AAGrzFQirgtC5ma8e06JQqNPkZ9VB3PffqY
+   ```
+
+### Paso B — Obtener el Chat ID del admin
+
+1. En Telegram, busca el bot recién creado por su username y presiona **Start** (o escríbele `hola`)
+2. Abre esta URL en el navegador (reemplaza `TU_TOKEN` con el token del paso anterior):
+   ```
+   https://api.telegram.org/botTU_TOKEN/getUpdates
+   ```
+3. En el JSON que aparece, busca este campo:
+   ```json
+   "chat": { "id": 7230368603 }
+   ```
+4. Ese número es el **Chat ID** — guárdalo
+
+> **¿El resultado viene vacío `{"ok":true,"result":[]}`?**
+> El bot no ha recibido ningún mensaje aún. Escríbele algo al bot en Telegram y vuelve a abrir la URL.
+
+> **¿El admin quiere notificaciones en un grupo de Telegram?**
+> Agrega el bot al grupo, escríbele un mensaje en el grupo, abre la URL de getUpdates y usa el `chat.id` del grupo (empieza con `-`, número negativo).
+
+### Paso C — Agregar las variables en Vercel
+
+En el proyecto del cliente en Vercel → **Settings → Environment Variables**, agrega:
+
+| Variable | Valor |
+|----------|-------|
+| `TELEGRAM_BOT_TOKEN` | El token que dio BotFather |
+| `TELEGRAM_CHAT_ID` | El número de chat ID obtenido en el paso B |
+
+Guardar → Vercel hace redeploy automático → listo.
+
+### Cómo se ve la notificación que le llega al admin
+
+```
+🛒 Nuevo pedido — ORD-0001
+
+👤 Juan Pérez
+📞 0991234567
+🚚 Delivery → Quito, Pichincha
+
+Productos:
+  • Camiseta blanca x2 — $25.00
+  • Pantalón negro x1 — $35.00
+
+💰 Total: $60.00
+```
+
+> Si no se configuran estas variables, la tienda funciona igual — simplemente no llegan notificaciones. No genera ningún error.
+
+---
+
 ## PARTE 4 — Personalización inicial
 
 ### Rutas del panel de administración
@@ -372,6 +437,7 @@ tiendademo/
 - [ ] Login de admin funciona
 - [ ] Se puede subir una imagen de prueba
 - [ ] El botón de WhatsApp abre correctamente
+- [ ] (Opcional) Bot de Telegram creado y variables `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` configuradas en Vercel
 - [ ] Entregar al cliente: URL de la tienda, URL del admin, correo y contraseña
 
 ---
