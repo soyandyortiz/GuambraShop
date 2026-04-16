@@ -28,7 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const nombre      = config?.nombre_tienda ?? 'Tienda'
   const descripcion = config?.meta_descripcion ?? 'Tu tienda online profesional'
   const siteUrl     = process.env.NEXT_PUBLIC_SITE_URL ?? ''
-  const ogImage     = config?.foto_portada_url ?? config?.logo_url ?? null
+  const ogImage     = config?.foto_perfil_url ?? config?.logo_url ?? null
 
   return {
     title: nombre,
