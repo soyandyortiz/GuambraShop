@@ -203,7 +203,7 @@ Ve a **Authentication → Users → Add user → Create new user** y crea estos 
 2. Clic en **"Add New… → Project"**
 3. Clic en **"Import Git Repository"**
 4. Si es la primera vez, clic en **"Add GitHub Account"** y autoriza el acceso
-5. Busca el repositorio **GuambraShop** y haz clic en **"Import"**
+5. Busca el repositorio **GuambraShop** (`github.com/soyandyortiz/GuambraShop`) y haz clic en **"Import"**
 
 #### Paso 2.2 — Configurar variables de entorno
 
