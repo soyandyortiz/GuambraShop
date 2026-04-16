@@ -1,23 +1,20 @@
 import { crearClienteServidor } from '@/lib/supabase/servidor'
-import { notFound } from 'next/navigation'
 import {
   CheckCircle2, Clock, RotateCcw, Send, Package,
-  MapPin, Phone, Truck, Store, XCircle, MessageCircle, ArrowLeft, Calendar
+  MapPin, Phone, Truck, Store, XCircle, MessageCircle, ArrowLeft, Calendar, Search
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatearPrecio } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import type { ItemPedido } from '@/types'
 
 type EstadoPedido = 'pendiente' | 'confirmado' | 'en_proceso' | 'enviado' | 'entregado' | 'cancelado'
 
-// Pasos del progreso (sin cancelado)
-const PASOS: { estado: EstadoPedido; etiqueta: string; icono: React.ReactNode }[] = [
-  { estado: 'pendiente',  etiqueta: 'Recibido',    icono: <Clock className="w-4 h-4" /> },
-  { estado: 'confirmado', etiqueta: 'Confirmado',  icono: <CheckCircle2 className="w-4 h-4" /> },
-  { estado: 'en_proceso', etiqueta: 'En proceso',  icono: <RotateCcw className="w-4 h-4" /> },
-  { estado: 'enviado',    etiqueta: 'Enviado',      icono: <Send className="w-4 h-4" /> },
-  { estado: 'entregado',  etiqueta: 'Entregado',    icono: <CheckCircle2 className="w-4 h-4" /> },
+const PASOS = [
+  { estado: 'pendiente'  as EstadoPedido, etiqueta: 'Recibido',   icono: Clock },
+  { estado: 'confirmado' as EstadoPedido, etiqueta: 'Confirmado', icono: CheckCircle2 },
+  { estado: 'en_proceso' as EstadoPedido, etiqueta: 'En proceso', icono: RotateCcw },
+  { estado: 'enviado'    as EstadoPedido, etiqueta: 'Enviado',    icono: Send },
+  { estado: 'entregado'  as EstadoPedido, etiqueta: 'Entregado',  icono: CheckCircle2 },
 ]
 
 const INDICE_ESTADO: Record<EstadoPedido, number> = {
@@ -37,24 +34,54 @@ export default async function PáginaSeguimientoPedido({
       .from('pedidos')
       .select('numero_orden, tipo, nombres, whatsapp, ciudad, provincia, direccion, detalles_direccion, items, simbolo_moneda, subtotal, descuento_cupon, cupon_codigo, costo_envio, total, estado, nombre_zona, empresa_envio, tiempo_entrega, creado_en')
       .eq('numero_orden', numero.toUpperCase())
-      .single(),
+      .maybeSingle(),
     supabase
       .from('configuracion_tienda')
-      .select('nombre_tienda, logo_url, whatsapp')
+      .select('nombre_tienda, whatsapp')
       .single(),
   ])
 
-  if (!pedido) notFound()
-
-  const estado     = pedido.estado as EstadoPedido
-  const cancelado  = estado === 'cancelado'
-  const indiceActual = INDICE_ESTADO[estado]
-
   const urlWA = config?.whatsapp
-    ? `https://wa.me/${config.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, quiero consultar sobre mi pedido ${pedido.numero_orden}.`)}`
+    ? `https://wa.me/${config.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, quiero consultar sobre mi pedido ${numero.toUpperCase()}.`)}`
     : null
 
-  const nombreMostrado = pedido.nombres.split(' ')[0]
+  // Pedido no encontrado — UI amigable en lugar de 404
+  if (!pedido) {
+    return (
+      <div className="max-w-sm mx-auto px-4 py-16 flex flex-col items-center gap-5 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-background-subtle border border-border flex items-center justify-center">
+          <Search className="w-8 h-8 text-foreground-muted/40" />
+        </div>
+        <div>
+          <h1 className="text-lg font-bold text-foreground">Pedido no encontrado</h1>
+          <p className="text-sm text-foreground-muted mt-1">
+            No encontramos el pedido <span className="font-mono font-bold">{numero.toUpperCase()}</span>.
+            Verifica el número e intenta de nuevo.
+          </p>
+        </div>
+        <Link href="/pedido"
+          className="flex items-center gap-2 h-11 px-5 rounded-2xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-all">
+          <Search className="w-4 h-4" />
+          Buscar otro pedido
+        </Link>
+        {urlWA && (
+          <a href={urlWA} target="_blank" rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline flex items-center gap-1.5">
+            <MessageCircle className="w-4 h-4" />
+            Consultar por WhatsApp
+          </a>
+        )}
+      </div>
+    )
+  }
+
+  const estado       = pedido.estado as EstadoPedido
+  const cancelado    = estado === 'cancelado'
+  const indiceActual = INDICE_ESTADO[estado]
+
+  const urlWAConsulta = config?.whatsapp
+    ? `https://wa.me/${config.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, quiero consultar sobre mi pedido ${pedido.numero_orden}.`)}`
+    : null
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6 flex flex-col gap-5">
@@ -80,8 +107,10 @@ export default async function PáginaSeguimientoPedido({
                 ? 'bg-success/10 text-success border-success/30'
                 : 'bg-primary/10 text-primary border-primary/20'
           )}>
-            {cancelado ? <XCircle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-            {cancelado ? 'Cancelado' : PASOS[indiceActual]?.etiqueta ?? estado}
+            {cancelado
+              ? <XCircle className="w-3.5 h-3.5" />
+              : <CheckCircle2 className="w-3.5 h-3.5" />}
+            {cancelado ? 'Cancelado' : (PASOS[indiceActual]?.etiqueta ?? estado)}
           </div>
         </div>
 
@@ -108,27 +137,23 @@ export default async function PáginaSeguimientoPedido({
         <div className="rounded-2xl bg-card border border-card-border p-5">
           <p className="text-xs font-semibold text-foreground-muted uppercase tracking-wide mb-4">Estado del pedido</p>
           <div className="relative">
-            {/* Línea de fondo */}
             <div className="absolute top-4 left-4 right-4 h-0.5 bg-border" />
-            {/* Línea de progreso */}
             <div
               className="absolute top-4 left-4 h-0.5 bg-primary transition-all duration-700"
               style={{ width: indiceActual === 0 ? '0%' : `${(indiceActual / (PASOS.length - 1)) * 100}%` }}
             />
-            {/* Pasos */}
             <div className="relative flex justify-between">
               {PASOS.map((paso, idx) => {
+                const Icono     = paso.icono
                 const completado = idx <= indiceActual
                 const actual     = idx === indiceActual
                 return (
                   <div key={paso.estado} className="flex flex-col items-center gap-1.5" style={{ width: `${100 / PASOS.length}%` }}>
                     <div className={cn(
                       'w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 z-10',
-                      completado
-                        ? 'bg-primary border-primary text-white'
-                        : 'bg-card border-border text-foreground-muted'
+                      completado ? 'bg-primary border-primary text-white' : 'bg-card border-border text-foreground-muted'
                     )}>
-                      {paso.icono}
+                      <Icono className="w-4 h-4" />
                     </div>
                     <span className={cn(
                       'text-[10px] font-semibold text-center leading-tight',
@@ -240,8 +265,8 @@ export default async function PáginaSeguimientoPedido({
       </div>
 
       {/* Botón WhatsApp */}
-      {urlWA && (
-        <a href={urlWA} target="_blank" rel="noopener noreferrer"
+      {urlWAConsulta && (
+        <a href={urlWAConsulta} target="_blank" rel="noopener noreferrer"
           className="flex items-center justify-center gap-2 w-full h-12 rounded-2xl bg-[#25D366] text-white font-bold text-sm hover:bg-[#22c55e] transition-all shadow-sm">
           <MessageCircle className="w-4 h-4" />
           Consultar por WhatsApp
