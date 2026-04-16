@@ -73,15 +73,41 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosP
   const [direccion, setDireccion] = useState('')
   const [detallesDir, setDetallesDir] = useState('')
 
+  // null = no consultado aún / ciudad sin zona configurada ("A coordinar")
+  const [costoEnvio, setCostoEnvio] = useState<number | null>(null)
+  const [tiempoEntrega, setTiempoEntrega] = useState<string | null>(null)
+  const [consultandoEnvio, setConsultandoEnvio] = useState(false)
+
   const descuentoCupon = cupon
     ? cupon.tipo_descuento === 'porcentaje'
       ? (subtotal * cupon.valor_descuento) / 100
       : cupon.valor_descuento
     : 0
-  const total = subtotal - descuentoCupon
+  const total = subtotal - descuentoCupon + (tipoEnvio === 'envio' && costoEnvio !== null ? costoEnvio : 0)
 
   const ciudadesDisponibles =
     PROVINCIAS_ECUADOR.find(p => p.nombre === provincia)?.ciudades ?? []
+
+  // --- Consultar costo de envío por ciudad ---
+  async function consultarEnvio(ciudadSeleccionada: string) {
+    if (!ciudadSeleccionada) { setCostoEnvio(null); setTiempoEntrega(null); return }
+    setConsultandoEnvio(true)
+    const supabase = crearClienteSupabase()
+    const { data } = await supabase
+      .from('zonas_envio')
+      .select('precio, tiempo_entrega')
+      .eq('ciudad', ciudadSeleccionada)
+      .eq('esta_activa', true)
+      .single()
+    setConsultandoEnvio(false)
+    if (data) {
+      setCostoEnvio(data.precio)
+      setTiempoEntrega(data.tiempo_entrega)
+    } else {
+      setCostoEnvio(null)
+      setTiempoEntrega(null)
+    }
+  }
 
   // --- Validar cupón ---
   async function validarCupon() {
@@ -161,7 +187,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosP
         subtotal: +subtotal.toFixed(2),
         descuento_cupon: +descuentoCupon.toFixed(2),
         cupon_codigo: cupon?.codigo ?? null,
-        costo_envio: 0,
+        costo_envio: tipoEnvio === 'envio' && costoEnvio !== null ? +costoEnvio.toFixed(2) : 0,
         total: +total.toFixed(2),
       })
       .select('id, numero_orden')
@@ -218,7 +244,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosP
         subtotal: +subtotal.toFixed(2),
         descuento_cupon: +descuentoCupon.toFixed(2),
         cupon_codigo: cupon?.codigo ?? null,
-        costo_envio: 0,
+        costo_envio: tipoEnvio === 'envio' && costoEnvio !== null ? +costoEnvio.toFixed(2) : 0,
         total: +total.toFixed(2),
         simbolo_moneda: simboloMoneda,
       }),
@@ -558,7 +584,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosP
                 <div className="relative">
                   <select
                     value={provincia}
-                    onChange={e => { setProvincia(e.target.value); setCiudad('') }}
+                    onChange={e => { setProvincia(e.target.value); setCiudad(''); setCostoEnvio(null); setTiempoEntrega(null) }}
                     className={cn(INPUT_BASE, 'appearance-none pr-9 cursor-pointer')}
                   >
                     <option value="">Selecciona la provincia</option>
@@ -576,7 +602,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosP
                 <div className="relative">
                   <select
                     value={ciudad}
-                    onChange={e => setCiudad(e.target.value)}
+                    onChange={e => { setCiudad(e.target.value); consultarEnvio(e.target.value) }}
                     disabled={!provincia}
                     className={cn(INPUT_BASE, 'appearance-none pr-9 cursor-pointer disabled:opacity-50')}
                   >
@@ -676,18 +702,49 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosP
           </div>
 
           {/* Resumen rápido */}
-          <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex flex-col gap-1">
+          <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex flex-col gap-1.5">
             <div className="flex justify-between text-sm">
-              <span className="text-foreground-muted">
-                {soloServicios ? 'Servicio(s) agendado(s)' : (tipoEnvio === 'tienda' ? 'Entrega en local físico' : 'Envío a domicilio')}
-              </span>
-              <span className="font-medium text-foreground-muted">
-                {soloServicios ? '' : (tipoEnvio === 'tienda' ? 'Gratis' : 'A coordinar')}
-              </span>
+              <span className="text-foreground-muted">Subtotal</span>
+              <span className="font-medium text-foreground">{formatearPrecio(subtotal, simboloMoneda)}</span>
             </div>
-            <div className="flex justify-between pt-1 border-t border-primary/20">
+            {descuentoCupon > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-success">Descuento cupón</span>
+                <span className="font-medium text-success">-{formatearPrecio(descuentoCupon, simboloMoneda)}</span>
+              </div>
+            )}
+            {!soloServicios && (
+              <div className="flex justify-between text-sm">
+                <span className="text-foreground-muted">
+                  {tipoEnvio === 'tienda' ? 'Entrega en local' : (
+                    consultandoEnvio ? 'Calculando envío…' :
+                    ciudad ? (costoEnvio !== null ? `Envío a ${ciudad}` : `Envío a ${ciudad}`) : 'Envío a domicilio'
+                  )}
+                </span>
+                <span className={cn('font-medium', costoEnvio === null && tipoEnvio === 'envio' ? 'text-foreground-muted text-xs' : 'text-foreground')}>
+                  {tipoEnvio === 'tienda' ? (
+                    <span className="text-success">Gratis</span>
+                  ) : consultandoEnvio ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin inline" />
+                  ) : costoEnvio !== null ? (
+                    formatearPrecio(costoEnvio, simboloMoneda)
+                  ) : ciudad ? (
+                    'A coordinar'
+                  ) : '—'}
+                </span>
+              </div>
+            )}
+            {tiempoEntrega && tipoEnvio === 'envio' && (
+              <p className="text-xs text-foreground-muted">{tiempoEntrega}</p>
+            )}
+            <div className="flex justify-between pt-1.5 border-t border-primary/20 mt-0.5">
               <span className="font-bold text-foreground">Total del pedido</span>
-              <span className="font-bold text-primary text-lg">{formatearPrecio(total, simboloMoneda)}</span>
+              <div className="text-right">
+                <span className="font-bold text-primary text-lg">{formatearPrecio(total, simboloMoneda)}</span>
+                {tipoEnvio === 'envio' && ciudad && costoEnvio === null && (
+                  <p className="text-[10px] text-foreground-muted">+ envío a coordinar</p>
+                )}
+              </div>
             </div>
           </div>
 

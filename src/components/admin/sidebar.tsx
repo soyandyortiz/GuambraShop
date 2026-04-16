@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, Ticket, Megaphone,
-  Settings, MessageSquare, ShoppingBag, LogOut, Star, ClipboardList, CalendarDays
+  Settings, MessageSquare, ShoppingBag, LogOut, Star, ClipboardList, CalendarDays, Truck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { crearClienteSupabase, CLAVE_DEMO } from '@/lib/supabase/cliente'
@@ -20,6 +20,7 @@ const navegacion = [
   { href: '/admin/dashboard/cupones',     icono: <Ticket className="w-4 h-4" />,           etiqueta: 'Cupones',        badge: null },
   { href: '/admin/dashboard/promociones', icono: <Megaphone className="w-4 h-4" />,        etiqueta: 'Promociones',    badge: null },
   { href: '/admin/dashboard/pedidos',     icono: <ClipboardList className="w-4 h-4" />,    etiqueta: 'Pedidos',        badge: 'pedidos' },
+  { href: '/admin/dashboard/envios',      icono: <Truck className="w-4 h-4" />,             etiqueta: 'Envíos',         badge: null },
   { href: '/admin/dashboard/calendario',  icono: <CalendarDays className="w-4 h-4" />,     etiqueta: 'Calendario',     badge: 'citas' },
   { href: '/admin/dashboard/resenas',     icono: <Star className="w-4 h-4" />,             etiqueta: 'Reseñas',        badge: null },
   { href: '/admin/dashboard/mensajes',    icono: <MessageSquare className="w-4 h-4" />,    etiqueta: 'Mensajes',       badge: null },

@@ -11,7 +11,7 @@ import { DemoStore } from '@/lib/supabase/demo-store'
 import { useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, Ticket,
-  Megaphone, Settings, MessageSquare, LogOut, Star, ClipboardList, CalendarDays
+  Megaphone, Settings, MessageSquare, LogOut, Star, ClipboardList, CalendarDays, Truck
 } from 'lucide-react'
 import type { Rol } from '@/types'
 import { usarConteosAdmin } from '@/hooks/usar-conteos-admin'
@@ -23,6 +23,7 @@ const navegacion = [
   { href: '/admin/dashboard/cupones',     icono: <Ticket className="w-4 h-4" />,           etiqueta: 'Cupones',       badge: null },
   { href: '/admin/dashboard/promociones', icono: <Megaphone className="w-4 h-4" />,        etiqueta: 'Promociones',   badge: null },
   { href: '/admin/dashboard/pedidos',     icono: <ClipboardList className="w-4 h-4" />,    etiqueta: 'Pedidos',       badge: 'pedidos' },
+  { href: '/admin/dashboard/envios',      icono: <Truck className="w-4 h-4" />,             etiqueta: 'Envíos',        badge: null },
   { href: '/admin/dashboard/calendario',  icono: <CalendarDays className="w-4 h-4" />,     etiqueta: 'Calendario',    badge: 'citas' },
   { href: '/admin/dashboard/resenas',     icono: <Star className="w-4 h-4" />,             etiqueta: 'Reseñas',       badge: null },
   { href: '/admin/dashboard/mensajes',    icono: <MessageSquare className="w-4 h-4" />,    etiqueta: 'Mensajes',      badge: null },
