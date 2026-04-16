@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { Search, Filter, Pencil, Trash2, Eye, EyeOff, Package } from 'lucide-react'
+import { Search, Pencil, Trash2, Package, AlertTriangle, XCircle } from 'lucide-react'
 import { cn, formatearPrecio } from '@/lib/utils'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
@@ -18,6 +18,8 @@ interface ProductoFila {
   precio_descuento: number | null
   esta_activo: boolean
   categoria_id: string | null
+  stock: number | null
+  tipo_producto: string | null
   imagenes_producto: ImagenProducto[]
 }
 interface Categoria { id: string; nombre: string }
@@ -38,11 +40,17 @@ export function ListaProductosAdmin({ productos: productosServidor, categorias }
   const filtrados = productos.filter(p => {
     const coincideBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase())
     const coincideCategoria = categoriaFiltro === 'todas' || p.categoria_id === categoriaFiltro
+    const esProductoFisico = p.tipo_producto !== 'servicio' && p.stock !== null
     const coincideEstado = estadoFiltro === 'todos'
-      || (estadoFiltro === 'activos' && p.esta_activo)
-      || (estadoFiltro === 'inactivos' && !p.esta_activo)
+      || (estadoFiltro === 'activos'    && p.esta_activo)
+      || (estadoFiltro === 'inactivos'  && !p.esta_activo)
+      || (estadoFiltro === 'stock_bajo' && esProductoFisico && (p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5)
+      || (estadoFiltro === 'agotados'   && esProductoFisico && p.stock === 0)
     return coincideBusqueda && coincideCategoria && coincideEstado
   })
+
+  const totalStockBajo = productos.filter(p => p.tipo_producto !== 'servicio' && p.stock !== null && (p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5).length
+  const totalAgotados  = productos.filter(p => p.tipo_producto !== 'servicio' && p.stock !== null && p.stock === 0).length
 
   async function toggleActivo(id: string, activo: boolean) {
     const supabase = crearClienteSupabase()
@@ -99,8 +107,34 @@ export function ListaProductosAdmin({ productos: productosServidor, categorias }
           <option value="todos">Todos</option>
           <option value="activos">Activos</option>
           <option value="inactivos">Inactivos</option>
+          <option value="stock_bajo">⚠ Stock bajo (≤5)</option>
+          <option value="agotados">✕ Agotados</option>
         </select>
       </div>
+
+      {/* Alertas de stock */}
+      {(totalAgotados > 0 || totalStockBajo > 0) && estadoFiltro === 'todos' && !busqueda && (
+        <div className="flex flex-col sm:flex-row gap-2">
+          {totalAgotados > 0 && (
+            <button
+              onClick={() => setEstadoFiltro('agotados')}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-danger/8 border border-danger/20 text-danger text-xs font-semibold hover:bg-danger/15 transition-all flex-1 sm:flex-none"
+            >
+              <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
+              {totalAgotados} producto{totalAgotados !== 1 ? 's' : ''} agotado{totalAgotados !== 1 ? 's' : ''}
+            </button>
+          )}
+          {totalStockBajo > 0 && (
+            <button
+              onClick={() => setEstadoFiltro('stock_bajo')}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-warning/8 border border-warning/20 text-warning text-xs font-semibold hover:bg-warning/15 transition-all flex-1 sm:flex-none"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+              {totalStockBajo} con stock bajo (≤5 uds.)
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Lista */}
       {filtrados.length === 0 ? (
@@ -155,14 +189,34 @@ export function ListaProductosAdmin({ productos: productosServidor, categorias }
 
                 {/* Fila inferior: estado + acciones */}
                 <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-border/50">
-                  <span className={cn(
-                    'inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full',
-                    producto.esta_activo
-                      ? 'bg-success/10 text-success'
-                      : 'bg-foreground-muted/10 text-foreground-muted'
-                  )}>
-                    {producto.esta_activo ? 'Activo' : 'Inactivo'}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={cn(
+                      'inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full',
+                      producto.esta_activo
+                        ? 'bg-success/10 text-success'
+                        : 'bg-foreground-muted/10 text-foreground-muted'
+                    )}>
+                      {producto.esta_activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                    {/* Badge de stock — solo para productos físicos con stock definido */}
+                    {producto.tipo_producto !== 'servicio' && producto.stock !== null && (
+                      producto.stock === 0 ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-danger/10 text-danger">
+                          <XCircle className="w-2.5 h-2.5" />
+                          Agotado
+                        </span>
+                      ) : producto.stock <= 5 ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-warning/10 text-warning">
+                          <AlertTriangle className="w-2.5 h-2.5" />
+                          Stock: {producto.stock}
+                        </span>
+                      ) : (
+                        <span className="inline-flex text-[10px] font-medium px-2 py-0.5 rounded-full bg-background-subtle text-foreground-muted">
+                          Stock: {producto.stock}
+                        </span>
+                      )
+                    )}
+                  </div>
 
                   <div className="flex items-center gap-2">
                     <Switch
