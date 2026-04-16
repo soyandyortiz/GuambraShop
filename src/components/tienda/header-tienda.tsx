@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, Package, Loader2, SlidersHorizontal, User, Tag, ArrowLeft } from 'lucide-react'
+import { Search, X, Package, Loader2, SlidersHorizontal, User, Tag, ArrowLeft, ClipboardList } from 'lucide-react'
 import { usarCarrito } from '@/hooks/usar-carrito'
 import Link from 'next/link'
 import { cn, formatearPrecio } from '@/lib/utils'
@@ -287,6 +287,15 @@ export function HeaderTienda({ nombreTienda, logoUrl }: Props) {
             >
               <Search className="w-4 h-4" />
             </button>
+
+            {/* Seguimiento de pedido */}
+            <Link
+              href="/pedido"
+              className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-all flex-shrink-0"
+              aria-label="Seguimiento de pedido"
+            >
+              <ClipboardList className="w-4 h-4" />
+            </Link>
 
             {/* Avatar / sesión */}
             {sesionActiva === undefined ? (
