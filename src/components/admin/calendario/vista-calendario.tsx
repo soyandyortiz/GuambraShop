@@ -117,6 +117,16 @@ export function VistaCalendario({ citas: citasInic, mesActual }: Props) {
     toast.success('Estado actualizado')
   }
 
+  // ── Conteos por pestaña para el día seleccionado ─────────────────────────
+  const todosDia = diaSeleccionado ? (citasPorDia[diaSeleccionado] ?? []) : []
+  const conteosFiltro = {
+    activas:    todosDia.filter(c => c.estado === 'reservada' || c.estado === 'confirmada').length,
+    todos:      todosDia.length,
+    confirmada: todosDia.filter(c => c.estado === 'confirmada').length,
+    reservada:  todosDia.filter(c => c.estado === 'reservada').length,
+    pendiente:  todosDia.filter(c => c.estado === 'pendiente').length,
+  }
+
   // ── Conteo total del mes ─────────────────────────────────────────────────
   const totalMes     = citas.length
   const activasMes   = citas.filter(c => c.estado === 'reservada' || c.estado === 'confirmada').length
@@ -237,12 +247,6 @@ export function VistaCalendario({ citas: citasInic, mesActual }: Props) {
                           +{activas.length - 3}
                         </span>
                       )}
-                      {/* Badge rojo con conteo de pendientes */}
-                      {pendientes.length > 0 && (
-                        <span className="ml-auto min-w-[14px] h-[14px] px-0.5 rounded-full bg-danger text-white text-[8px] font-black flex items-center justify-center leading-none flex-shrink-0">
-                          {pendientes.length}
-                        </span>
-                      )}
                     </div>
                   )}
 
@@ -318,20 +322,31 @@ export function VistaCalendario({ citas: citasInic, mesActual }: Props) {
             { id: 'confirmada', label: 'Confirmadas'  },
             { id: 'reservada',  label: 'Reservadas'   },
             { id: 'pendiente',  label: 'Pendientes'   },
-          ] as const).map(f => (
-            <button
-              key={f.id}
-              onClick={() => setFiltro(f.id)}
-              className={cn(
-                'px-2.5 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all flex-shrink-0',
-                filtro === f.id
-                  ? 'bg-primary text-white'
-                  : 'text-foreground-muted hover:bg-background-subtle hover:text-foreground'
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
+          ] as const).map(f => {
+            const count = diaSeleccionado ? conteosFiltro[f.id] : 0
+            return (
+              <button
+                key={f.id}
+                onClick={() => setFiltro(f.id)}
+                className={cn(
+                  'flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all flex-shrink-0',
+                  filtro === f.id
+                    ? 'bg-primary text-white'
+                    : 'text-foreground-muted hover:bg-background-subtle hover:text-foreground'
+                )}
+              >
+                {f.label}
+                {diaSeleccionado && count > 0 && (
+                  <span className={cn(
+                    'min-w-[14px] h-[14px] px-0.5 rounded-full text-[8px] font-black flex items-center justify-center leading-none',
+                    filtro === f.id ? 'bg-white text-primary' : 'bg-foreground-muted/20 text-foreground'
+                  )}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </div>
 
         {/* Lista de citas */}
