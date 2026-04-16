@@ -22,15 +22,38 @@ export async function generateMetadata(): Promise<Metadata> {
   const supabase = await crearClienteServidor()
   const { data: config } = await supabase
     .from('configuracion_tienda')
-    .select('nombre_tienda, meta_descripcion, favicon_url')
+    .select('nombre_tienda, meta_descripcion, favicon_url, logo_url, foto_portada_url')
     .single()
 
+  const nombre      = config?.nombre_tienda ?? 'Tienda'
+  const descripcion = config?.meta_descripcion ?? 'Tu tienda online profesional'
+  const siteUrl     = process.env.NEXT_PUBLIC_SITE_URL ?? ''
+  const ogImage     = config?.foto_portada_url ?? config?.logo_url ?? null
+
   return {
-    title: config?.nombre_tienda ?? 'Tienda',
-    description: config?.meta_descripcion ?? 'Tu tienda online profesional',
+    title: nombre,
+    description: descripcion,
     icons: config?.favicon_url
       ? { icon: config.favicon_url, shortcut: config.favicon_url }
       : { icon: '/favicon-blank.png' },
+    openGraph: {
+      title: nombre,
+      description: descripcion,
+      url: siteUrl,
+      siteName: nombre,
+      type: 'website',
+      locale: 'es_EC',
+      ...(ogImage && {
+        images: [{ url: ogImage, width: 1200, height: 630, alt: nombre }],
+      }),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: nombre,
+      description: descripcion,
+      ...(ogImage && { images: [ogImage] }),
+    },
+    metadataBase: siteUrl ? new URL(siteUrl) : undefined,
   }
 }
 
