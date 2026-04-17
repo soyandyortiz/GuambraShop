@@ -110,7 +110,29 @@ export interface ResenaProducto {
   creado_en: string
 }
 
-export type TipoProducto = 'producto' | 'servicio'
+export type TipoProducto = 'producto' | 'servicio' | 'evento'
+
+export type EstadoSolicitud = 'nueva' | 'en_conversacion' | 'cotizacion_enviada' | 'confirmada' | 'rechazada'
+
+export interface SolicitudEvento {
+  id: string
+  numero_solicitud: string
+  producto_id: string | null
+  producto_nombre: string
+  nombre_cliente: string
+  email: string
+  whatsapp: string
+  fecha_evento: string | null       // DATE → "YYYY-MM-DD"
+  hora_evento: string | null        // TIME → "HH:MM:SS"
+  ciudad: string | null
+  tipo_evento: string | null
+  presupuesto_aproximado: number | null
+  notas: string | null
+  estado: EstadoSolicitud
+  pedido_id: string | null
+  creado_en: string
+  actualizado_en: string
+}
 
 export interface Cita {
   id: string

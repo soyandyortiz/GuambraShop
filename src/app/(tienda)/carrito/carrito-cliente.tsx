@@ -157,6 +157,62 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosP
     setCreandoPedido(true)
 
     const supabase = crearClienteSupabase()
+
+    // Validar stock antes de crear el pedido
+    for (const item of items) {
+      if (item.tipo_producto === 'servicio') continue
+
+      if (item.variante_id) {
+        const { data } = await supabase
+          .from('variantes_producto')
+          .select('stock')
+          .eq('id', item.variante_id)
+          .single()
+        if (data && data.stock !== null && data.stock < item.cantidad) {
+          const stockDisp = data.stock
+          toast.error(
+            stockDisp === 0
+              ? `"${item.nombre}" está agotado`
+              : `"${item.nombre}" solo tiene ${stockDisp} unidad${stockDisp !== 1 ? 'es' : ''} disponible${stockDisp !== 1 ? 's' : ''}`
+          )
+          setCreandoPedido(false)
+          return
+        }
+      } else if (item.talla) {
+        const { data } = await supabase
+          .from('tallas_producto')
+          .select('stock')
+          .eq('producto_id', item.producto_id)
+          .eq('talla', item.talla)
+          .single()
+        if (data && data.stock !== null && data.stock < item.cantidad) {
+          const stockDisp = data.stock
+          toast.error(
+            stockDisp === 0
+              ? `"${item.nombre}" talla ${item.talla} está agotada`
+              : `"${item.nombre}" talla ${item.talla} solo tiene ${stockDisp} unidad${stockDisp !== 1 ? 'es' : ''}`
+          )
+          setCreandoPedido(false)
+          return
+        }
+      } else {
+        const { data } = await supabase
+          .from('productos')
+          .select('stock')
+          .eq('id', item.producto_id)
+          .single()
+        if (data && data.stock !== null && data.stock < item.cantidad) {
+          const stockDisp = data.stock
+          toast.error(
+            stockDisp === 0
+              ? `"${item.nombre}" está agotado`
+              : `"${item.nombre}" solo tiene ${stockDisp} unidad${stockDisp !== 1 ? 'es' : ''} disponible${stockDisp !== 1 ? 's' : ''}`
+          )
+          setCreandoPedido(false)
+          return
+        }
+      }
+    }
     const whatsappCompleto = codigoPais + telefono.replace(/\D/g, '')
 
     const { data, error } = await supabase

@@ -23,13 +23,16 @@ interface Props {
   etiquetas?: string[]
   variante_count?: number
   tipo_producto?: TipoProducto
+  stock?: number | null
 }
 
 export function TarjetaProducto({
   id, nombre, slug, precio, precio_descuento,
   imagen_url, calificacion_promedio, total_resenas,
-  etiquetas, variante_count, tipo_producto,
+  etiquetas, variante_count, tipo_producto, stock,
 }: Props) {
+  const agotado = stock !== null && stock !== undefined && stock === 0
+  const pocasUnidades = stock !== null && stock !== undefined && stock > 0 && stock <= 5
   const router = useRouter()
   const { esFavorito, toggleFavorito } = usarFavoritos()
   const { agregar } = usarCarrito()
@@ -42,6 +45,10 @@ export function TarjetaProducto({
   function agregarAlCarrito(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
+    if (tipo_producto === 'evento') {
+      router.push(`/producto/${slug}`)
+      return
+    }
     if (tipo_producto === 'servicio') {
       setModalAgendarAbierto(true)
       return
@@ -86,16 +93,31 @@ export function TarjetaProducto({
           )}
         </div>
 
-        {/* Badges de descuento y servicio */}
+        {/* Badges de descuento, servicio y stock */}
         <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
+          {tipo_producto === 'evento' && (
+            <div className="bg-purple-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg shadow-sm">
+              Evento
+            </div>
+          )}
           {tipo_producto === 'servicio' && (
             <div className="bg-blue-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg shadow-sm">
               Servicio
             </div>
           )}
-          {descuento > 0 && (
+          {descuento > 0 && tipo_producto !== 'evento' && (
             <div className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg">
               -{descuento}%
+            </div>
+          )}
+          {agotado && (
+            <div className="bg-gray-700 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg shadow-sm">
+              Agotado
+            </div>
+          )}
+          {pocasUnidades && (
+            <div className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg shadow-sm">
+              Últimas {stock}
             </div>
           )}
         </div>
@@ -125,13 +147,21 @@ export function TarjetaProducto({
 
         {/* Precio */}
         <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
-          <p className="text-sm font-bold text-emerald-600 leading-none">
-            {formatearPrecio(precio_descuento ?? precio)}
-          </p>
-          {precio_descuento && (
-            <p className="text-[9px] text-foreground-muted leading-none">
-              Antes <span className="line-through">{formatearPrecio(precio)}</span>
+          {tipo_producto === 'evento' ? (
+            <p className="text-sm font-bold text-purple-600 leading-none">
+              Desde {formatearPrecio(precio)}
             </p>
+          ) : (
+            <>
+              <p className="text-sm font-bold text-emerald-600 leading-none">
+                {formatearPrecio(precio_descuento ?? precio)}
+              </p>
+              {precio_descuento && (
+                <p className="text-[9px] text-foreground-muted leading-none">
+                  Antes <span className="line-through">{formatearPrecio(precio)}</span>
+                </p>
+              )}
+            </>
           )}
         </div>
 
@@ -168,22 +198,36 @@ export function TarjetaProducto({
           <button
             type="button"
             onClick={agregarAlCarrito}
-            disabled={agregando && tipo_producto !== 'servicio'}
+            disabled={agregando && tipo_producto !== 'servicio' && tipo_producto !== 'evento'}
             className={cn(
               'flex items-center justify-center gap-1 py-2 rounded-xl text-[10px] font-bold active:scale-95 transition-all',
-              agregando && tipo_producto !== 'servicio'
-                ? 'bg-green-600 text-white'
-                : 'bg-primary text-white hover:opacity-90'
+              tipo_producto === 'evento'
+                ? 'bg-purple-600 text-white hover:bg-purple-700'
+                : agregando && tipo_producto !== 'servicio'
+                  ? 'bg-green-600 text-white'
+                  : agotado && tipo_producto !== 'servicio'
+                    ? 'bg-gray-400 text-white hover:opacity-90'
+                    : 'bg-primary text-white hover:opacity-90'
             )}
           >
-            {agregando && tipo_producto !== 'servicio' ? (
+            {tipo_producto === 'evento' ? (
+              <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+            ) : agregando && tipo_producto !== 'servicio' ? (
               <Check className="w-3.5 h-3.5 flex-shrink-0 animate-in zoom-in duration-300" />
             ) : tipo_producto === 'servicio' ? (
               <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
             ) : (
               <ShoppingCart className="w-3.5 h-3.5 flex-shrink-0" />
             )}
-            {agregando && tipo_producto !== 'servicio' ? '¡Listo!' : tipo_producto === 'servicio' ? 'Agendar' : 'Agregar'}
+            {tipo_producto === 'evento'
+              ? 'Cotizar'
+              : agregando && tipo_producto !== 'servicio'
+                ? '¡Listo!'
+                : tipo_producto === 'servicio'
+                  ? 'Agendar'
+                  : agotado
+                    ? 'Agotado'
+                    : 'Agregar'}
           </button>
         </div>
       </div>

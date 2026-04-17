@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
-import { cn, formatearPrecio } from '@/lib/utils'
+import { formatearPrecio } from '@/lib/utils'
 import { generarEnlacePromocion } from '@/lib/whatsapp'
 
 interface Promocion {
@@ -36,26 +36,23 @@ export function ModalPromocionPub({ promocion, whatsapp }: Props) {
 
   if (!visible) return null
 
-  const urlWA = generarEnlacePromocion(whatsapp, promocion.mensaje_whatsapp)
+  const mensajeWA = `Buen dia, estoy interesado en la promocion de su tienda. ${promocion.nombre}${promocion.precio ? ` - ${formatearPrecio(promocion.precio)}` : ''}`
+  const urlWA = generarEnlacePromocion(whatsapp, mensajeWA)
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
       onClick={() => setVisible(false)}
     >
+      <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
       <div
         className="bg-card rounded-t-3xl sm:rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
         onClick={e => e.stopPropagation()}
       >
-        {/* Imagen */}
-        <div className={cn(
-          'w-full overflow-hidden bg-background-subtle relative',
-          promocion.formato_imagen === 'cuadrado' && 'aspect-square',
-          promocion.formato_imagen === 'horizontal' && 'aspect-video',
-          promocion.formato_imagen === 'vertical' && 'aspect-[9/16] max-h-72',
-        )}>
+        {/* Imagen — completa, sin recorte ni fondo */}
+        <div className="relative w-full">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={promocion.imagen_url} alt={promocion.nombre} className="w-full h-full object-cover" />
+          <img src={promocion.imagen_url} alt={promocion.nombre} className="w-full h-auto block" />
           <button
             onClick={() => setVisible(false)}
             className="absolute top-3 right-3 w-8 h-8 bg-black/40 hover:bg-black/60 rounded-full flex items-center justify-center transition-colors"
@@ -91,6 +88,7 @@ export function ModalPromocionPub({ promocion, whatsapp }: Props) {
             </a>
           </div>
         </div>
+      </div>
       </div>
     </div>
   )

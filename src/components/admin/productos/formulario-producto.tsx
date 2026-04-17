@@ -6,7 +6,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Plus, Trash2, Tag, Save, ArrowLeft, Ruler, Package, Video, ImagePlus, X } from 'lucide-react'
+import { Plus, Trash2, Tag, Save, ArrowLeft, Ruler, Package, Video, ImagePlus, X, PackagePlus, PartyPopper } from 'lucide-react'
 import { usarSubirImagen } from '@/hooks/usar-subir-imagen'
 import { useEffect } from 'react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
@@ -28,7 +28,7 @@ const esquema = z.object({
   etiquetas:        z.string().optional(),
   url_video:        z.string().optional(),
   requiere_tallas:  z.boolean(),
-  tipo_producto:    z.enum(['producto', 'servicio']),
+  tipo_producto:    z.enum(['producto', 'servicio', 'evento']),
   stock:            z.string().optional(),
   variantes: z.array(z.object({
     id:             z.string().optional(),
@@ -90,7 +90,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       etiquetas: producto?.etiquetas?.join(', ') ?? '',
       url_video: producto?.url_video ?? '',
       requiere_tallas: producto?.requiere_tallas ?? false,
-      tipo_producto: producto?.tipo_producto ?? 'producto',
+      tipo_producto: (producto?.tipo_producto as 'producto' | 'servicio' | 'evento') ?? 'producto',
       stock: producto?.stock?.toString() ?? '',
       variantes: producto?.variantes?.map(v => ({
         id: v.id, nombre: v.nombre,
@@ -105,6 +105,8 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       })) ?? [],
     },
   })
+
+  const [agregarStockValor, setAgregarStockValor] = useState('')
 
   const { fields: varianteFields, append: appendVariante, remove: removeVariante } = useFieldArray({ control, name: 'variantes' })
   const { fields: tallaFields, append: appendTalla, remove: removeTalla } = useFieldArray({ control, name: 'tallas' })
@@ -222,36 +224,62 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
         </Botón>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <button
           type="button"
           onClick={() => setValue('tipo_producto', 'producto')}
           className={cn(
             "p-4 rounded-2xl border-2 text-center transition-all",
-            watch('tipo_producto') === 'producto' 
-              ? "border-primary bg-primary/5 text-primary" 
+            watch('tipo_producto') === 'producto'
+              ? "border-primary bg-primary/5 text-primary"
               : "border-border bg-card text-foreground-muted hover:border-primary/40"
           )}
         >
           <Package className="w-6 h-6 mx-auto mb-2" />
-          <p className="text-sm font-bold">Producto de Venta</p>
-          <p className="text-[10px] opacity-70">Ropa, accesorios, artículos físicos</p>
+          <p className="text-sm font-bold">Producto</p>
+          <p className="text-[10px] opacity-70">Venta directa</p>
         </button>
         <button
           type="button"
           onClick={() => setValue('tipo_producto', 'servicio')}
           className={cn(
             "p-4 rounded-2xl border-2 text-center transition-all",
-            watch('tipo_producto') === 'servicio' 
-              ? "border-primary bg-primary/5 text-primary" 
+            watch('tipo_producto') === 'servicio'
+              ? "border-primary bg-primary/5 text-primary"
               : "border-border bg-card text-foreground-muted hover:border-primary/40"
           )}
         >
           <Save className="w-6 h-6 mx-auto mb-2" />
-          <p className="text-sm font-bold">Servicio con Agenda</p>
-          <p className="text-[10px] opacity-70">Citas, turnos, atención presencial</p>
+          <p className="text-sm font-bold">Servicio</p>
+          <p className="text-[10px] opacity-70">Con agenda y cita</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setValue('tipo_producto', 'evento')}
+          className={cn(
+            "p-4 rounded-2xl border-2 text-center transition-all",
+            watch('tipo_producto') === 'evento'
+              ? "border-purple-500 bg-purple-500/5 text-purple-600"
+              : "border-border bg-card text-foreground-muted hover:border-purple-400/40"
+          )}
+        >
+          <PartyPopper className="w-6 h-6 mx-auto mb-2" />
+          <p className="text-sm font-bold">Evento</p>
+          <p className="text-[10px] opacity-70">Solicitud de cotización</p>
         </button>
       </div>
+
+      {/* Aviso para tipo evento */}
+      {watch('tipo_producto') === 'evento' && (
+        <div className="rounded-xl bg-purple-50 border border-purple-200 px-4 py-3 text-sm text-purple-700">
+          <p className="font-semibold mb-1">Flujo de cotización activo</p>
+          <p className="text-xs opacity-80">
+            Los clientes verán un formulario para enviar sus datos del evento (fecha, ciudad, presupuesto).
+            La solicitud queda registrada en <b>Solicitudes de Evento</b> y se abre WhatsApp con toda la información precargada.
+            No genera pedido directamente.
+          </p>
+        </div>
+      )}
 
       {errorGlobal && (
         <div className="rounded-xl bg-danger/10 border border-danger/20 px-4 py-3 text-sm text-danger">
@@ -342,13 +370,78 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
             placeholder="0.00"
             {...register('precio_descuento')}
           />
-          {watch('tipo_producto') === 'producto' && (
-            <Input
-              etiqueta="Stock base (Opcional)"
-              type="number"
-              placeholder="Ej: 50"
-              {...register('stock')}
-            />
+          {(watch('tipo_producto') === 'producto') && (
+            <div className="flex flex-col gap-2">
+              {/* Indicador de estado — solo en edición */}
+              {esEdicion && (() => {
+                const val = watch('stock')
+                const n = val !== '' && val !== undefined ? parseInt(val, 10) : null
+                if (n === null) return (
+                  <p className="text-xs text-foreground-muted">Stock: <span className="font-medium">sin control (ilimitado)</span></p>
+                )
+                if (n === 0) return (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white bg-red-500 px-2 py-0.5 rounded-lg">AGOTADO</span>
+                    <button
+                      type="button"
+                      onClick={() => setValue('stock', '1')}
+                      className="text-xs text-primary hover:underline font-medium"
+                    >
+                      Marcar con stock
+                    </button>
+                  </div>
+                )
+                if (n <= 5) return (
+                  <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-lg w-fit">
+                    Pocas unidades: {n}
+                  </span>
+                )
+                return (
+                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg w-fit">
+                    En stock: {n} unidades
+                  </span>
+                )
+              })()}
+
+              <Input
+                etiqueta="Stock base"
+                type="number"
+                min="0"
+                placeholder="Vacío = ilimitado"
+                {...register('stock')}
+              />
+
+              {/* Reponer stock — solo en edición */}
+              {esEdicion && (
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <PackagePlus className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground-muted" />
+                    <input
+                      type="number"
+                      min="1"
+                      value={agregarStockValor}
+                      onChange={e => setAgregarStockValor(e.target.value)}
+                      placeholder="Unidades a reponer"
+                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!agregarStockValor || parseInt(agregarStockValor, 10) <= 0}
+                    onClick={() => {
+                      const agregar = parseInt(agregarStockValor, 10)
+                      if (isNaN(agregar) || agregar <= 0) return
+                      const actual = parseInt(watch('stock') || '0', 10) || 0
+                      setValue('stock', String(actual + agregar))
+                      setAgregarStockValor('')
+                    }}
+                    className="h-10 px-4 rounded-xl bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all whitespace-nowrap"
+                  >
+                    + Reponer
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </Sección>
@@ -363,8 +456,8 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
         />
       </Sección>
 
-      {/* Sección: Variantes */}
-      <Sección titulo="Variantes" descripcion="Agrega opciones como color, material, etc. El precio de la variante reemplaza al precio base. Cada variante puede tener su propia imagen.">
+      {/* Sección: Variantes — oculta para eventos */}
+      {watch('tipo_producto') !== 'evento' && <Sección titulo="Variantes" descripcion="Agrega opciones como color, material, etc. El precio de la variante reemplaza al precio base. Cada variante puede tener su propia imagen.">
         <div className="flex flex-col gap-3">
           {varianteFields.map((field, i) => {
             const imagenActual = watch(`variantes.${i}.imagen_url`)
@@ -442,7 +535,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
             <Plus className="w-4 h-4" /> Agregar variante
           </button>
         </div>
-      </Sección>
+      </Sección>}
 
       {/* Sección: Tallas */}
       {watch('tipo_producto') === 'producto' && (

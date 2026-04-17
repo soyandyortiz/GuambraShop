@@ -45,7 +45,7 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
       
       let detalleCita = ''
       if (item.tipo_producto === 'servicio' && item.cita) {
-        detalleCita = `\n   📅 *Cita:* ${new Date(item.cita.fecha + 'T00:00:00').toLocaleDateString('es-EC')} - ${item.cita.hora_inicio.slice(0, 5)}`
+        detalleCita = `\n   - *Cita:* ${new Date(item.cita.fecha + 'T00:00:00').toLocaleDateString('es-EC')} - ${item.cita.hora_inicio.slice(0, 5)}`
       }
 
       return (
@@ -138,6 +138,45 @@ export function generarMensajePromocion(
 export function generarEnlacePromocion(telefono: string, mensajePersonalizado: string): string {
   const tel = normalizarTelefono(telefono)
   return `https://wa.me/${tel}?text=${encodeURIComponent(mensajePersonalizado)}`
+}
+
+export interface DatosSolicitudEvento {
+  numeroSolicitud: string
+  productoNombre: string
+  nombreCliente: string
+  whatsapp: string
+  email: string
+  fechaEvento?: string | null
+  horaEvento?: string | null
+  ciudad?: string | null
+  tipoEvento?: string | null
+  presupuesto?: number | null
+  notas?: string | null
+  simboloMoneda?: string
+}
+
+export function generarMensajeSolicitudEvento(datos: DatosSolicitudEvento): string {
+  const { numeroSolicitud, productoNombre, nombreCliente, email, fechaEvento, horaEvento, ciudad, tipoEvento, presupuesto, notas, simboloMoneda = '$' } = datos
+  const fmt = (n: number) => `${simboloMoneda}${n.toFixed(2)}`
+
+  const lineasEvento: string[] = []
+  if (tipoEvento)   lineasEvento.push(`- Tipo de evento: ${tipoEvento}`)
+  if (fechaEvento)  lineasEvento.push(`- Fecha: ${new Date(fechaEvento + 'T00:00:00').toLocaleDateString('es-EC', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`)
+  if (horaEvento)   lineasEvento.push(`- Hora aproximada: ${horaEvento.slice(0, 5)}`)
+  if (ciudad)       lineasEvento.push(`- Ciudad: ${ciudad}`)
+  if (presupuesto)  lineasEvento.push(`- Presupuesto aprox.: ${fmt(presupuesto)}`)
+  if (notas)        lineasEvento.push(`- Notas: ${notas}`)
+
+  const mensaje =
+    `*Solicitud de evento ${numeroSolicitud}*\n\n` +
+    `Hola, me interesa el servicio *${productoNombre}*.\n\n` +
+    `*Mis datos:*\n` +
+    `- Nombre: ${nombreCliente}\n` +
+    `- Email: ${email}\n\n` +
+    (lineasEvento.length > 0 ? `*Detalles del evento:*\n${lineasEvento.join('\n')}\n\n` : '') +
+    `Quedo atento/a a su respuesta.`
+
+  return encodeURIComponent(mensaje)
 }
 
 export function generarMensajeRecuperacionContrasena(urlTienda: string): string {

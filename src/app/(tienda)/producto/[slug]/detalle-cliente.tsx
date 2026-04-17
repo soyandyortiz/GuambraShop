@@ -15,17 +15,19 @@ import { usarFavoritos } from '@/hooks/usar-favoritos'
 import { toast } from 'sonner'
 import { generarEnlaceWhatsApp } from '@/lib/whatsapp'
 import { FormularioResena } from '@/components/tienda/formulario-resena'
+import { FormularioSolicitud } from '@/components/tienda/formulario-solicitud'
 
 interface Producto {
   id: string; nombre: string; slug: string; descripcion: string | null
   precio: number; precio_descuento: number | null; etiquetas: string[]
   requiere_tallas: boolean; categoria: { id: string; nombre: string; slug: string } | null
-  tipo_producto: 'producto' | 'servicio'
+  tipo_producto: 'producto' | 'servicio' | 'evento'
   url_video?: string | null
+  stock?: number | null
 }
 interface Imagen { id: string; url: string; orden: number }
-interface Variante { id: string; nombre: string; descripcion: string | null; precio_variante: number | null; imagen_url?: string | null; orden: number }
-interface Talla { id: string; talla: string; disponible: boolean; orden: number }
+interface Variante { id: string; nombre: string; descripcion: string | null; precio_variante: number | null; imagen_url?: string | null; stock?: number | null; orden: number }
+interface Talla { id: string; talla: string; disponible: boolean; stock?: number | null; orden: number }
 interface Resena { id: string; nombre_cliente: string; calificacion: number; comentario: string | null; creado_en: string }
 
 interface Props {
@@ -119,6 +121,22 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   const precioOriginal = producto.precio
   const descuento = precioBase < precioOriginal ? calcularDescuento(precioOriginal, precioBase) : 0
   const fav = esFavorito(producto.id)
+
+  // Stock efectivo: variante > talla > producto base (null = ilimitado)
+  const stockEfectivo: number | null = (() => {
+    if (producto.tipo_producto === 'servicio' || producto.tipo_producto === 'evento') return null
+    if (varianteId) {
+      const v = variantes.find(v => v.id === varianteId)
+      if (v && v.stock !== undefined) return v.stock ?? null
+    }
+    if (producto.requiere_tallas && talla) {
+      const t = tallas.find(t => t.talla === talla)
+      if (t && t.stock !== undefined) return t.stock ?? null
+    }
+    return producto.stock ?? null
+  })()
+  const agotado = stockEfectivo !== null && stockEfectivo === 0
+  const pocasUnidades = stockEfectivo !== null && stockEfectivo > 0 && stockEfectivo <= 5
 
   const calificacionPromedio = resenas.length
     ? resenas.reduce((s, r) => s + r.calificacion, 0) / resenas.length
@@ -307,15 +325,58 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
 
             {/* Precio */}
             <div className="flex items-end gap-3 mt-4">
-              <p className="text-3xl font-bold text-primary">{formatearPrecio(precioBase)}</p>
-              {descuento > 0 && (
-                <p className="text-sm text-foreground-muted line-through mb-1">{formatearPrecio(precioOriginal)}</p>
+              {producto.tipo_producto === 'evento' ? (
+                <div>
+                  <p className="text-sm text-foreground-muted mb-0.5">Precio referencial desde</p>
+                  <p className="text-3xl font-bold text-purple-600">{formatearPrecio(precioBase)}</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-3xl font-bold text-primary">{formatearPrecio(precioBase)}</p>
+                  {descuento > 0 && (
+                    <p className="text-sm text-foreground-muted line-through mb-1">{formatearPrecio(precioOriginal)}</p>
+                  )}
+                </>
               )}
             </div>
+
+            {/* Disponibilidad de stock */}
+            {producto.tipo_producto !== 'servicio' && producto.tipo_producto !== 'evento' && (
+              <div className="mt-2">
+                {agotado ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-gray-600 px-2.5 py-1 rounded-lg">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/70 flex-shrink-0" />
+                    Sin stock
+                  </span>
+                ) : pocasUnidades ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-lg">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                    Últimas {stockEfectivo} unidades disponibles
+                  </span>
+                ) : stockEfectivo !== null && stockEfectivo > 5 ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                    En stock
+                  </span>
+                ) : null}
+              </div>
+            )}
           </div>
 
+          {/* ══ FLUJO EVENTO: formulario de solicitud de cotización ══ */}
+          {producto.tipo_producto === 'evento' && (
+            <FormularioSolicitud
+              productoId={producto.id}
+              productoNombre={producto.nombre}
+              precioBase={producto.precio_descuento ?? producto.precio}
+              whatsapp={whatsapp}
+              simboloMoneda="$"
+            />
+          )}
+
+          {/* ══ FLUJO NORMAL: variantes, tallas, cantidad, carrito ══ */}
           {/* Variantes */}
-          {variantes.length > 0 && (
+          {producto.tipo_producto !== 'evento' && variantes.length > 0 && (
             <div className="px-4 py-4 border-t border-border lg:px-8">
               <p className="text-xs font-semibold text-foreground mb-2.5">Variante</p>
               <div className="flex flex-wrap gap-2">
@@ -345,7 +406,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
           )}
 
           {/* Tallas */}
-          {producto.requiere_tallas && tallas.length > 0 && (
+          {producto.tipo_producto !== 'evento' && producto.requiere_tallas && tallas.length > 0 && (
             <div className="px-4 py-4 border-t border-border lg:px-8">
               <p className="text-xs font-semibold text-foreground mb-2.5">Talla</p>
               <div className="flex flex-wrap gap-2">
@@ -423,8 +484,8 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
             </div>
           )}
 
-          {/* Cantidad */}
-          <div className="px-4 py-4 border-t border-border lg:px-8">
+          {/* Cantidad — solo para productos y servicios */}
+          {producto.tipo_producto !== 'evento' && <div className="px-4 py-4 border-t border-border lg:px-8">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-foreground">Cantidad</p>
               <div className="flex items-center gap-3 bg-background-subtle rounded-xl p-1">
@@ -439,12 +500,11 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                 </button>
               </div>
             </div>
-          </div>
+          </div>}
 
-          {/* Botones de acción */}
-          <div className="px-4 py-4 border-t border-border flex flex-col gap-2.5 lg:px-8">
-            {/* Botón video — solo si hay URL */}
-            {producto.url_video && (
+          {/* Botón video — visible para todos los tipos */}
+          {producto.url_video && (
+            <div className="px-4 pt-4 lg:px-8">
               <button
                 onClick={() => {
                   const embed = urlEmbed(producto.url_video!)
@@ -457,9 +517,13 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                 className="w-full h-11 rounded-2xl border-2 border-blue-500 text-blue-600 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-blue-50 active:scale-[0.97] transition-all"
               >
                 <PlayCircle className="w-4 h-4" />
-                {producto.tipo_producto === 'servicio' ? 'Ver video del servicio' : 'Ver video del producto'}
+                {producto.tipo_producto === 'servicio' ? 'Ver video del servicio' : producto.tipo_producto === 'evento' ? 'Ver video del evento' : 'Ver video del producto'}
               </button>
-            )}
+            </div>
+          )}
+
+          {/* Botones de acción — solo para productos y servicios */}
+          {producto.tipo_producto !== 'evento' && <div className="px-4 py-4 border-t border-border flex flex-col gap-2.5 lg:px-8">
             <div className="flex gap-3">
               <button onClick={consultarWhatsApp}
                 className="flex-1 h-12 rounded-2xl border-2 border-primary text-primary text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/5 active:scale-[0.97] transition-all">
@@ -467,12 +531,17 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                 Consultar
               </button>
               <button onClick={agregarAlCarrito}
-                className="flex-1 h-12 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.97] transition-all shadow-sm shadow-primary/30">
+                className={cn(
+                  'flex-1 h-12 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.97] transition-all shadow-sm',
+                  agotado
+                    ? 'bg-gray-500 shadow-gray-500/20 hover:bg-gray-500/90'
+                    : 'bg-primary shadow-primary/30 hover:bg-primary/90'
+                )}>
                 <ShoppingCart className="w-4 h-4" />
-                Añadir al carrito
+                {agotado ? 'Agotado — Agregar igual' : 'Añadir al carrito'}
               </button>
             </div>
-          </div>
+          </div>}
 
           {/* Tabs descripción / reseñas */}
           <div className="border-t border-border">
