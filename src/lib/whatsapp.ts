@@ -7,6 +7,7 @@ export interface ItemCarrito {
   slug: string
   tipo_producto?: string
   cita?: { fecha: string; hora_inicio: string }
+  extras?: { id: string; nombre: string; precio: number }[]
 }
 
 export interface OpcionEnvio {
@@ -42,6 +43,7 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
       const extras: string[] = []
       if (item.variante) extras.push(`Variante: ${item.variante}`)
       if (item.talla)    extras.push(`Talla: ${item.talla}`)
+      if (item.extras?.length) extras.push(...item.extras.map(e => `+${e.nombre} (${fmt(e.precio)})`));
       
       let detalleCita = ''
       if (item.tipo_producto === 'servicio' && item.cita) {

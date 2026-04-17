@@ -306,4 +306,5 @@ export interface ItemCarrito {
     hora_inicio: string
     hora_fin: string
   }
+  extras?: { id: string; nombre: string; precio: number }[]
 }

@@ -32,6 +32,7 @@ interface ConfigTienda {
   whatsapp: string | null
   moneda: string
   simbolo_moneda: string
+  pais: string | null
   politicas_negocio: string | null
   meta_descripcion: string | null
   habilitar_citas: boolean
@@ -93,6 +94,7 @@ const schemaGeneral = z.object({
   whatsapp: z.string().optional(),
   moneda: z.string().min(1),
   simbolo_moneda: z.string().min(1),
+  pais: z.enum(['EC', 'PE', 'CO']),
   meta_descripcion: z.string().optional(),
   politicas_negocio: z.string().optional(),
 })
@@ -217,6 +219,7 @@ function TabGeneral({ config }: { config: ConfigTienda }) {
       whatsapp: config.whatsapp ?? '',
       moneda: config.moneda,
       simbolo_moneda: config.simbolo_moneda,
+      pais: (config.pais as 'EC' | 'PE' | 'CO') ?? 'EC',
       meta_descripcion: config.meta_descripcion ?? '',
       politicas_negocio: config.politicas_negocio ?? '',
     },
@@ -231,6 +234,7 @@ function TabGeneral({ config }: { config: ConfigTienda }) {
       whatsapp: datos.whatsapp || null,
       moneda: datos.moneda,
       simbolo_moneda: datos.simbolo_moneda,
+      pais: datos.pais,
       meta_descripcion: datos.meta_descripcion || null,
       politicas_negocio: datos.politicas_negocio || null,
     }).eq('id', config.id)
@@ -271,6 +275,17 @@ function TabGeneral({ config }: { config: ConfigTienda }) {
           <input {...register('simbolo_moneda')} className={inputCls} placeholder="$" />
         </Campo>
       </div>
+
+      <Campo label="País de operación">
+        <select {...register('pais')} className={`${inputCls} appearance-none cursor-pointer`}>
+          <option value="EC">🇪🇨 Ecuador (Provincias, USD)</option>
+          <option value="PE">🇵🇪 Perú (Regiones/Departamentos, PEN)</option>
+          <option value="CO">🇨🇴 Colombia (Departamentos, COP)</option>
+        </select>
+        <p className="text-[11px] text-foreground-muted mt-1">
+          Afecta los dropdowns de provincia/ciudad en el carrito y formularios de cotización.
+        </p>
+      </Campo>
 
       <Campo label="Meta descripción (SEO)">
         <textarea {...register('meta_descripcion')} rows={2} className={`${inputCls} h-auto py-2 resize-none`} placeholder="Descripción para buscadores..." />
