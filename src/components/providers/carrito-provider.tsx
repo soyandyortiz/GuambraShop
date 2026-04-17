@@ -20,6 +20,8 @@ export interface ItemCarrito {
     hora_inicio: string
     hora_fin: string
   }
+  // Add-ons seleccionados (variantes con tipo_precio = 'suma')
+  extras?: { id: string; nombre: string; precio: number }[]
 }
 
 interface CarritoContextType {

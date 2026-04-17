@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Star, ShoppingCart,
   Heart, Share2, MessageCircle, Package, Tag,
-  Calendar, Clock, PlayCircle, X
+  Calendar, Clock, PlayCircle, X, Check
 } from 'lucide-react'
 import Link from 'next/link'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 import { generarEnlaceWhatsApp } from '@/lib/whatsapp'
 import { FormularioResena } from '@/components/tienda/formulario-resena'
 import { FormularioSolicitud } from '@/components/tienda/formulario-solicitud'
+import type { PaqueteEvento } from '@/types'
 
 interface Producto {
   id: string; nombre: string; slug: string; descripcion: string | null
@@ -24,9 +25,14 @@ interface Producto {
   tipo_producto: 'producto' | 'servicio' | 'evento'
   url_video?: string | null
   stock?: number | null
+  paquetes_evento?: PaqueteEvento[]
 }
 interface Imagen { id: string; url: string; orden: number }
-interface Variante { id: string; nombre: string; descripcion: string | null; precio_variante: number | null; imagen_url?: string | null; stock?: number | null; orden: number }
+interface Variante {
+  id: string; nombre: string; descripcion: string | null; precio_variante: number | null
+  imagen_url?: string | null; stock?: number | null; orden: number
+  tipo_precio?: string | null  // 'reemplaza' | 'suma'
+}
 interface Talla { id: string; talla: string; disponible: boolean; stock?: number | null; orden: number }
 interface Resena { id: string; nombre_cliente: string; calificacion: number; comentario: string | null; creado_en: string }
 
@@ -38,6 +44,8 @@ interface Props {
   resenas: Resena[]
   whatsapp: string
   nombreTienda: string
+  simboloMoneda?: string
+  pais?: string
   configCitas: {
     habilitar_citas?: boolean
     hora_apertura?: string
@@ -46,14 +54,21 @@ interface Props {
   }
 }
 
-export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, resenas, whatsapp, configCitas }: Props) {
+export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, resenas, whatsapp, simboloMoneda = '$', pais = 'EC', configCitas }: Props) {
   const router = useRouter()
   const { agregar } = usarCarrito()
   const { esFavorito, toggleFavorito } = usarFavoritos()
 
   const [imgActiva, setImgActiva] = useState(0)
-  const [imagenVariante, setImagenVariante] = useState<string | null>(variantes[0]?.imagen_url ?? null)
-  const [varianteId, setVarianteId] = useState<string | null>(variantes[0]?.id ?? null)
+  const [imagenVariante, setImagenVariante] = useState<string | null>(null)
+
+  // Variantes "reemplaza" — selección única
+  const variantesReemplaza = variantes.filter(v => (v.tipo_precio ?? 'reemplaza') === 'reemplaza')
+  // Variantes "suma" — add-ons multi-seleccionables
+  const variantesExtra = variantes.filter(v => v.tipo_precio === 'suma')
+
+  const [varianteId, setVarianteId] = useState<string | null>(variantesReemplaza[0]?.id ?? null)
+  const [extrasSeleccionados, setExtrasSeleccionados] = useState<string[]>([])
   const [talla, setTalla] = useState<string | null>(null)
   const [cantidad, setCantidad] = useState(1)
   const [tabActiva, setTabActiva] = useState<'desc' | 'resenas'>('desc')
@@ -64,16 +79,14 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   const [cargandoHoras, setCargandoHoras] = useState(false)
   const [videoAbierto, setVideoAbierto] = useState(false)
 
-  // Convierte URL de YouTube/Vimeo a embed
   function urlEmbed(url: string): string | null {
     const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
     if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`
     const vimeoMatch = url.match(/vimeo\.com\/(\d+)/)
     if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1`
-    return null // URL genérica — se abre en nueva pestaña
+    return null
   }
 
-  // Asegurar que configCitas tenga valores por defecto si vienen nulos
   const configValida = {
     habilitar_citas: configCitas?.habilitar_citas ?? true,
     hora_apertura: configCitas?.hora_apertura ?? '09:00',
@@ -87,19 +100,15 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
     async function cargarCitas() {
       setCargandoHoras(true)
       const supabase = crearClienteSupabase()
-      
       const { data } = await supabase
         .from('citas')
         .select('hora_inicio')
         .eq('producto_id', producto.id)
         .eq('fecha', citaFecha)
-        
-      if (data) {
-        setHorasOcupadas(data.map(c => c.hora_inicio.slice(0, 5)))
-      }
+      if (data) setHorasOcupadas(data.map(c => c.hora_inicio.slice(0, 5)))
       setCargandoHoras(false)
     }
-    
+
     cargarCitas()
     setCitaHora('')
   }, [citaFecha, producto.id, producto.tipo_producto])
@@ -109,24 +118,27 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
     let actual = new Date(`1970-01-01T${configValida.hora_apertura}`)
     const cierre = new Date(`1970-01-01T${configValida.hora_cierre}`)
     const step = configValida.duracion
-    
     while (actual < cierre) {
       slots.push(actual.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))
       actual.setMinutes(actual.getMinutes() + step)
     }
   }
 
-  const variante = variantes.find(v => v.id === varianteId)
+  const variante = variantesReemplaza.find(v => v.id === varianteId)
   const precioBase = variante?.precio_variante ?? producto.precio_descuento ?? producto.precio
+  const sumaExtras = extrasSeleccionados.reduce((sum, eid) => {
+    const ext = variantesExtra.find(v => v.id === eid)
+    return sum + (ext?.precio_variante ?? 0)
+  }, 0)
+  const precioTotal = precioBase + sumaExtras
   const precioOriginal = producto.precio
   const descuento = precioBase < precioOriginal ? calcularDescuento(precioOriginal, precioBase) : 0
   const fav = esFavorito(producto.id)
 
-  // Stock efectivo: variante > talla > producto base (null = ilimitado)
   const stockEfectivo: number | null = (() => {
     if (producto.tipo_producto === 'servicio' || producto.tipo_producto === 'evento') return null
     if (varianteId) {
-      const v = variantes.find(v => v.id === varianteId)
+      const v = variantesReemplaza.find(v => v.id === varianteId)
       if (v && v.stock !== undefined) return v.stock ?? null
     }
     if (producto.requiere_tallas && talla) {
@@ -142,21 +154,33 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
     ? resenas.reduce((s, r) => s + r.calificacion, 0) / resenas.length
     : 0
 
+  function toggleExtra(id: string) {
+    setExtrasSeleccionados(prev =>
+      prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
+    )
+  }
+
   function ejecutarAgregar() {
+    const extrasData = extrasSeleccionados.map(eid => {
+      const ext = variantesExtra.find(v => v.id === eid)!
+      return { id: eid, nombre: ext.nombre, precio: ext.precio_variante ?? 0 }
+    })
     agregar({
       producto_id: producto.id,
       nombre: producto.nombre,
       slug: producto.slug,
       imagen_url: imagenes[0]?.url ?? null,
-      precio: precioBase,
+      precio: precioTotal,
       variante_id: varianteId ?? undefined,
+      nombre_variante: variante?.nombre ?? undefined,
       tipo_producto: producto.tipo_producto,
       talla: talla ?? undefined,
       cantidad,
+      extras: extrasData.length > 0 ? extrasData : undefined,
       cita: producto.tipo_producto === 'servicio' ? {
         fecha: citaFecha,
         hora_inicio: citaHora,
-        hora_fin: '00:00' // Opcional, se puede calcular sumando la duración
+        hora_fin: '00:00'
       } : undefined
     })
     toast.success('Añadido al carrito', {
@@ -186,7 +210,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   }
 
   function consultarWhatsApp() {
-    const msg = `Hola, estoy interesado en *${producto.nombre}*${variante ? ` (${variante.nombre})` : ''}${talla ? `, talla ${talla}` : ''}.\n\nPrecio: ${formatearPrecio(precioBase)}\n\n${window.location.href}`
+    const msg = `Hola, estoy interesado en *${producto.nombre}*${variante ? ` (${variante.nombre})` : ''}${talla ? `, talla ${talla}` : ''}.\n\nPrecio: ${formatearPrecio(precioTotal, simboloMoneda)}\n\n${window.location.href}`
     window.open(generarEnlaceWhatsApp(whatsapp, encodeURIComponent(msg)), '_blank')
   }
 
@@ -196,30 +220,18 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   return (
     <>
     <div className="max-w-5xl mx-auto">
-
-      {/* ── Layout: columna en móvil, 2 columnas en laptop ── */}
       <div className="lg:grid lg:grid-cols-2 lg:gap-0 lg:min-h-[calc(100vh-80px)]">
 
         {/* ══ COLUMNA IZQUIERDA: imágenes ══ */}
         <div className="lg:sticky lg:top-0 lg:h-screen lg:flex lg:flex-col lg:justify-center lg:border-r lg:border-border">
-
-          {/* Carrusel principal */}
           <div className="relative bg-background-subtle">
             <div className="aspect-square overflow-hidden">
               {imagenVariante ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imagenVariante}
-                  alt={producto.nombre}
-                  className="w-full h-full object-contain p-4"
-                />
+                <img src={imagenVariante} alt={producto.nombre} className="w-full h-full object-contain p-4" />
               ) : imagenes.length > 0 ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imagenes[imgActiva].url}
-                  alt={producto.nombre}
-                  className="w-full h-full object-contain p-4"
-                />
+                <img src={imagenes[imgActiva].url} alt={producto.nombre} className="w-full h-full object-contain p-4" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <Package className="w-16 h-16 text-foreground-muted/20" />
@@ -227,7 +239,6 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
               )}
             </div>
 
-            {/* Controles carrusel */}
             {imagenes.length > 1 && (
               <>
                 <button onClick={anteriorImg}
@@ -247,14 +258,12 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
               </>
             )}
 
-            {/* Badge descuento */}
             {descuento > 0 && (
               <div className="absolute top-3 left-3 bg-primary text-white text-xs font-bold px-2 py-1 rounded-xl">
                 -{descuento}%
               </div>
             )}
 
-            {/* Acciones flotantes */}
             <div className="absolute top-3 right-3 flex flex-col gap-2">
               <button onClick={() => toggleFavorito(producto.id)}
                 className={cn('w-9 h-9 rounded-xl flex items-center justify-center shadow-sm transition-all',
@@ -268,7 +277,6 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
             </div>
           </div>
 
-          {/* Miniaturas debajo del carrusel */}
           {imagenes.length > 1 && (
             <div className="flex gap-2 px-4 py-3 bg-background-subtle border-t border-border overflow-x-auto scrollbar-none">
               {imagenes.map((img, i) => (
@@ -288,7 +296,6 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
         {/* ══ COLUMNA DERECHA: info + acciones ══ */}
         <div className="lg:overflow-y-auto lg:h-screen">
 
-          {/* Botón volver — solo visible en móvil */}
           <div className="lg:hidden flex items-center gap-2 px-4 py-3 border-b border-border">
             <button onClick={() => router.back()}
               className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-background-subtle transition-colors">
@@ -299,7 +306,6 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
 
           {/* Info principal */}
           <div className="px-4 pt-5 pb-2 lg:pt-8 lg:px-8">
-            {/* Breadcrumb */}
             {producto.categoria && (
               <Link href={`/categoria/${producto.categoria.slug}`}
                 className="inline-flex items-center gap-1 text-xs text-primary mb-3 hover:underline">
@@ -310,7 +316,6 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
 
             <h1 className="text-xl font-bold text-foreground leading-snug lg:text-2xl">{producto.nombre}</h1>
 
-            {/* Rating */}
             {resenas.length > 0 && (
               <button onClick={() => setTabActiva('resenas')} className="flex items-center gap-2 mt-2">
                 <div className="flex">
@@ -328,13 +333,18 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
               {producto.tipo_producto === 'evento' ? (
                 <div>
                   <p className="text-sm text-foreground-muted mb-0.5">Precio referencial desde</p>
-                  <p className="text-3xl font-bold text-purple-600">{formatearPrecio(precioBase)}</p>
+                  <p className="text-3xl font-bold text-purple-600">{formatearPrecio(precioBase, simboloMoneda)}</p>
                 </div>
               ) : (
                 <>
-                  <p className="text-3xl font-bold text-primary">{formatearPrecio(precioBase)}</p>
-                  {descuento > 0 && (
-                    <p className="text-sm text-foreground-muted line-through mb-1">{formatearPrecio(precioOriginal)}</p>
+                  <p className="text-3xl font-bold text-primary">{formatearPrecio(precioTotal, simboloMoneda)}</p>
+                  {sumaExtras > 0 && (
+                    <p className="text-xs text-foreground-muted mb-1">
+                      {formatearPrecio(precioBase, simboloMoneda)} + {formatearPrecio(sumaExtras, simboloMoneda)} add-ons
+                    </p>
+                  )}
+                  {descuento > 0 && sumaExtras === 0 && (
+                    <p className="text-sm text-foreground-muted line-through mb-1">{formatearPrecio(precioOriginal, simboloMoneda)}</p>
                   )}
                 </>
               )}
@@ -363,24 +373,56 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
             )}
           </div>
 
-          {/* ══ FLUJO EVENTO: formulario de solicitud de cotización ══ */}
+          {/* ══ Paquetes del evento ══ */}
+          {producto.tipo_producto === 'evento' && (producto.paquetes_evento?.length ?? 0) > 0 && (
+            <div className="px-4 py-4 border-t border-border lg:px-8">
+              <p className="text-xs font-semibold text-foreground mb-3">Servicios incluidos</p>
+              <div className="flex flex-col gap-2">
+                {producto.paquetes_evento!.map((paq, i) => (
+                  <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-purple-50/50 border border-purple-100">
+                    <span className="text-xl flex-shrink-0 mt-0.5">{paq.icono}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{paq.nombre}</p>
+                      {paq.descripcion && (
+                        <p className="text-xs text-foreground-muted mt-0.5">{paq.descripcion}</p>
+                      )}
+                    </div>
+                    {(paq.precio_min != null || paq.precio_max != null) && (
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-xs font-bold text-purple-600">
+                          {paq.precio_min != null && paq.precio_max != null
+                            ? `${formatearPrecio(paq.precio_min, simboloMoneda)} – ${formatearPrecio(paq.precio_max, simboloMoneda)}`
+                            : paq.precio_min != null
+                            ? `Desde ${formatearPrecio(paq.precio_min, simboloMoneda)}`
+                            : `Hasta ${formatearPrecio(paq.precio_max as number, simboloMoneda)}`
+                          }
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ══ FLUJO EVENTO: formulario de solicitud ══ */}
           {producto.tipo_producto === 'evento' && (
             <FormularioSolicitud
               productoId={producto.id}
               productoNombre={producto.nombre}
               precioBase={producto.precio_descuento ?? producto.precio}
               whatsapp={whatsapp}
-              simboloMoneda="$"
+              simboloMoneda={simboloMoneda}
+              pais={pais}
             />
           )}
 
-          {/* ══ FLUJO NORMAL: variantes, tallas, cantidad, carrito ══ */}
-          {/* Variantes */}
-          {producto.tipo_producto !== 'evento' && variantes.length > 0 && (
+          {/* ══ FLUJO NORMAL: variantes reemplaza ══ */}
+          {producto.tipo_producto !== 'evento' && variantesReemplaza.length > 0 && (
             <div className="px-4 py-4 border-t border-border lg:px-8">
               <p className="text-xs font-semibold text-foreground mb-2.5">Variante</p>
               <div className="flex flex-wrap gap-2">
-                {variantes.map(v => (
+                {variantesReemplaza.map(v => (
                   <button key={v.id} onClick={() => {
                     setVarianteId(v.id)
                     setImagenVariante(v.imagen_url ?? null)
@@ -396,11 +438,51 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                     <span className="font-medium">{v.nombre}</span>
                     {v.precio_variante && (
                       <span className="ml-0.5 text-xs text-foreground-muted">
-                        {formatearPrecio(v.precio_variante)}
+                        {formatearPrecio(v.precio_variante, simboloMoneda)}
                       </span>
                     )}
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* ══ Add-ons (variantes suma) ══ */}
+          {producto.tipo_producto !== 'evento' && variantesExtra.length > 0 && (
+            <div className="px-4 py-4 border-t border-border lg:px-8">
+              <p className="text-xs font-semibold text-foreground mb-2.5">Extras / Add-ons</p>
+              <div className="flex flex-col gap-2">
+                {variantesExtra.map(v => {
+                  const seleccionado = extrasSeleccionados.includes(v.id)
+                  return (
+                    <button
+                      key={v.id}
+                      onClick={() => toggleExtra(v.id)}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 text-left transition-all',
+                        seleccionado
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : 'border-border bg-card text-foreground hover:border-emerald-300'
+                      )}
+                    >
+                      <div className={cn(
+                        'w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all',
+                        seleccionado ? 'border-emerald-500 bg-emerald-500' : 'border-border'
+                      )}>
+                        {seleccionado && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold">{v.nombre}</p>
+                        {v.descripcion && <p className="text-xs text-foreground-muted">{v.descripcion}</p>}
+                      </div>
+                      {v.precio_variante !== null && (
+                        <span className={cn('text-sm font-bold flex-shrink-0', seleccionado ? 'text-emerald-600' : 'text-foreground-muted')}>
+                          +{formatearPrecio(v.precio_variante, simboloMoneda)}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -434,14 +516,13 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                 <Calendar className="w-4 h-4 text-primary" /> Selecciona el Día
               </p>
               <div className="flex flex-col gap-4">
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   value={citaFecha}
                   min={new Date().toISOString().split('T')[0]}
                   onChange={(e) => setCitaFecha(e.target.value)}
                   className="w-full h-11 px-3 rounded-xl border border-input-border text-sm bg-input-bg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
-                
                 {citaFecha ? (
                   <div>
                     <p className="text-xs font-semibold text-foreground mb-2.5 flex items-center gap-1.5">
@@ -484,7 +565,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
             </div>
           )}
 
-          {/* Cantidad — solo para productos y servicios */}
+          {/* Cantidad */}
           {producto.tipo_producto !== 'evento' && <div className="px-4 py-4 border-t border-border lg:px-8">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-foreground">Cantidad</p>
@@ -502,7 +583,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
             </div>
           </div>}
 
-          {/* Botón video — visible para todos los tipos */}
+          {/* Botón video */}
           {producto.url_video && (
             <div className="px-4 pt-4 lg:px-8">
               <button
@@ -522,7 +603,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
             </div>
           )}
 
-          {/* Botones de acción — solo para productos y servicios */}
+          {/* Botones de acción */}
           {producto.tipo_producto !== 'evento' && <div className="px-4 py-4 border-t border-border flex flex-col gap-2.5 lg:px-8">
             <div className="flex gap-3">
               <button onClick={consultarWhatsApp}
@@ -608,7 +689,6 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                     ))
                   )}
 
-                  {/* Botón para mostrar/ocultar formulario */}
                   {!mostrarFormResena ? (
                     <button
                       onClick={() => setMostrarFormResena(true)}
@@ -630,33 +710,31 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
 
         </div>
       </div>
-
-
     </div>
 
-      {/* ── Modal de video ── */}
-      {videoAbierto && producto.url_video && urlEmbed(producto.url_video) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setVideoAbierto(false)} />
-          <div className="relative w-full max-w-3xl bg-black rounded-2xl overflow-hidden shadow-2xl">
-            <button
-              onClick={() => setVideoAbierto(false)}
-              className="absolute top-3 right-3 z-10 w-9 h-9 rounded-xl bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-all"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <div className="aspect-video w-full">
-              <iframe
-                src={urlEmbed(producto.url_video!)!}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                title={producto.nombre}
-              />
-            </div>
+    {/* Modal de video */}
+    {videoAbierto && producto.url_video && urlEmbed(producto.url_video) && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setVideoAbierto(false)} />
+        <div className="relative w-full max-w-3xl bg-black rounded-2xl overflow-hidden shadow-2xl">
+          <button
+            onClick={() => setVideoAbierto(false)}
+            className="absolute top-3 right-3 z-10 w-9 h-9 rounded-xl bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-all"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <div className="aspect-video w-full">
+            <iframe
+              src={urlEmbed(producto.url_video!)!}
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              title={producto.nombre}
+            />
           </div>
         </div>
-      )}
+      </div>
+    )}
     </>
   )
 }

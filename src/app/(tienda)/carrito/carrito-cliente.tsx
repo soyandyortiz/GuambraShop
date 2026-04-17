@@ -12,7 +12,8 @@ import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { cn, formatearPrecio } from '@/lib/utils'
 import { toast } from 'sonner'
 import { generarMensajeWhatsApp, generarEnlaceWhatsApp } from '@/lib/whatsapp'
-import { PROVINCIAS_ECUADOR, CODIGOS_PAIS } from '@/lib/ecuador'
+import { CODIGOS_PAIS } from '@/lib/ecuador'
+import { obtenerNombresRegiones, obtenerCiudades, obtenerInfoPais } from '@/lib/locales'
 
 interface MetodoPago {
   id: string
@@ -27,6 +28,7 @@ interface Props {
   whatsapp: string
   nombreTienda: string
   simboloMoneda: string
+  pais?: string
   metodosPago: MetodoPago[]
 }
 
@@ -48,7 +50,7 @@ type Paso = 'carrito' | 'envio' | 'datos'
 const INPUT_BASE =
   'w-full h-11 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all'
 
-export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosPago }: Props) {
+export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = 'EC', metodosPago }: Props) {
   const { items, quitar, actualizarCantidad, limpiar, subtotal, hidratado } = usarCarrito()
 
   const soloServicios = items.every(i => i.tipo_producto === 'servicio')
@@ -85,8 +87,9 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosP
     : 0
   const total = subtotal - descuentoCupon + (tipoEnvio === 'envio' && costoEnvio !== null ? costoEnvio : 0)
 
-  const ciudadesDisponibles =
-    PROVINCIAS_ECUADOR.find(p => p.nombre === provincia)?.ciudades ?? []
+  const infoPais = obtenerInfoPais(pais)
+  const regionesDisponibles = obtenerNombresRegiones(pais)
+  const ciudadesDisponibles = obtenerCiudades(pais, provincia)
 
   // --- Consultar costo de envío por ciudad ---
   async function consultarEnvio(ciudadSeleccionada: string) {
@@ -447,6 +450,11 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosP
                       Talla: {item.talla}
                     </span>
                   )}
+                  {(item as any).extras?.map((ex: { id: string; nombre: string; precio: number }) => (
+                    <span key={ex.id} className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-md font-medium">
+                      +{ex.nombre}
+                    </span>
+                  ))}
                 </div>
                 <p className="text-sm font-bold text-primary mt-1">{formatearPrecio(item.precio, simboloMoneda)}</p>
                 <div className="flex items-center justify-between mt-2">
@@ -634,27 +642,27 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosP
                 <MapPin className="w-3.5 h-3.5 text-primary" /> Dirección de entrega
               </p>
 
-              {/* Provincia */}
+              {/* Provincia / Departamento */}
               <div>
-                <label className="block text-xs font-medium text-foreground-muted mb-1">Provincia *</label>
+                <label className="block text-xs font-medium text-foreground-muted mb-1">{infoPais.etiquetaRegion} *</label>
                 <div className="relative">
                   <select
                     value={provincia}
                     onChange={e => { setProvincia(e.target.value); setCiudad(''); setCostoEnvio(null); setTiempoEntrega(null) }}
                     className={cn(INPUT_BASE, 'appearance-none pr-9 cursor-pointer')}
                   >
-                    <option value="">Selecciona la provincia</option>
-                    {PROVINCIAS_ECUADOR.map(p => (
-                      <option key={p.nombre} value={p.nombre}>{p.nombre}</option>
+                    <option value="">Selecciona {infoPais.etiquetaRegion.toLowerCase()}</option>
+                    {regionesDisponibles.map(r => (
+                      <option key={r} value={r}>{r}</option>
                     ))}
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted pointer-events-none" />
                 </div>
               </div>
 
-              {/* Ciudad */}
+              {/* Ciudad / Municipio */}
               <div>
-                <label className="block text-xs font-medium text-foreground-muted mb-1">Ciudad *</label>
+                <label className="block text-xs font-medium text-foreground-muted mb-1">{infoPais.etiquetaCiudad} *</label>
                 <div className="relative">
                   <select
                     value={ciudad}
@@ -662,7 +670,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, metodosP
                     disabled={!provincia}
                     className={cn(INPUT_BASE, 'appearance-none pr-9 cursor-pointer disabled:opacity-50')}
                   >
-                    <option value="">Selecciona la ciudad</option>
+                    <option value="">Selecciona {infoPais.etiquetaCiudad.toLowerCase()}</option>
                     {ciudadesDisponibles.map(c => (
                       <option key={c} value={c}>{c}</option>
                     ))}

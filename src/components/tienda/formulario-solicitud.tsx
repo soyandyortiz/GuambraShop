@@ -6,6 +6,7 @@ import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { generarMensajeSolicitudEvento, generarEnlaceWhatsApp, normalizarTelefono } from '@/lib/whatsapp'
 import { formatearPrecio } from '@/lib/utils'
 import { CODIGOS_PAIS } from '@/lib/ecuador'
+import { obtenerNombresRegiones, obtenerCiudades, obtenerInfoPais } from '@/lib/locales'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -15,11 +16,12 @@ interface Props {
   precioBase: number | null     // precio referencial (puede ser null si es solo consulta)
   whatsapp: string              // número de la tienda
   simboloMoneda?: string
+  pais?: string                 // 'EC' | 'PE' | 'CO'
 }
 
 const INPUT = 'w-full h-11 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all'
 
-export function FormularioSolicitud({ productoId, productoNombre, precioBase, whatsapp, simboloMoneda = '$' }: Props) {
+export function FormularioSolicitud({ productoId, productoNombre, precioBase, whatsapp, simboloMoneda = '$', pais = 'EC' }: Props) {
   const [enviando,      setEnviando]      = useState(false)
   const [exito,         setExito]         = useState<{ numero: string; urlWA: string } | null>(null)
 
@@ -32,6 +34,7 @@ export function FormularioSolicitud({ productoId, productoNombre, precioBase, wh
   // Datos del evento
   const [fechaEvento,   setFechaEvento]   = useState('')
   const [horaEvento,    setHoraEvento]    = useState('')
+  const [region,        setRegion]        = useState('')
   const [ciudad,        setCiudad]        = useState('')
   const [tipoEvento,    setTipoEvento]    = useState('')
   const [presupuesto,   setPresupuesto]   = useState('')
@@ -41,6 +44,9 @@ export function FormularioSolicitud({ productoId, productoNombre, precioBase, wh
   const [fechasOcupadas, setFechasOcupadas] = useState<string[]>([])
 
   const hoy = new Date().toISOString().split('T')[0]
+  const infoPais = obtenerInfoPais(pais)
+  const regionesDisponibles = obtenerNombresRegiones(pais)
+  const ciudadesDisponibles = obtenerCiudades(pais, region)
 
   useEffect(() => {
     const supabase = crearClienteSupabase()
@@ -59,7 +65,8 @@ export function FormularioSolicitud({ productoId, productoNombre, precioBase, wh
     if (!email.trim() || !email.includes('@')) { toast.error('Ingresa un email válido'); return false }
     if (!telefono.trim())  { toast.error('Ingresa tu número de WhatsApp'); return false }
     if (!fechaEvento)      { toast.error('Selecciona la fecha del evento'); return false }
-    if (!ciudad.trim())    { toast.error('Ingresa la ciudad del evento'); return false }
+    if (!region)           { toast.error(`Selecciona ${infoPais.etiquetaRegion.toLowerCase()} del evento`); return false }
+    if (!ciudad.trim())    { toast.error(`Selecciona ${infoPais.etiquetaCiudad.toLowerCase()} del evento`); return false }
     return true
   }
 
@@ -80,7 +87,7 @@ export function FormularioSolicitud({ productoId, productoNombre, precioBase, wh
         whatsapp:               whatsappCompleto,
         fecha_evento:           fechaEvento || null,
         hora_evento:            horaEvento || null,
-        ciudad:                 ciudad.trim() || null,
+        ciudad:                 ciudad.trim() ? `${region ? region + ' - ' : ''}${ciudad.trim()}` : (region || null),
         tipo_evento:            tipoEvento.trim() || null,
         presupuesto_aproximado: presupuesto ? parseFloat(presupuesto) : null,
         notas:                  notas.trim() || null,
@@ -108,13 +115,15 @@ export function FormularioSolicitud({ productoId, productoNombre, precioBase, wh
         email:            email.trim().toLowerCase(),
         fecha_evento:     fechaEvento || null,
         hora_evento:      horaEvento || null,
-        ciudad:           ciudad.trim() || null,
+        ciudad:           ciudad.trim() ? `${region ? region + ' - ' : ''}${ciudad.trim()}` : (region || null),
         tipo_evento:      tipoEvento.trim() || null,
         presupuesto:      presupuesto ? parseFloat(presupuesto) : null,
         notas:            notas.trim() || null,
         simbolo_moneda:   simboloMoneda,
       }),
     }).catch(() => {/* silencioso */})
+
+    const ciudadCompleta = ciudad.trim() ? `${region ? region + ' - ' : ''}${ciudad.trim()}` : (region || null)
 
     // Generar URL de WhatsApp con toda la información
     const msgCodificado = generarMensajeSolicitudEvento({
@@ -125,7 +134,7 @@ export function FormularioSolicitud({ productoId, productoNombre, precioBase, wh
       email:          email.trim().toLowerCase(),
       fechaEvento:    fechaEvento || null,
       horaEvento:     horaEvento || null,
-      ciudad:         ciudad.trim() || null,
+      ciudad:         ciudadCompleta,
       tipoEvento:     tipoEvento.trim() || null,
       presupuesto:    presupuesto ? parseFloat(presupuesto) : null,
       notas:          notas.trim() || null,
@@ -237,18 +246,55 @@ export function FormularioSolicitud({ productoId, productoNombre, precioBase, wh
             />
           </div>
 
+          {/* Región / Provincia / Departamento */}
+          <div>
+            <label className="block text-xs font-medium text-foreground-muted mb-1 flex items-center gap-1">
+              <MapPin className="w-3 h-3" /> {infoPais.etiquetaRegion} del evento *
+            </label>
+            <div className="relative">
+              <select
+                value={region}
+                onChange={e => { setRegion(e.target.value); setCiudad('') }}
+                className={cn(INPUT, 'appearance-none pr-9 cursor-pointer')}
+              >
+                <option value="">Selecciona {infoPais.etiquetaRegion.toLowerCase()}</option>
+                {regionesDisponibles.map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted pointer-events-none" />
+            </div>
+          </div>
+
           {/* Ciudad */}
           <div>
             <label className="block text-xs font-medium text-foreground-muted mb-1 flex items-center gap-1">
-              <MapPin className="w-3 h-3" /> Ciudad *
+              <MapPin className="w-3 h-3" /> {infoPais.etiquetaCiudad} *
             </label>
-            <input
-              type="text"
-              value={ciudad}
-              onChange={e => setCiudad(e.target.value)}
-              placeholder="Ej: Quito, Guayaquil..."
-              className={INPUT}
-            />
+            {ciudadesDisponibles.length > 0 ? (
+              <div className="relative">
+                <select
+                  value={ciudad}
+                  onChange={e => setCiudad(e.target.value)}
+                  disabled={!region}
+                  className={cn(INPUT, 'appearance-none pr-9 cursor-pointer disabled:opacity-50')}
+                >
+                  <option value="">Selecciona {infoPais.etiquetaCiudad.toLowerCase()}</option>
+                  {ciudadesDisponibles.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted pointer-events-none" />
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={ciudad}
+                onChange={e => setCiudad(e.target.value)}
+                placeholder={`Ej: ${pais === 'CO' ? 'Medellín, Bogotá...' : pais === 'PE' ? 'Lima, Arequipa...' : 'Quito, Guayaquil...'}`}
+                className={INPUT}
+              />
+            )}
           </div>
 
           {/* Tipo de evento */}

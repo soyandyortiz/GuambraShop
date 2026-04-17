@@ -12,6 +12,7 @@ interface Producto {
   precio_descuento: number | null; imagen_url: string | null
   etiquetas: string[]; variante_count: number
   tipo_producto?: 'producto' | 'servicio'
+  stock?: number | null
   likes_count?: number; calificacion_promedio?: number; total_resenas?: number
 }
 interface Categoria { id: string; nombre: string; slug: string }

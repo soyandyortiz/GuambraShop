@@ -30,7 +30,7 @@ export default async function PáginaCategoria({ params }: Props) {
     const ids = [categoria.id, ...hijos.map(h => h.id)]
     const { data } = await supabase
       .from('productos')
-      .select('id, nombre, slug, precio, precio_descuento, etiquetas, tipo_producto, imagenes_producto(url, orden), variantes_producto(id)')
+      .select('id, nombre, slug, precio, precio_descuento, etiquetas, tipo_producto, stock, imagenes_producto(url, orden), variantes_producto(id)')
       .eq('esta_activo', true)
       .in('categoria_id', ids)
       .order('creado_en', { ascending: false })
@@ -132,6 +132,7 @@ export default async function PáginaCategoria({ params }: Props) {
                     etiquetas={p.etiquetas ?? []}
                     variante_count={((p.variantes_producto ?? []) as { id: string }[]).length}
                     tipo_producto={p.tipo_producto}
+                    stock={p.stock ?? null}
                   />
                 ))}
               </div>

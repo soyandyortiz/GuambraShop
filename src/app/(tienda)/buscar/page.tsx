@@ -19,7 +19,7 @@ export default async function PáginaBuscar({ searchParams }: Props) {
   let query = supabase
     .from('productos')
     .select(`
-      id, nombre, slug, precio, precio_descuento, etiquetas, tipo_producto, creado_en,
+      id, nombre, slug, precio, precio_descuento, etiquetas, tipo_producto, stock, creado_en,
       imagenes_producto(url, orden),
       variantes_producto(id),
       likes_producto(id),
@@ -58,6 +58,7 @@ export default async function PáginaBuscar({ searchParams }: Props) {
     precio_descuento: number | null
     etiquetas: string[]
     tipo_producto: 'producto' | 'servicio'
+    stock: number | null
     creado_en: string
     imagenes_producto: { url: string; orden: number }[]
     variantes_producto: { id: string }[]
@@ -79,6 +80,7 @@ export default async function PáginaBuscar({ searchParams }: Props) {
       precio_descuento: p.precio_descuento,
       etiquetas: p.etiquetas ?? [],
       tipo_producto: p.tipo_producto,
+      stock: p.stock ?? null,
       imagen_url: imagenPrincipal(p.imagenes_producto ?? []),
       variante_count: (p.variantes_producto ?? []).length,
       likes_count: (p.likes_producto ?? []).length,

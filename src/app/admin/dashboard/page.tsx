@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { redirect } from 'next/navigation'
 import {
@@ -108,7 +110,7 @@ export default async function PáginaDashboard() {
   const tiendaActiva = config?.esta_activa ?? true
 
   // Métricas del mes
-  const ingresosMes = pedidosMes?.reduce((s, p) => s + (p.total ?? 0), 0) ?? 0
+  const ingresosMes = pedidosMes?.reduce((s, p) => s + Number(p.total ?? 0), 0) ?? 0
   const cantidadPedidosMes = pedidosMes?.length ?? 0
   const cantidadPendientes = pedidosPendientes?.length ?? 0
 
@@ -124,7 +126,7 @@ export default async function PáginaDashboard() {
     return {
       etiqueta: labels[3 - i],
       cantidad: pedsSem.length,
-      total: pedsSem.reduce((s, p) => s + (p.total ?? 0), 0),
+      total: pedsSem.reduce((s, p) => s + Number(p.total ?? 0), 0),
     }
   })
   const maxCantidadSem = Math.max(...semanas.map(s => s.cantidad), 1)

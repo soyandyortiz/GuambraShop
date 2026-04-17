@@ -86,6 +86,15 @@ export interface ImagenProducto {
   creado_en: string
 }
 
+export interface PaqueteEvento {
+  id: string
+  icono: string
+  nombre: string
+  descripcion?: string | null
+  precio_min?: number | null
+  precio_max?: number | null
+}
+
 export interface VarianteProducto {
   id: string
   producto_id: string
@@ -97,6 +106,7 @@ export interface VarianteProducto {
   orden: number
   creado_en: string
   stock?: number | null
+  tipo_precio?: 'reemplaza' | 'suma' | null  // 'reemplaza' = sustituye precio base; 'suma' = add-on
 }
 
 export interface ResenaProducto {
@@ -160,6 +170,7 @@ export interface Producto {
   requiere_tallas: boolean
   etiquetas: string[]
   url_video?: string | null
+  paquetes_evento?: PaqueteEvento[]
   creado_en: string
   actualizado_en: string
   // Relaciones (joins)

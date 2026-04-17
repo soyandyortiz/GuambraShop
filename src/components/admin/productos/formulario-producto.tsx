@@ -6,7 +6,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Plus, Trash2, Tag, Save, ArrowLeft, Ruler, Package, Video, ImagePlus, X, PackagePlus, PartyPopper } from 'lucide-react'
+import { Plus, Trash2, Tag, Save, ArrowLeft, Ruler, Package, Video, ImagePlus, X, PackagePlus, PartyPopper, PlusCircle } from 'lucide-react'
 import { usarSubirImagen } from '@/hooks/usar-subir-imagen'
 import { useEffect } from 'react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
@@ -15,7 +15,7 @@ import { Botón } from '@/components/ui/boton'
 import { SubidorImagenes } from '@/components/ui/subidor-imagenes'
 import { generarSlug } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import type { Categoria, Producto, VarianteProducto, TallaProducto } from '@/types'
+import type { Categoria, Producto, VarianteProducto, TallaProducto, PaqueteEvento } from '@/types'
 
 const esquema = z.object({
   nombre:           z.string().min(1, 'El nombre es obligatorio'),
@@ -37,6 +37,7 @@ const esquema = z.object({
     precio_variante:z.string().optional(),
     stock_variante: z.string().optional(),
     imagen_url:     z.string().optional(),
+    tipo_precio:    z.enum(['reemplaza', 'suma']).optional(),
   })),
   tallas: z.array(z.object({
     id:         z.string().optional(),
@@ -54,6 +55,8 @@ interface Props {
   productosExistentes?: { id: string; nombre: string }[]
 }
 
+const PAQUETE_VACIO: PaqueteEvento = { id: '', icono: '🎵', nombre: '', descripcion: null, precio_min: null, precio_max: null }
+
 export function FormularioProducto({ categorias, producto, productosExistentes = [] }: Props) {
   const router = useRouter()
   const esEdicion = !!producto
@@ -68,13 +71,18 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
   const [subiendoVariante, setSubiendoVariante] = useState<number | null>(null)
   const { subirImagen: subirImagenVariante, eliminarImagen: eliminarImagenVariante } = usarSubirImagen('productos')
 
+  // Paquetes de evento (solo para tipo=evento)
+  const [paquetes, setPaquetes] = useState<PaqueteEvento[]>(
+    (producto as any)?.paquetes_evento ?? []
+  )
+
   // Selector de categoría en 2 pasos
   const categoriasParent = categorias.filter(c => !c.parent_id)
   const [padreId, setPadreId] = useState<string>(() => {
     if (!producto?.categoria_id) return ''
     const cat = categorias.find(c => c.id === producto.categoria_id)
     if (!cat) return ''
-    return cat.parent_id ?? cat.id // si es sub, devuelve su padre; si es padre, él mismo
+    return cat.parent_id ?? cat.id
   })
 
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting }, control } = useForm<DatosProducto>({
@@ -98,6 +106,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
         precio_variante: v.precio_variante?.toString() ?? '',
         stock_variante: (v as any).stock?.toString() ?? '',
         imagen_url: v.imagen_url ?? '',
+        tipo_precio: ((v.tipo_precio === 'suma' ? 'suma' : 'reemplaza') as 'reemplaza' | 'suma'),
       })) ?? [],
       tallas: producto?.tallas?.map(t => ({
         id: t.id, talla: t.talla, disponible: t.disponible,
@@ -113,13 +122,23 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
 
   const requiereTallas = watch('requiere_tallas')
   const nombreActual = watch('nombre')
+  const tipoProducto = watch('tipo_producto')
 
-  // Auto-ajuste de slug en tiempo real para nuevos productos
   useEffect(() => {
     if (!esEdicion && nombreActual) {
       setValue('slug', generarSlug(nombreActual))
     }
   }, [nombreActual, esEdicion, setValue])
+
+  function agregarPaquete() {
+    setPaquetes(prev => [...prev, { ...PAQUETE_VACIO, id: crypto.randomUUID() }])
+  }
+  function quitarPaquete(idx: number) {
+    setPaquetes(prev => prev.filter((_, i) => i !== idx))
+  }
+  function actualizarPaquete(idx: number, campo: keyof PaqueteEvento, valor: string | number | null) {
+    setPaquetes(prev => prev.map((p, i) => i === idx ? { ...p, [campo]: valor } : p))
+  }
 
   async function onSubmit(datos: DatosProducto) {
     setErrorGlobal('')
@@ -129,7 +148,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       ? datos.etiquetas.split(',').map(t => t.trim()).filter(Boolean)
       : []
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       nombre: datos.nombre,
       slug: datos.slug,
       descripcion: datos.descripcion ?? null,
@@ -142,6 +161,20 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       requiere_tallas: datos.requiere_tallas,
       tipo_producto: datos.tipo_producto,
       stock: datos.stock ? parseInt(datos.stock, 10) : null,
+    }
+
+    // Paquetes de evento
+    if (datos.tipo_producto === 'evento') {
+      payload.paquetes_evento = paquetes.map(p => ({
+        id: p.id,
+        icono: p.icono,
+        nombre: p.nombre,
+        descripcion: p.descripcion ?? null,
+        precio_min: p.precio_min ?? null,
+        precio_max: p.precio_max ?? null,
+      }))
+    } else {
+      payload.paquetes_evento = []
     }
 
     let productoId = producto?.id
@@ -174,6 +207,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
           precio_variante: v.precio_variante ? Number(v.precio_variante) : null,
           stock: v.stock_variante ? parseInt(v.stock_variante, 10) : null,
           imagen_url: v.imagen_url?.trim() || null,
+          tipo_precio: (v.tipo_precio === 'suma' ? 'suma' : 'reemplaza'),
           orden: i,
         }))
       )
@@ -230,7 +264,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
           onClick={() => setValue('tipo_producto', 'producto')}
           className={cn(
             "p-4 rounded-2xl border-2 text-center transition-all",
-            watch('tipo_producto') === 'producto'
+            tipoProducto === 'producto'
               ? "border-primary bg-primary/5 text-primary"
               : "border-border bg-card text-foreground-muted hover:border-primary/40"
           )}
@@ -244,7 +278,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
           onClick={() => setValue('tipo_producto', 'servicio')}
           className={cn(
             "p-4 rounded-2xl border-2 text-center transition-all",
-            watch('tipo_producto') === 'servicio'
+            tipoProducto === 'servicio'
               ? "border-primary bg-primary/5 text-primary"
               : "border-border bg-card text-foreground-muted hover:border-primary/40"
           )}
@@ -258,7 +292,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
           onClick={() => setValue('tipo_producto', 'evento')}
           className={cn(
             "p-4 rounded-2xl border-2 text-center transition-all",
-            watch('tipo_producto') === 'evento'
+            tipoProducto === 'evento'
               ? "border-purple-500 bg-purple-500/5 text-purple-600"
               : "border-border bg-card text-foreground-muted hover:border-purple-400/40"
           )}
@@ -270,13 +304,13 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       </div>
 
       {/* Aviso para tipo evento */}
-      {watch('tipo_producto') === 'evento' && (
+      {tipoProducto === 'evento' && (
         <div className="rounded-xl bg-purple-50 border border-purple-200 px-4 py-3 text-sm text-purple-700">
           <p className="font-semibold mb-1">Flujo de cotización activo</p>
           <p className="text-xs opacity-80">
             Los clientes verán un formulario para enviar sus datos del evento (fecha, ciudad, presupuesto).
             La solicitud queda registrada en <b>Solicitudes de Evento</b> y se abre WhatsApp con toda la información precargada.
-            No genera pedido directamente.
+            Puedes agregar paquetes y variantes para mostrar las opciones disponibles.
           </p>
         </div>
       )}
@@ -311,7 +345,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
               value={padreId}
               onChange={e => {
                 setPadreId(e.target.value)
-                setValue('categoria_id', e.target.value) // resetea a padre al cambiar
+                setValue('categoria_id', e.target.value)
               }}
               className="w-full h-11 px-4 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             >
@@ -321,7 +355,6 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
               ))}
             </select>
 
-            {/* Subcategorías del padre seleccionado */}
             {padreId && (() => {
               const subs = categorias.filter(c => c.parent_id === padreId)
               if (!subs.length) return null
@@ -356,7 +389,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       <Sección titulo="Precios">
         <div className="grid grid-cols-2 gap-4">
           <Input
-            etiqueta="Precio normal"
+            etiqueta={tipoProducto === 'evento' ? 'Precio referencial (desde)' : 'Precio normal'}
             type="number"
             step="0.01"
             placeholder="0.00"
@@ -370,9 +403,8 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
             placeholder="0.00"
             {...register('precio_descuento')}
           />
-          {(watch('tipo_producto') === 'producto') && (
+          {tipoProducto === 'producto' && (
             <div className="flex flex-col gap-2">
-              {/* Indicador de estado — solo en edición */}
               {esEdicion && (() => {
                 const val = watch('stock')
                 const n = val !== '' && val !== undefined ? parseInt(val, 10) : null
@@ -411,7 +443,6 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
                 {...register('stock')}
               />
 
-              {/* Reponer stock — solo en edición */}
               {esEdicion && (
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
@@ -456,11 +487,98 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
         />
       </Sección>
 
-      {/* Sección: Variantes — oculta para eventos */}
-      {watch('tipo_producto') !== 'evento' && <Sección titulo="Variantes" descripcion="Agrega opciones como color, material, etc. El precio de la variante reemplaza al precio base. Cada variante puede tener su propia imagen.">
+      {/* Sección: Paquetes de evento — solo para tipo=evento */}
+      {tipoProducto === 'evento' && (
+        <Sección
+          titulo="Paquetes / Servicios incluidos"
+          descripcion="Muestra el desglose de lo que incluye el evento con rangos de precio. Ej: 🎵 DJ + Técnica, 💐 Decoración, etc."
+        >
+          <div className="flex flex-col gap-3">
+            {paquetes.map((paq, idx) => (
+              <div key={paq.id} className="rounded-xl border border-border p-4 flex flex-col gap-3 bg-background-subtle">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground-muted">Paquete {idx + 1}</span>
+                  <button type="button" onClick={() => quitarPaquete(idx)} className="text-foreground-muted hover:text-danger transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label className="text-xs text-foreground-muted mb-1 block">Ícono (emoji)</label>
+                    <input
+                      value={paq.icono}
+                      onChange={e => actualizarPaquete(idx, 'icono', e.target.value)}
+                      placeholder="🎵"
+                      className="w-full h-10 px-3 text-center text-lg rounded-xl border border-input-border bg-input-bg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <label className="text-xs text-foreground-muted mb-1 block">Nombre del paquete *</label>
+                    <input
+                      value={paq.nombre}
+                      onChange={e => actualizarPaquete(idx, 'nombre', e.target.value)}
+                      placeholder="Ej: DJ + Técnica / Pack Profesional"
+                      className="w-full h-10 px-3 text-sm rounded-xl border border-input-border bg-input-bg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs text-foreground-muted mb-1 block">Descripción (opcional)</label>
+                    <input
+                      value={paq.descripcion ?? ''}
+                      onChange={e => actualizarPaquete(idx, 'descripcion', e.target.value || null)}
+                      placeholder="Detalle del paquete..."
+                      className="w-full h-10 px-3 text-sm rounded-xl border border-input-border bg-input-bg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-foreground-muted mb-1 block">Precio mín (opcional)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={paq.precio_min ?? ''}
+                      onChange={e => actualizarPaquete(idx, 'precio_min', e.target.value ? parseFloat(e.target.value) : null)}
+                      placeholder="0.00"
+                      className="w-full h-10 px-3 text-sm rounded-xl border border-input-border bg-input-bg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-foreground-muted mb-1 block">Precio máx (opcional)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={paq.precio_max ?? ''}
+                      onChange={e => actualizarPaquete(idx, 'precio_max', e.target.value ? parseFloat(e.target.value) : null)}
+                      placeholder="0.00"
+                      className="w-full h-10 px-3 text-sm rounded-xl border border-input-border bg-input-bg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={agregarPaquete}
+              className="flex items-center gap-2 text-sm text-purple-600 hover:text-purple-700 font-medium transition-colors"
+            >
+              <PlusCircle className="w-4 h-4" /> Agregar paquete
+            </button>
+          </div>
+        </Sección>
+      )}
+
+      {/* Sección: Variantes */}
+      <Sección
+        titulo="Variantes"
+        descripcion={
+          tipoProducto === 'evento'
+            ? 'Opciones adicionales del evento. Usa "Reemplaza precio" para paquetes excluyentes y "Suma al precio" para servicios adicionales.'
+            : 'Agrega opciones como color, material, etc. El precio de la variante puede reemplazar o sumarse al precio base.'
+        }
+      >
         <div className="flex flex-col gap-3">
           {varianteFields.map((field, i) => {
             const imagenActual = watch(`variantes.${i}.imagen_url`)
+            const tipoPrecioActual = watch(`variantes.${i}.tipo_precio`) ?? 'reemplaza'
             return (
               <div key={field.id} className="rounded-xl border border-border p-4 flex flex-col gap-3 bg-background-subtle">
                 <div className="flex items-center justify-between">
@@ -469,11 +587,45 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
+
+                {/* Tipo de precio */}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setValue(`variantes.${i}.tipo_precio`, 'reemplaza')}
+                    className={cn(
+                      'flex-1 h-8 rounded-lg text-xs font-semibold border-2 transition-all',
+                      tipoPrecioActual === 'reemplaza'
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-border text-foreground-muted hover:border-primary/30'
+                    )}
+                  >
+                    Reemplaza precio
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setValue(`variantes.${i}.tipo_precio`, 'suma')}
+                    className={cn(
+                      'flex-1 h-8 rounded-lg text-xs font-semibold border-2 transition-all',
+                      tipoPrecioActual === 'suma'
+                        ? 'border-emerald-500 bg-emerald-500/5 text-emerald-600'
+                        : 'border-border text-foreground-muted hover:border-emerald-400/30'
+                    )}
+                  >
+                    + Suma al precio (add-on)
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <Input placeholder="Nombre (ej: Color Rojo)" error={errors.variantes?.[i]?.nombre?.message} {...register(`variantes.${i}.nombre`)} />
                   <Input placeholder="Descripción (opcional)" {...register(`variantes.${i}.descripcion`)} />
-                  <Input type="number" step="0.01" placeholder="Precio (reemplaza al base)" {...register(`variantes.${i}.precio_variante`)} />
-                  {watch('tipo_producto') === 'producto' && (
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder={tipoPrecioActual === 'suma' ? '+ Precio adicional' : 'Precio (reemplaza al base)'}
+                    {...register(`variantes.${i}.precio_variante`)}
+                  />
+                  {tipoProducto === 'producto' && (
                     <Input type="number" placeholder="Stock (Opc)" {...register(`variantes.${i}.stock_variante`)} />
                   )}
                 </div>
@@ -529,16 +681,16 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
           })}
           <button
             type="button"
-            onClick={() => appendVariante({ nombre: '', descripcion: '', precio_variante: '', imagen_url: '' })}
+            onClick={() => appendVariante({ nombre: '', descripcion: '', precio_variante: '', imagen_url: '', tipo_precio: 'reemplaza' })}
             className="flex items-center gap-2 text-sm text-primary hover:text-primary-hover font-medium transition-colors"
           >
             <Plus className="w-4 h-4" /> Agregar variante
           </button>
         </div>
-      </Sección>}
+      </Sección>
 
       {/* Sección: Tallas */}
-      {watch('tipo_producto') === 'producto' && (
+      {tipoProducto === 'producto' && (
         <Sección titulo="Tallas">
           <div className="flex flex-col gap-4">
             <label className="flex items-center gap-3 cursor-pointer">
@@ -619,7 +771,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
 
       {/* Sección: Video */}
       <Sección
-        titulo={watch('tipo_producto') === 'servicio' ? 'Video del servicio' : 'Video del producto'}
+        titulo={tipoProducto === 'servicio' ? 'Video del servicio' : tipoProducto === 'evento' ? 'Video del evento' : 'Video del producto'}
         descripcion="Pega el enlace de YouTube o Vimeo. Si no hay video, el botón no aparece en la tienda."
       >
         <div className="relative">

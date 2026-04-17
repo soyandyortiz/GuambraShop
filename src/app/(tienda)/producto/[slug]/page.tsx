@@ -57,11 +57,11 @@ export default async function PáginaProducto({ params }: Props) {
   const [{ data: producto }, { data: config }] = await Promise.all([
     supabase.from('productos')
       .select(`
-        id, nombre, slug, descripcion, precio, precio_descuento,
-        etiquetas, requiere_tallas, tipo_producto, url_video,
+        id, nombre, slug, descripcion, precio, precio_descuento, stock,
+        etiquetas, requiere_tallas, tipo_producto, url_video, paquetes_evento,
         imagenes_producto(id, url, orden),
-        variantes_producto(id, nombre, descripcion, precio_variante, imagen_url, esta_activa, orden),
-        tallas_producto(id, talla, disponible, orden),
+        variantes_producto(id, nombre, descripcion, precio_variante, imagen_url, stock, esta_activa, orden, tipo_precio),
+        tallas_producto(id, talla, disponible, stock, orden),
         resenas_producto(id, nombre_cliente, calificacion, comentario, creado_en, es_visible),
         categoria:categorias(id, nombre, slug)
       `)
@@ -69,7 +69,7 @@ export default async function PáginaProducto({ params }: Props) {
       .eq('esta_activo', true)
       .single(),
     supabase.from('configuracion_tienda')
-      .select('whatsapp, nombre_tienda, simbolo_moneda, habilitar_citas, hora_apertura, hora_cierre, duracion_cita_minutos')
+      .select('whatsapp, nombre_tienda, simbolo_moneda, habilitar_citas, hora_apertura, hora_cierre, duracion_cita_minutos, pais')
       .single(),
   ])
 
@@ -91,18 +91,22 @@ export default async function PáginaProducto({ params }: Props) {
         descripcion: producto.descripcion,
         precio: producto.precio,
         precio_descuento: producto.precio_descuento,
+        stock: producto.stock ?? null,
         etiquetas: producto.etiquetas ?? [],
         requiere_tallas: producto.requiere_tallas,
         tipo_producto: producto.tipo_producto ?? 'producto',
         url_video: producto.url_video ?? null,
+        paquetes_evento: (producto.paquetes_evento as any) ?? [],
         categoria: Array.isArray(producto.categoria) ? (producto.categoria[0] ?? null) as { id: string; nombre: string; slug: string } | null : producto.categoria as { id: string; nombre: string; slug: string } | null,
       }}
       imagenes={imagenes as { id: string; url: string; orden: number }[]}
-      variantes={variantes as { id: string; nombre: string; descripcion: string | null; precio_variante: number | null; imagen_url?: string | null; orden: number }[]}
-      tallas={tallas as { id: string; talla: string; disponible: boolean; orden: number }[]}
+      variantes={variantes as { id: string; nombre: string; descripcion: string | null; precio_variante: number | null; imagen_url?: string | null; stock?: number | null; orden: number; tipo_precio?: string | null }[]}
+      tallas={tallas as { id: string; talla: string; disponible: boolean; stock?: number | null; orden: number }[]}
       resenas={resenas as { id: string; nombre_cliente: string; calificacion: number; comentario: string | null; creado_en: string }[]}
       whatsapp={config?.whatsapp ?? ''}
       nombreTienda={config?.nombre_tienda ?? 'Tienda'}
+      simboloMoneda={config?.simbolo_moneda ?? '$'}
+      pais={config?.pais ?? 'EC'}
       configCitas={{
         habilitar_citas: config?.habilitar_citas,
         hora_apertura: config?.hora_apertura,

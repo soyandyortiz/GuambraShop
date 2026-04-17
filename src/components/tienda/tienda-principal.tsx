@@ -17,6 +17,7 @@ interface Producto {
   precio_descuento: number | null; imagen_url: string | null
   etiquetas: string[]; variante_count: number
   tipo_producto?: 'producto' | 'servicio'
+  stock?: number | null
 }
 
 interface Categoria { id: string; nombre: string; slug: string }
@@ -90,7 +91,7 @@ export function TiendaPrincipal({ precioMinGlobal, precioMaxGlobal, categorias }
     let query = supabase
       .from('productos')
       .select(`
-        id, nombre, slug, precio, precio_descuento, etiquetas, tipo_producto,
+        id, nombre, slug, precio, precio_descuento, etiquetas, tipo_producto, stock,
         imagenes_producto(url, orden),
         variantes_producto(id)
       `)
@@ -120,6 +121,7 @@ export function TiendaPrincipal({ precioMinGlobal, precioMaxGlobal, categorias }
       precio: p.precio, precio_descuento: p.precio_descuento,
       etiquetas: p.etiquetas || [],
       tipo_producto: p.tipo_producto,
+      stock: p.stock ?? null,
       imagen_url: p.imagenes_producto?.sort((a: any, b: any) => a.orden - b.orden)[0]?.url || null,
       variante_count: p.variantes_producto?.length || 0,
     }))
