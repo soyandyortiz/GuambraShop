@@ -4,22 +4,22 @@
    TEMA CLARO (por defecto)
    ============================================================ */
 :root {
-  --background:        #ffffff;
-  --background-subtle: #f9fafb;
+  --background:        #f1f5f9;
+  --background-subtle: #e8edf3;
   --foreground:        #111827;
   --foreground-muted:  #6b7280;
-  --border:            #e5e7eb;
-  --border-strong:     #d1d5db;
+  --border:            #dde3ed;
+  --border-strong:     #c8d0dc;
 
   --primary:           #ef4444;
   --primary-hover:     #dc2626;
   --primary-foreground:#ffffff;
 
   --card:              #ffffff;
-  --card-border:       #f3f4f6;
+  --card-border:       #e2e8f0;
 
-  --input-bg:          #ffffff;
-  --input-border:      #d1d5db;
+  --input-bg:          #f8fafc;
+  --input-border:      #c8d0dc;
   --input-focus:       #ef4444;
 
   --star:              #f59e0b;

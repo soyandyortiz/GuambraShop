@@ -1,19 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
-import { MessageCircle, Calendar, MapPin, DollarSign, ChevronDown, PartyPopper, SlidersHorizontal, ClipboardList, ExternalLink } from 'lucide-react'
+import { MessageCircle, Calendar, MapPin, DollarSign, ChevronDown, PartyPopper, SlidersHorizontal } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { generarMensajeSolicitudEvento, generarEnlaceWhatsApp } from '@/lib/whatsapp'
 import { formatearPrecio } from '@/lib/utils'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { SolicitudEvento, EstadoSolicitud } from '@/types'
-
-// Extiende SolicitudEvento con el pedido vinculado (join de Supabase)
-type SolicitudConPedido = SolicitudEvento & {
-  pedido?: { id: string; numero_orden: string } | null
-}
 
 // ─── Config de estados ────────────────────────────────────────────────────────
 
@@ -28,7 +22,7 @@ const ESTADOS: Record<EstadoSolicitud, { etiqueta: string; color: string; punto:
 const ORDEN_ESTADOS: EstadoSolicitud[] = ['nueva', 'en_conversacion', 'cotizacion_enviada', 'confirmada', 'rechazada']
 
 interface Props {
-  solicitudesInic: SolicitudConPedido[]
+  solicitudesInic: SolicitudEvento[]
   whatsapp: string
   simboloMoneda?: string
 }
@@ -36,7 +30,7 @@ interface Props {
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 export function TablaSolicitudes({ solicitudesInic, whatsapp, simboloMoneda = '$' }: Props) {
-  const [solicitudes, setSolicitudes] = useState<SolicitudConPedido[]>(solicitudesInic)
+  const [solicitudes, setSolicitudes] = useState<SolicitudEvento[]>(solicitudesInic)
   const [filtro, setFiltro] = useState<EstadoSolicitud | 'todas'>('todas')
   const [actualizando, setActualizando] = useState<string | null>(null)
   const [expandida, setExpandida] = useState<string | null>(null)
@@ -49,51 +43,9 @@ export function TablaSolicitudes({ solicitudesInic, whatsapp, simboloMoneda = '$
     setActualizando(sol.id)
     const supabase = crearClienteSupabase()
 
-    // ── Fase 4: si se confirma y aún no tiene pedido vinculado → crear pedido ──
-    let nuevoPedidoId: string | null = null
-    let nuevoPedidoNumero: string | null = null
-    if (nuevoEstado === 'confirmada' && !sol.pedido_id) {
-      const presupuesto = sol.presupuesto_aproximado ?? 0
-      const { data: pedido, error: errPedido } = await supabase
-        .from('pedidos')
-        .insert({
-          tipo: 'local',
-          nombres: sol.nombre_cliente,
-          email: sol.email,
-          whatsapp: sol.whatsapp,
-          simbolo_moneda: simboloMoneda,
-          items: [
-            {
-              nombre: sol.producto_nombre,
-              cantidad: 1,
-              precio: presupuesto,
-              tipo_producto: 'evento',
-              producto_id: sol.producto_id ?? null,
-            },
-          ],
-          subtotal: presupuesto,
-          total: presupuesto,
-          estado: 'confirmado',
-        })
-        .select('id, numero_orden')
-        .single()
-
-      if (errPedido) {
-        toast.error('Error al crear el pedido vinculado')
-        setActualizando(null)
-        return
-      }
-      nuevoPedidoId     = pedido.id
-      nuevoPedidoNumero = pedido.numero_orden
-    }
-
-    // ── Actualizar estado (+ pedido_id si recién creado) ─────────────────────
-    const payload: Record<string, unknown> = { estado: nuevoEstado }
-    if (nuevoPedidoId) payload.pedido_id = nuevoPedidoId
-
     const { error } = await supabase
       .from('solicitudes_evento')
-      .update(payload)
+      .update({ estado: nuevoEstado })
       .eq('id', sol.id)
 
     if (error) {
@@ -103,19 +55,9 @@ export function TablaSolicitudes({ solicitudesInic, whatsapp, simboloMoneda = '$
     }
 
     setSolicitudes(prev =>
-      prev.map(s => s.id === sol.id
-        ? {
-            ...s,
-            estado: nuevoEstado,
-            ...(nuevoPedidoId && nuevoPedidoNumero ? {
-              pedido_id: nuevoPedidoId,
-              pedido: { id: nuevoPedidoId, numero_orden: nuevoPedidoNumero },
-            } : {}),
-          }
-        : s
-      )
+      prev.map(s => s.id === sol.id ? { ...s, estado: nuevoEstado } : s)
     )
-    toast.success(nuevoEstado === 'confirmada' ? 'Evento confirmado — pedido generado' : 'Estado actualizado')
+    toast.success(nuevoEstado === 'confirmada' ? 'Evento confirmado' : 'Estado actualizado')
 
     // ── Fase 5: notificación Telegram al confirmar ────────────────────────────
     if (nuevoEstado === 'confirmada') {
@@ -288,23 +230,6 @@ export function TablaSolicitudes({ solicitudesInic, whatsapp, simboloMoneda = '$
                         <p className="text-foreground-muted mb-0.5 font-medium">Notas del cliente:</p>
                         <p className="text-foreground leading-relaxed">{sol.notas}</p>
                       </div>
-                    )}
-
-                    {/* Pedido vinculado */}
-                    {sol.pedido && (
-                      <Link
-                        href="/admin/dashboard/pedidos"
-                        className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-green-50 border border-green-200 hover:bg-green-100 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <ClipboardList className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
-                          <div>
-                            <p className="text-[10px] text-green-700 font-bold leading-none mb-0.5">Pedido generado</p>
-                            <p className="text-xs font-black text-green-800">{sol.pedido.numero_orden}</p>
-                          </div>
-                        </div>
-                        <ExternalLink className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
-                      </Link>
                     )}
 
                     {/* Cambiar estado + WhatsApp */}

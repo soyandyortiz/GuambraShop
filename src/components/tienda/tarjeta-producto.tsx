@@ -84,7 +84,7 @@ export function TarjetaProducto({
             <img
               src={imagen_url}
               alt={nombre}
-              className="w-full h-full object-contain p-1"
+              className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -148,7 +148,7 @@ export function TarjetaProducto({
         {/* Precio */}
         <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
           {tipo_producto === 'evento' ? (
-            <p className="text-sm font-bold text-purple-600 leading-none">
+            <p className="text-sm font-bold text-emerald-600 leading-none">
               Desde {formatearPrecio(precio)}
             </p>
           ) : (

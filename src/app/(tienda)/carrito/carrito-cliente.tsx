@@ -309,6 +309,53 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
       }),
     }).catch(() => {/* silencioso si falla */})
 
+    // Notificación Telegram: stock bajo (fire-and-forget)
+    ;(async () => {
+      const itemsConStockBajo: { nombre: string; stock: number }[] = []
+      for (const item of items) {
+        if (item.tipo_producto === 'servicio') continue
+        let stockActual: number | null = null
+        if (item.variante_id) {
+          const { data } = await supabase
+            .from('variantes_producto')
+            .select('stock')
+            .eq('id', item.variante_id)
+            .single()
+          stockActual = data?.stock ?? null
+        } else if (item.talla) {
+          const { data } = await supabase
+            .from('tallas_producto')
+            .select('stock')
+            .eq('producto_id', item.producto_id)
+            .eq('talla', item.talla)
+            .single()
+          stockActual = data?.stock ?? null
+        } else {
+          const { data } = await supabase
+            .from('productos')
+            .select('stock')
+            .eq('id', item.producto_id)
+            .single()
+          stockActual = data?.stock ?? null
+        }
+        if (stockActual !== null && stockActual > 0 && stockActual <= 5) {
+          const etiqueta = item.talla
+            ? `${item.nombre} (Talla: ${item.talla})`
+            : item.nombre_variante
+              ? `${item.nombre} (${item.nombre_variante})`
+              : item.nombre
+          itemsConStockBajo.push({ nombre: etiqueta, stock: stockActual })
+        }
+      }
+      if (itemsConStockBajo.length > 0) {
+        fetch('/api/telegram/notificar-stock-bajo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: itemsConStockBajo }),
+        }).catch(() => {})
+      }
+    })()
+
     // Generar mensaje WhatsApp con número de pedido
     const msg = generarMensajeWhatsApp({
       numeroPedido: data.numero_orden,

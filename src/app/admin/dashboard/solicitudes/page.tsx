@@ -1,11 +1,6 @@
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { TablaSolicitudes } from '@/components/admin/solicitudes/tabla-solicitudes'
 import { PartyPopper } from 'lucide-react'
-import type { SolicitudEvento } from '@/types'
-
-type SolicitudConPedido = SolicitudEvento & {
-  pedido?: { id: string; numero_orden: string } | null
-}
 
 export default async function PáginaSolicitudes() {
   const supabase = await crearClienteServidor()
@@ -13,7 +8,7 @@ export default async function PáginaSolicitudes() {
   const [{ data: solicitudes }, { data: config }] = await Promise.all([
     supabase
       .from('solicitudes_evento')
-      .select('*, pedido:pedidos(id, numero_orden)')
+      .select('*')
       .order('creado_en', { ascending: false }),
     supabase
       .from('configuracion_tienda')
@@ -37,7 +32,7 @@ export default async function PáginaSolicitudes() {
       </div>
 
       <TablaSolicitudes
-        solicitudesInic={(solicitudes ?? []) as SolicitudConPedido[]}
+        solicitudesInic={solicitudes ?? []}
         whatsapp={config?.whatsapp ?? ''}
         simboloMoneda={config?.simbolo_moneda ?? '$'}
       />

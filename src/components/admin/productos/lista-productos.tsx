@@ -136,7 +136,7 @@ export function ListaProductosAdmin({ productos: productosServidor, categorias }
         </div>
       )}
 
-      {/* Lista */}
+      {/* Grid de tarjetas */}
       {filtrados.length === 0 ? (
         <div className="rounded-2xl bg-card border border-card-border p-12 text-center">
           <Package className="w-10 h-10 text-foreground-muted/40 mx-auto mb-3" />
@@ -146,96 +146,116 @@ export function ListaProductosAdmin({ productos: productosServidor, categorias }
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {filtrados.map(producto => {
             const img = imagenPrincipal(producto.imagenes_producto)
+            const esServicio = producto.tipo_producto === 'servicio'
+            const esEvento   = producto.tipo_producto === 'evento'
+            const agotado    = !esServicio && !esEvento && producto.stock !== null && producto.stock === 0
+            const stockBajo  = !esServicio && !esEvento && producto.stock !== null && producto.stock > 0 && producto.stock <= 5
+
             return (
               <div
                 key={producto.id}
                 className={cn(
-                  'p-3 rounded-2xl border bg-card transition-all',
-                  producto.esta_activo ? 'border-card-border' : 'border-border opacity-60'
+                  'bg-card border rounded-2xl overflow-hidden flex flex-col transition-all hover:shadow-md',
+                  producto.esta_activo ? 'border-card-border' : 'border-card-border opacity-55'
                 )}
               >
-                {/* Fila superior: imagen + info */}
-                <div className="flex items-center gap-3">
-                  {/* Imagen */}
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-background-subtle flex-shrink-0 border border-border">
+                {/* Imagen */}
+                <div className="relative w-full bg-background-subtle" style={{ paddingBottom: '100%' }}>
+                  <div className="absolute inset-0">
                     {img ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={img} alt={producto.nombre} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <Package className="w-4 h-4 text-foreground-muted/40" />
+                        <Package className="w-8 h-8 text-foreground-muted/20" />
                       </div>
                     )}
                   </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground leading-tight line-clamp-2">{producto.nombre}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      {producto.precio_descuento ? (
-                        <>
-                          <span className="text-sm font-bold text-primary">{formatearPrecio(producto.precio_descuento)}</span>
-                          <span className="text-xs text-foreground-muted line-through">{formatearPrecio(producto.precio)}</span>
-                        </>
-                      ) : (
-                        <span className="text-sm font-bold text-foreground">{formatearPrecio(producto.precio)}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Fila inferior: estado + acciones */}
-                <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-border/50">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className={cn(
-                      'inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full',
-                      producto.esta_activo
-                        ? 'bg-success/10 text-success'
-                        : 'bg-foreground-muted/10 text-foreground-muted'
-                    )}>
-                      {producto.esta_activo ? 'Activo' : 'Inactivo'}
-                    </span>
-                    {/* Badge de stock — solo para productos físicos con stock definido */}
-                    {producto.tipo_producto !== 'servicio' && producto.stock !== null && (
-                      producto.stock === 0 ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-danger/10 text-danger">
-                          <XCircle className="w-2.5 h-2.5" />
-                          Agotado
-                        </span>
-                      ) : producto.stock <= 5 ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-warning/10 text-warning">
-                          <AlertTriangle className="w-2.5 h-2.5" />
-                          Stock: {producto.stock}
-                        </span>
-                      ) : (
-                        <span className="inline-flex text-[10px] font-medium px-2 py-0.5 rounded-full bg-background-subtle text-foreground-muted">
-                          Stock: {producto.stock}
-                        </span>
-                      )
+                  {/* Badge tipo producto */}
+                  <div className="absolute top-2 left-2 flex flex-col gap-1">
+                    {esEvento && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-purple-600 text-white shadow-sm">
+                        Evento
+                      </span>
+                    )}
+                    {esServicio && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500 text-white shadow-sm">
+                        Servicio
+                      </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  {/* Badge estado activo/inactivo */}
+                  <div className="absolute top-2 right-2">
+                    <span className={cn(
+                      'text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-sm',
+                      producto.esta_activo
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-gray-400 text-white'
+                    )}>
+                      {producto.esta_activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </div>
+
+                  {/* Badge stock */}
+                  {agotado && (
+                    <div className="absolute bottom-2 left-2">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-danger text-white shadow-sm">
+                        Agotado
+                      </span>
+                    </div>
+                  )}
+                  {stockBajo && (
+                    <div className="absolute bottom-2 left-2">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500 text-white shadow-sm">
+                        Stock: {producto.stock}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="flex flex-col flex-1 p-2.5 gap-1.5">
+                  <p className="text-xs font-semibold text-foreground line-clamp-2 leading-tight min-h-[2.25rem]">
+                    {producto.nombre}
+                  </p>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {producto.precio_descuento ? (
+                      <>
+                        <span className="text-sm font-bold text-primary">{formatearPrecio(producto.precio_descuento)}</span>
+                        <span className="text-[10px] text-foreground-muted line-through">{formatearPrecio(producto.precio)}</span>
+                      </>
+                    ) : (
+                      <span className="text-sm font-bold text-foreground">{formatearPrecio(producto.precio)}</span>
+                    )}
+                  </div>
+
+                  {/* Acciones */}
+                  <div className="flex items-center justify-between mt-auto pt-2 border-t border-border/60">
                     <Switch
                       activo={producto.esta_activo}
                       alCambiar={() => toggleActivo(producto.id, producto.esta_activo)}
                       cargando={isPending}
                     />
-                    <Link
-                      href={`/admin/dashboard/productos/${producto.id}`}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-background-subtle transition-all"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Link>
-                    <button
-                      onClick={() => eliminar(producto.id, producto.nombre)}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-all"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <Link
+                        href={`/admin/dashboard/productos/${producto.id}`}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-background-subtle transition-all"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Link>
+                      <button
+                        onClick={() => eliminar(producto.id, producto.nombre)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

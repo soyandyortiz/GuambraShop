@@ -43,7 +43,8 @@ const CLAVE = 'tienda_carrito'
 function leerCarrito(): ItemCarrito[] {
   if (typeof window === 'undefined') return []
   try {
-    return JSON.parse(localStorage.getItem(CLAVE) ?? '[]')
+    return (JSON.parse(localStorage.getItem(CLAVE) ?? '[]') as ItemCarrito[])
+      .filter(i => i.tipo_producto !== 'evento')
   } catch { return [] }
 }
 

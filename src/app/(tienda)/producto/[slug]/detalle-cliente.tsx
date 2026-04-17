@@ -405,6 +405,36 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
             </div>
           )}
 
+          {/* ══ Opciones del evento (variantes informativas) ══ */}
+          {producto.tipo_producto === 'evento' && variantes.length > 0 && (
+            <div className="px-4 py-4 border-t border-border lg:px-8">
+              <p className="text-xs font-semibold text-foreground mb-3">Opciones disponibles</p>
+              <div className="flex flex-col gap-2">
+                {variantes.map(v => (
+                  <div key={v.id} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-background-subtle border border-border">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {v.imagen_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={v.imagen_url} alt={v.nombre} className="w-8 h-8 rounded-lg object-cover border border-border flex-shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{v.nombre}</p>
+                        {v.descripcion && (
+                          <p className="text-xs text-foreground-muted truncate">{v.descripcion}</p>
+                        )}
+                      </div>
+                    </div>
+                    {v.precio_variante != null && (
+                      <p className="text-sm font-bold text-purple-600 flex-shrink-0">
+                        {v.tipo_precio === 'suma' ? '+' : ''}{formatearPrecio(v.precio_variante, simboloMoneda)}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ══ FLUJO EVENTO: formulario de solicitud ══ */}
           {producto.tipo_producto === 'evento' && (
             <FormularioSolicitud
