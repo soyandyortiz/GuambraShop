@@ -55,9 +55,9 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
         return (
           `*${i + 1}. ${item.nombre}*` +
           (extras.length ? `\n   _${extras.join(' | ')}_` : '') +
-          `\n   📅 *Fecha:* ${fechaStr}` +
-          `\n   ⏰ *Hora:* ${horaStr}` +
-          `\n   Precio: *${fmt(subtotal)}*`
+          `\n   - Fecha: *${fechaStr}*` +
+          `\n   - Hora:  *${horaStr}*` +
+          `\n   - Precio: *${fmt(subtotal)}*`
         )
       }
 
