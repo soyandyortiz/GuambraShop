@@ -7,6 +7,7 @@ interface ItemNotif {
   variante?: string | null
   talla?: string | null
   tipo_producto?: string
+  cita?: { fecha: string; hora_inicio: string } | null
 }
 
 interface BodyNotif {
@@ -41,15 +42,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'invalid_body' }, { status: 400 })
   }
 
-  const tipoEmoji  = body.tipo === 'delivery' ? '🚚' : '🏪'
-  const tipoLabel  = body.tipo === 'delivery'
-    ? `Delivery → ${[body.ciudad, body.provincia].filter(Boolean).join(', ') || '—'}`
-    : 'Retiro en tienda'
+  const soloServicios = body.items.length > 0 && body.items.every(i => i.tipo_producto === 'servicio')
+
+  // Encabezado y atención diferenciados por tipo
+  const encabezado = soloServicios
+    ? `📅 <b>Cita agendada — ${body.numero_orden}</b>`
+    : `🛒 <b>Nuevo pedido — ${body.numero_orden}</b>`
+
+  let atencionLinea: string
+  if (soloServicios) {
+    atencionLinea = `📍 Atención en local físico`
+  } else if (body.tipo === 'delivery') {
+    const destino = [body.ciudad, body.provincia].filter(Boolean).join(', ') || '—'
+    atencionLinea = `🚚 Delivery → ${destino}`
+  } else {
+    atencionLinea = `🏪 Retiro en tienda`
+  }
 
   const itemsLineas = body.items.map(i => {
     const extras = [i.variante, i.talla ? `T:${i.talla}` : null].filter(Boolean).join(' ')
-    return `  • ${i.nombre}${extras ? ` (${extras})` : ''} x${i.cantidad} — ${body.simbolo_moneda}${i.subtotal.toFixed(2)}`
+    let linea = `  • ${i.nombre}${extras ? ` (${extras})` : ''}`
+    if (i.tipo_producto === 'servicio' && i.cita) {
+      const fecha = new Date(i.cita.fecha + 'T00:00:00').toLocaleDateString('es-EC', {
+        weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+      })
+      const hora = i.cita.hora_inicio.slice(0, 5)
+      linea += `\n    📅 ${fecha}  ⏰ ${hora}`
+    } else {
+      linea += ` x${i.cantidad} — ${body.simbolo_moneda}${i.subtotal.toFixed(2)}`
+    }
+    return linea
   }).join('\n')
+
+  const labelItems = soloServicios ? `<b>Servicio(s):</b>` : `<b>Productos:</b>`
 
   const resumen = [
     body.descuento_cupon > 0
@@ -61,13 +86,13 @@ export async function POST(req: NextRequest) {
   ].filter(Boolean).join('\n')
 
   const texto = [
-    `🛒 <b>Nuevo pedido — ${body.numero_orden}</b>`,
+    encabezado,
     '',
     `👤 <b>${body.nombres}</b>`,
     `📞 ${body.whatsapp}`,
-    `${tipoEmoji} ${tipoLabel}`,
+    atencionLinea,
     '',
-    `<b>Productos:</b>`,
+    labelItems,
     itemsLineas,
     resumen ? resumen : null,
     '',

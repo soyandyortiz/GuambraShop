@@ -36,24 +36,34 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
 
   const fmt = (n: number) => `${simboloMoneda}${n.toFixed(2)}`
 
-  // Líneas de productos
-  const lineasProductos = items
+  const soloServicios = items.every(i => i.tipo_producto === 'servicio')
+
+  // Líneas de ítems — formato varía por tipo
+  const lineasItems = items
     .map((item, i) => {
       const subtotal = item.precio * item.cantidad
       const extras: string[] = []
       if (item.variante) extras.push(`Variante: ${item.variante}`)
       if (item.talla)    extras.push(`Talla: ${item.talla}`)
-      if (item.extras?.length) extras.push(...item.extras.map(e => `+${e.nombre} (${fmt(e.precio)})`));
-      
-      let detalleCita = ''
+      if (item.extras?.length) extras.push(...item.extras.map(e => `+${e.nombre} (${fmt(e.precio)})`))
+
       if (item.tipo_producto === 'servicio' && item.cita) {
-        detalleCita = `\n   - *Cita:* ${new Date(item.cita.fecha + 'T00:00:00').toLocaleDateString('es-EC')} - ${item.cita.hora_inicio.slice(0, 5)}`
+        const fechaStr = new Date(item.cita.fecha + 'T00:00:00').toLocaleDateString('es-EC', {
+          weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+        })
+        const horaStr = item.cita.hora_inicio.slice(0, 5)
+        return (
+          `*${i + 1}. ${item.nombre}*` +
+          (extras.length ? `\n   _${extras.join(' | ')}_` : '') +
+          `\n   📅 *Fecha:* ${fechaStr}` +
+          `\n   ⏰ *Hora:* ${horaStr}` +
+          `\n   Precio: *${fmt(subtotal)}*`
+        )
       }
 
       return (
         `*${i + 1}. ${item.nombre}*` +
         (extras.length ? `\n   _${extras.join(' | ')}_` : '') +
-        detalleCita +
         `\n   Cant: ${item.cantidad}  |  ${fmt(item.precio)} c/u  |  Subtotal: *${fmt(subtotal)}*`
       )
     })
@@ -66,14 +76,12 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
     ? `Cupon *${cupon.codigo}*: _-${fmt(cupon.descuento)}_\n`
     : ''
 
-  // Envío
+  // Envío / atención — servicios solo muestran local
   let lineaEnvio = ''
-  const soloServicios = items.every(i => i.tipo_producto === 'servicio')
-
-  if (envio.tipo === 'tienda') {
-    lineaEnvio = soloServicios 
-      ? `Atencion: *Local fisico*\n`
-      : `Entrega: *Retiro en tienda* (sin costo de envio)\n`
+  if (soloServicios) {
+    lineaEnvio = `Atencion: *Local fisico*\n`
+  } else if (envio.tipo === 'tienda') {
+    lineaEnvio = `Entrega: *Retiro en tienda* (sin costo de envio)\n`
   } else {
     const destino = [envio.ciudad, envio.provincia].filter(Boolean).join(', ')
     lineaEnvio =
@@ -87,22 +95,31 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
   const descuento = cupon?.descuento ?? 0
   const total = subtotalBase - descuento
 
-  // URLs de productos
-  const urlsProductos = items
+  // URLs de ítems — label diferenciado por tipo
+  const footerLabel = soloServicios ? `*Servicio(s):*` : `*Productos:*`
+  const urlsItems = items
     .map((item) => `- ${siteUrl}/producto/${item.slug}`)
     .join('\n')
 
+  // Encabezado y sección diferenciados por tipo
+  const tituloPedido = soloServicios
+    ? `*Cita agendada - ${nombreTienda}*`
+    : `*Nuevo pedido - ${nombreTienda}*`
+  const tituloDetalle = soloServicios
+    ? `*DETALLE DE LA CITA:*`
+    : `*DETALLE DEL PEDIDO:*`
+
   const mensaje =
-    `*Nuevo pedido - ${nombreTienda}*\n` +
+    `${tituloPedido}\n` +
     (numeroPedido ? `*N\u00ba de orden: ${numeroPedido}*\n` : '') +
-    `\n*DETALLE DEL PEDIDO:*\n\n` +
-    `${lineasProductos}\n\n` +
+    `\n${tituloDetalle}\n\n` +
+    `${lineasItems}\n\n` +
     `${SEP}\n` +
     `${lineaCupon}` +
     `${lineaEnvio}` +
     `${SEP}\n` +
     `*TOTAL: ${fmt(total)}*\n\n` +
-    `*Productos:*\n${urlsProductos}`
+    `${footerLabel}\n${urlsItems}`
 
   return encodeURIComponent(mensaje)
 }

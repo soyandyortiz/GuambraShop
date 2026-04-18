@@ -216,6 +216,31 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
         }
       }
     }
+    // Verificar disponibilidad de citas antes de crear el pedido
+    for (const item of items.filter(i => i.tipo_producto === 'servicio' && i.cita)) {
+      const { data: citaOcupada } = await supabase
+        .from('citas')
+        .select('id')
+        .eq('producto_id', item.producto_id)
+        .eq('fecha', item.cita!.fecha)
+        .eq('hora_inicio', item.cita!.hora_inicio)
+        .neq('estado', 'cancelada')
+        .maybeSingle()
+
+      if (citaOcupada) {
+        const fechaDisplay = new Date(item.cita!.fecha + 'T00:00:00').toLocaleDateString('es-EC', {
+          weekday: 'long', day: 'numeric', month: 'long',
+        })
+        const horaDisplay = item.cita!.hora_inicio.slice(0, 5)
+        toast.error(
+          `El horario del ${fechaDisplay} a las ${horaDisplay} ya fue reservado para "${item.nombre}". Por favor elige otro horario.`,
+          { duration: 6000 }
+        )
+        setCreandoPedido(false)
+        return
+      }
+    }
+
     const whatsappCompleto = codigoPais + telefono.replace(/\D/g, '')
 
     const { data, error } = await supabase
@@ -299,6 +324,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
           variante: i.nombre_variante ?? null,
           talla: i.talla ?? null,
           tipo_producto: i.tipo_producto,
+          cita: i.cita ?? null,
         })),
         subtotal: +subtotal.toFixed(2),
         descuento_cupon: +descuentoCupon.toFixed(2),
