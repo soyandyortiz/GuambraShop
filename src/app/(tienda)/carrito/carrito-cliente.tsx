@@ -553,7 +553,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                     <p className="text-xs text-foreground-muted font-medium">
                       = {formatearPrecio(item.precio * item.cantidad, simboloMoneda)}
                     </p>
-                    <button onClick={() => quitar(item.producto_id, item.variante_id, item.talla)}
+                    <button onClick={() => quitar(item.producto_id, item.variante_id, item.talla, item.cita)}
                       className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-all">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

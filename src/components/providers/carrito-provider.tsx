@@ -27,7 +27,7 @@ export interface ItemCarrito {
 interface CarritoContextType {
   items: ItemCarrito[]
   agregar: (item: ItemCarrito) => void
-  quitar: (producto_id: string, variante_id?: string, talla?: string) => void
+  quitar: (producto_id: string, variante_id?: string, talla?: string, cita?: ItemCarrito['cita']) => void
   actualizarCantidad: (producto_id: string, cantidad: number, variante_id?: string, talla?: string) => void
   limpiar: () => void
   actualizar: (nuevos: ItemCarrito[]) => void
