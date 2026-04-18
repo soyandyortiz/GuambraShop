@@ -218,14 +218,44 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
     }
     // Verificar disponibilidad de citas antes de crear el pedido
     for (const item of items.filter(i => i.tipo_producto === 'servicio' && i.cita)) {
-      const { data: citaOcupada } = await supabase
-        .from('citas')
-        .select('id')
-        .eq('producto_id', item.producto_id)
-        .eq('fecha', item.cita!.fecha)
-        .eq('hora_inicio', item.cita!.hora_inicio)
-        .in('estado', ['reservada', 'confirmada'])
-        .maybeSingle()
+      const empleadoId = item.cita?.empleado_id
+
+      let citaOcupada = false
+
+      if (empleadoId) {
+        // Empleado específico: verificar que ese empleado no tenga ese slot
+        const { data } = await supabase
+          .from('citas')
+          .select('id')
+          .eq('fecha', item.cita!.fecha)
+          .eq('hora_inicio', item.cita!.hora_inicio)
+          .eq('empleado_id', empleadoId)
+          .in('estado', ['reservada', 'confirmada'])
+          .maybeSingle()
+        citaOcupada = !!data
+      } else {
+        // Sin empleado específico: contar vs capacidad configurada
+        const { data: configData } = await supabase
+          .from('configuracion_tienda')
+          .select('capacidad_citas_simultaneas, seleccion_empleado')
+          .single()
+        const { count } = await supabase
+          .from('citas')
+          .select('id', { count: 'exact', head: true })
+          .eq('fecha', item.cita!.fecha)
+          .eq('hora_inicio', item.cita!.hora_inicio)
+          .in('estado', ['reservada', 'confirmada'])
+        // Si hay selección de empleado activa, capacidad = número de empleados activos
+        let capacidad = configData?.capacidad_citas_simultaneas ?? 1
+        if (configData?.seleccion_empleado) {
+          const { count: totalEmpleados } = await supabase
+            .from('empleados_cita')
+            .select('id', { count: 'exact', head: true })
+            .eq('activo', true)
+          capacidad = totalEmpleados ?? 1
+        }
+        citaOcupada = (count ?? 0) >= capacidad
+      }
 
       if (citaOcupada) {
         const fechaDisplay = new Date(item.cita!.fecha + 'T00:00:00').toLocaleDateString('es-EC', {
@@ -292,6 +322,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
         fecha: i.cita!.fecha,
         hora_inicio: i.cita!.hora_inicio,
         hora_fin: i.cita!.hora_fin,
+        empleado_id: i.cita?.empleado_id ?? null,
         estado: 'reservada'
       }))
       await supabase.from('citas').insert(citasPayload)
@@ -324,7 +355,11 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
           variante: i.nombre_variante ?? null,
           talla: i.talla ?? null,
           tipo_producto: i.tipo_producto,
-          cita: i.cita ?? null,
+          cita: i.cita ? {
+            fecha: i.cita.fecha,
+            hora_inicio: i.cita.hora_inicio,
+            empleado_nombre: i.cita.empleado_nombre,
+          } : null,
         })),
         subtotal: +subtotal.toFixed(2),
         descuento_cupon: +descuentoCupon.toFixed(2),
@@ -532,9 +567,16 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                 <p className="text-sm font-bold text-primary mt-1">{formatearPrecio(item.precio, simboloMoneda)}</p>
                 <div className="flex items-center justify-between mt-2">
                   {item.tipo_producto === 'servicio' ? (
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/5 px-2 py-1 rounded-lg">
-                      <Calendar className="w-3.5 h-3.5" />
-                      Espacio único Reservado
+                    <div className="flex flex-col gap-0.5">
+                      {item.cita && (
+                        <div className="flex items-center gap-1 text-[10px] text-primary font-semibold">
+                          <Calendar className="w-3 h-3 flex-shrink-0" />
+                          {new Date(item.cita.fecha + 'T00:00:00').toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })} — {item.cita.hora_inicio.slice(0, 5)}
+                        </div>
+                      )}
+                      {item.cita?.empleado_nombre && (
+                        <p className="text-[10px] text-foreground-muted">Con: {item.cita.empleado_nombre}</p>
+                      )}
                     </div>
                   ) : (
                     <div className="flex items-center bg-background-subtle rounded-xl p-1 gap-2">

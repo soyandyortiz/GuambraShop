@@ -7,7 +7,7 @@ interface ItemNotif {
   variante?: string | null
   talla?: string | null
   tipo_producto?: string
-  cita?: { fecha: string; hora_inicio: string } | null
+  cita?: { fecha: string; hora_inicio: string; empleado_nombre?: string } | null
 }
 
 interface BodyNotif {
@@ -67,7 +67,8 @@ export async function POST(req: NextRequest) {
         weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
       })
       const hora = i.cita.hora_inicio.slice(0, 5)
-      linea += `\n    📅 ${fecha}  ⏰ ${hora}`
+      linea += `\n    Fecha: ${fecha}  Hora: ${hora}`
+      if (i.cita.empleado_nombre) linea += `\n    Atencion: ${i.cita.empleado_nombre}`
     } else {
       linea += ` x${i.cantidad} — ${body.simbolo_moneda}${i.subtotal.toFixed(2)}`
     }

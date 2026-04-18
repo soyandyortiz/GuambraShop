@@ -6,7 +6,7 @@ export interface ItemCarrito {
   precio: number
   slug: string
   tipo_producto?: string
-  cita?: { fecha: string; hora_inicio: string }
+  cita?: { fecha: string; hora_inicio: string; empleado_nombre?: string }
   extras?: { id: string; nombre: string; precio: number }[]
 }
 
@@ -52,11 +52,15 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
           weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
         })
         const horaStr = item.cita.hora_inicio.slice(0, 5)
+        const lineaEmpleado = item.cita?.empleado_nombre
+          ? `\n   - Atencion: *${item.cita.empleado_nombre}*`
+          : ''
         return (
           `*${i + 1}. ${item.nombre}*` +
           (extras.length ? `\n   _${extras.join(' | ')}_` : '') +
           `\n   - Fecha: *${fechaStr}*` +
           `\n   - Hora:  *${horaStr}*` +
+          lineaEmpleado +
           `\n   - Precio: *${fmt(subtotal)}*`
         )
       }

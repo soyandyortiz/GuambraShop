@@ -54,7 +54,7 @@ export default async function PáginaProducto({ params }: Props) {
   const { slug } = await params
   const supabase = await crearClienteServidor()
 
-  const [{ data: producto }, { data: config }] = await Promise.all([
+  const [{ data: producto }, { data: config }, { data: empleados }] = await Promise.all([
     supabase.from('productos')
       .select(`
         id, nombre, slug, descripcion, precio, precio_descuento, stock,
@@ -69,8 +69,12 @@ export default async function PáginaProducto({ params }: Props) {
       .eq('esta_activo', true)
       .single(),
     supabase.from('configuracion_tienda')
-      .select('whatsapp, nombre_tienda, simbolo_moneda, habilitar_citas, hora_apertura, hora_cierre, duracion_cita_minutos, pais')
+      .select('whatsapp, nombre_tienda, simbolo_moneda, habilitar_citas, hora_apertura, hora_cierre, duracion_cita_minutos, capacidad_citas_simultaneas, seleccion_empleado, pais')
       .single(),
+    supabase.from('empleados_cita')
+      .select('id, nombre_completo')
+      .eq('activo', true)
+      .order('orden'),
   ])
 
   if (!producto) notFound()
@@ -112,7 +116,10 @@ export default async function PáginaProducto({ params }: Props) {
         hora_apertura: config?.hora_apertura,
         hora_cierre: config?.hora_cierre,
         duracion_cita_minutos: config?.duracion_cita_minutos,
+        capacidad_citas_simultaneas: config?.capacidad_citas_simultaneas ?? 1,
+        seleccion_empleado: config?.seleccion_empleado ?? false,
       }}
+      empleados={(empleados ?? []) as { id: string; nombre_completo: string }[]}
     />
   )
 }

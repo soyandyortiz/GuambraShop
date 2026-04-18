@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Loader2, Save, Plus, Trash2, Store, Image as ImageIcon, MapPin, Share2, User, Star, Palette, Hash, Eye, EyeOff, Lock, Pencil, GripVertical, Calendar, CreditCard, Landmark, Clock } from 'lucide-react'
+import { Loader2, Save, Plus, Trash2, Store, Image as ImageIcon, MapPin, Share2, User, Star, Palette, Hash, Eye, EyeOff, Lock, Pencil, GripVertical, Calendar, CreditCard, Landmark, Clock, Users } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { SubidorImagenes } from '@/components/ui/subidor-imagenes'
 import { cn } from '@/lib/utils'
@@ -39,7 +39,16 @@ interface ConfigTienda {
   hora_apertura: string
   hora_cierre: string
   duracion_cita_minutos: number
+  capacidad_citas_simultaneas: number
+  seleccion_empleado: boolean
   horario_atencion: HorarioDia[] | null
+}
+
+interface EmpleadoCita {
+  id: string
+  nombre_completo: string
+  activo: boolean
+  orden: number
 }
 
 interface Direccion {
@@ -85,6 +94,7 @@ interface Props {
   perfil: Perfil
   rol: string
   metodosPago: MetodoPago[]
+  empleados: EmpleadoCita[]
 }
 
 // ─── Schemas ─────────────────────────────────────────────────
@@ -131,6 +141,8 @@ const schemaCitas = z.object({
   hora_apertura: z.string().min(1),
   hora_cierre: z.string().min(1),
   duracion_cita_minutos: z.number().min(5),
+  capacidad_citas_simultaneas: z.number().min(1).max(50),
+  seleccion_empleado: z.boolean(),
 })
 type CamposCitas = z.infer<typeof schemaCitas>
 
@@ -159,7 +171,7 @@ const HORARIO_DEFAULT: HorarioDia[] = [
 ]
 
 // ─── Componente principal ─────────────────────────────────────
-export function FormularioPerfil({ config, direcciones: dirInic, redes: redesInic, perfil, rol, metodosPago: metodosPagoInic }: Props) {
+export function FormularioPerfil({ config, direcciones: dirInic, redes: redesInic, perfil, rol, metodosPago: metodosPagoInic, empleados: empleadosInic }: Props) {
   const [tab, setTab] = useState('general')
 
   return (
@@ -195,7 +207,7 @@ export function FormularioPerfil({ config, direcciones: dirInic, redes: redesIni
       <div className="rounded-2xl bg-card border border-card-border p-5">
         {tab === 'general'     && <TabGeneral config={config} />}
         {tab === 'horario'     && <TabHorario config={config} />}
-        {tab === 'citas'       && <TabCitas config={config} />}
+        {tab === 'citas'       && <TabCitas config={config} empleadosInic={empleadosInic} />}
         {tab === 'pagos'       && <TabMetodosPago metodosPagoInic={metodosPagoInic} />}
         {tab === 'imagenes'    && <TabImagenes config={config} />}
         {tab === 'colores'     && <TabColores config={config} />}
@@ -1017,18 +1029,26 @@ function TabHorario({ config }: { config: ConfigTienda }) {
 }
 
 // ─── Tab Citas ────────────────────────────────────────────────
-function TabCitas({ config }: { config: ConfigTienda }) {
+function TabCitas({ config, empleadosInic }: { config: ConfigTienda; empleadosInic: EmpleadoCita[] }) {
   const [guardando, setGuardando] = useState(false)
   const [exito, setExito] = useState(false)
-  const { register, handleSubmit, formState: { errors } } = useForm<CamposCitas>({
+  const [empleados, setEmpleados] = useState<EmpleadoCita[]>(empleadosInic)
+  const [nuevoNombre, setNuevoNombre] = useState('')
+  const [guardandoEmp, setGuardandoEmp] = useState(false)
+
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<CamposCitas>({
     resolver: zodResolver(schemaCitas),
     defaultValues: {
       habilitar_citas: config.habilitar_citas,
       hora_apertura: config.hora_apertura,
       hora_cierre: config.hora_cierre,
       duracion_cita_minutos: config.duracion_cita_minutos,
+      capacidad_citas_simultaneas: config.capacidad_citas_simultaneas ?? 1,
+      seleccion_empleado: config.seleccion_empleado ?? false,
     },
   })
+
+  const seleccionEmpleado = watch('seleccion_empleado')
 
   async function onSubmit(datos: CamposCitas) {
     setGuardando(true)
@@ -1038,50 +1058,166 @@ function TabCitas({ config }: { config: ConfigTienda }) {
       hora_apertura: datos.hora_apertura,
       hora_cierre: datos.hora_cierre,
       duracion_cita_minutos: datos.duracion_cita_minutos,
+      capacidad_citas_simultaneas: datos.capacidad_citas_simultaneas,
+      seleccion_empleado: datos.seleccion_empleado,
     }).eq('id', config.id)
-    
     setGuardando(false)
-    if (error) {
-      toast.error('Error al guardar configuración de citas')
-      return
-    }
-
+    if (error) { toast.error('Error al guardar configuración de citas'); return }
     setExito(true)
     toast.success('Cambios guardados correctamente')
     setTimeout(() => window.location.reload(), 1200)
   }
 
+  async function agregarEmpleado() {
+    if (!nuevoNombre.trim()) return
+    setGuardandoEmp(true)
+    const supabase = crearClienteSupabase()
+    const { data, error } = await supabase
+      .from('empleados_cita')
+      .insert({ nombre_completo: nuevoNombre.trim(), activo: true, orden: empleados.length })
+      .select()
+      .single()
+    setGuardandoEmp(false)
+    if (error || !data) { toast.error('Error al agregar'); return }
+    setEmpleados(e => [...e, data as EmpleadoCita])
+    setNuevoNombre('')
+    toast.success('Empleado agregado')
+  }
+
+  async function toggleEmpleado(id: string, activo: boolean) {
+    const supabase = crearClienteSupabase()
+    await supabase.from('empleados_cita').update({ activo: !activo }).eq('id', id)
+    setEmpleados(e => e.map(x => x.id === id ? { ...x, activo: !activo } : x))
+  }
+
+  async function eliminarEmpleado(id: string) {
+    if (!confirm('¿Eliminar este empleado? No se puede deshacer.')) return
+    const supabase = crearClienteSupabase()
+    await supabase.from('empleados_cita').delete().eq('id', id)
+    setEmpleados(e => e.filter(x => x.id !== id))
+    toast.success('Empleado eliminado')
+  }
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <div>
         <h3 className="text-sm font-bold text-foreground">Gestión de Citas y Servicios</h3>
-        <p className="text-xs text-foreground-muted mt-0.5">Configura si tu tienda vende servicios agendables y en qué horarios operas.</p>
+        <p className="text-xs text-foreground-muted mt-0.5">Configura horarios, capacidad y personal para el agendamiento.</p>
       </div>
 
-      <div className="flex bg-background-subtle border border-border p-4 rounded-xl flex-col gap-2">
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input type="checkbox" {...register('habilitar_citas')} className="w-5 h-5 rounded" />
-          <span className="font-semibold text-foreground text-sm">Habilitar módulo de servicios y agendamiento</span>
-        </label>
-        <p className="text-xs text-foreground-muted ml-8">
-          Al activar esta opción, podrás crear productos de tipo "Servicio" y el sistema permitirá a tus clientes reservar fechas y horas en el carrito.
-        </p>
-      </div>
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+        {/* Habilitar módulo */}
+        <div className="flex bg-background-subtle border border-border p-4 rounded-xl flex-col gap-2">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" {...register('habilitar_citas')} className="w-5 h-5 rounded" />
+            <span className="font-semibold text-foreground text-sm">Habilitar módulo de servicios y agendamiento</span>
+          </label>
+          <p className="text-xs text-foreground-muted ml-8">
+            Permite crear productos de tipo "Servicio" con reserva de fecha y hora.
+          </p>
+        </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Campo label="Hora de apertura" error={errors.hora_apertura?.message}>
-          <input type="time" {...register('hora_apertura')} className={inputCls} />
-        </Campo>
-        <Campo label="Hora de cierre" error={errors.hora_cierre?.message}>
-          <input type="time" {...register('hora_cierre')} className={inputCls} />
-        </Campo>
-        <Campo label="Duración por cita (minutos)" error={errors.duracion_cita_minutos?.message}>
-          <input type="number" step="5" min="5" {...register('duracion_cita_minutos', { valueAsNumber: true })} className={inputCls} placeholder="30" />
-        </Campo>
-      </div>
+        {/* Horarios y duración */}
+        <div className="grid grid-cols-2 gap-4">
+          <Campo label="Hora de apertura" error={errors.hora_apertura?.message}>
+            <input type="time" {...register('hora_apertura')} className={inputCls} />
+          </Campo>
+          <Campo label="Hora de cierre" error={errors.hora_cierre?.message}>
+            <input type="time" {...register('hora_cierre')} className={inputCls} />
+          </Campo>
+          <Campo label="Duración por cita (min)" error={errors.duracion_cita_minutos?.message}>
+            <input type="number" step="5" min="5" {...register('duracion_cita_minutos', { valueAsNumber: true })} className={inputCls} placeholder="30" />
+          </Campo>
+          {!seleccionEmpleado && (
+            <Campo label="Citas simultáneas" error={errors.capacidad_citas_simultaneas?.message}>
+              <input type="number" min="1" max="50" {...register('capacidad_citas_simultaneas', { valueAsNumber: true })} className={inputCls} placeholder="1" />
+              <p className="text-[11px] text-foreground-muted mt-1">Cuántas citas se pueden tomar al mismo tiempo en toda la tienda.</p>
+            </Campo>
+          )}
+        </div>
 
-      <BtnGuardar guardando={guardando} exito={exito} className="w-full sm:w-60" />
-    </form>
+        {/* Selección de empleado */}
+        <div className="flex bg-background-subtle border border-border p-4 rounded-xl flex-col gap-2">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" {...register('seleccion_empleado')} className="w-5 h-5 rounded" />
+            <span className="font-semibold text-foreground text-sm flex items-center gap-2">
+              <Users className="w-4 h-4 text-primary" /> Permitir selección de empleado
+            </span>
+          </label>
+          <p className="text-xs text-foreground-muted ml-8">
+            El cliente podrá elegir con quién ser atendido. La capacidad se define por el número de empleados activos.
+          </p>
+        </div>
+
+        <BtnGuardar guardando={guardando} exito={exito} className="w-full sm:w-60" />
+      </form>
+
+      {/* Gestión de empleados */}
+      {seleccionEmpleado && (
+        <div className="flex flex-col gap-3 pt-4 border-t border-border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-foreground flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" /> Personal
+              </p>
+              <p className="text-xs text-foreground-muted">Los empleados activos aparecen en el selector de citas</p>
+            </div>
+          </div>
+
+          {/* Lista de empleados */}
+          <div className="flex flex-col gap-2">
+            {empleados.length === 0 && (
+              <p className="text-sm text-foreground-muted text-center py-4">Sin empleados registrados</p>
+            )}
+            {empleados.map(emp => (
+              <div key={emp.id} className={cn(
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all',
+                emp.activo ? 'border-card-border bg-card' : 'border-border bg-background-subtle opacity-60'
+              )}>
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <User className="w-4 h-4 text-primary" />
+                </div>
+                <p className={cn('flex-1 text-sm font-medium', emp.activo ? 'text-foreground' : 'text-foreground-muted line-through')}>
+                  {emp.nombre_completo}
+                </p>
+                <button
+                  onClick={() => toggleEmpleado(emp.id, emp.activo)}
+                  className={cn('h-7 px-2 rounded-lg text-[10px] font-bold transition-all',
+                    emp.activo ? 'bg-success/10 text-success' : 'bg-foreground-muted/10 text-foreground-muted')}
+                >
+                  {emp.activo ? 'Activo' : 'Inactivo'}
+                </button>
+                <button
+                  onClick={() => eliminarEmpleado(emp.id)}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-all"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Agregar empleado */}
+          <div className="flex gap-2">
+            <input
+              value={nuevoNombre}
+              onChange={e => setNuevoNombre(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), agregarEmpleado())}
+              placeholder="Nombre completo del empleado"
+              className={cn(inputCls, 'flex-1')}
+            />
+            <button
+              onClick={agregarEmpleado}
+              disabled={guardandoEmp || !nuevoNombre.trim()}
+              className="h-10 px-4 rounded-xl bg-primary text-white text-sm font-semibold disabled:opacity-50 hover:bg-primary/90 transition-all flex items-center gap-1.5"
+            >
+              {guardandoEmp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              Agregar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

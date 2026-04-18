@@ -34,8 +34,18 @@ export interface ConfiguracionTienda {
   hora_apertura: string
   hora_cierre: string
   duracion_cita_minutos: number
+  capacidad_citas_simultaneas: number
+  seleccion_empleado: boolean
   creado_en: string
   actualizado_en: string
+}
+
+export interface EmpleadoCita {
+  id: string
+  nombre_completo: string
+  activo: boolean
+  orden: number
+  creado_en: string
 }
 
 export interface DireccionNegocio {

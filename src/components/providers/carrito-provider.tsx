@@ -19,6 +19,8 @@ export interface ItemCarrito {
     fecha: string
     hora_inicio: string
     hora_fin: string
+    empleado_id?: string | null
+    empleado_nombre?: string
   }
   // Add-ons seleccionados (variantes con tipo_precio = 'suma')
   extras?: { id: string; nombre: string; precio: number }[]

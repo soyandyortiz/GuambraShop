@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Star, ShoppingCart,
   Heart, Share2, MessageCircle, Package, Tag,
-  Calendar, Clock, PlayCircle, X, Check
+  Calendar, Clock, PlayCircle, X, Check, User
 } from 'lucide-react'
 import Link from 'next/link'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
@@ -51,10 +51,13 @@ interface Props {
     hora_apertura?: string
     hora_cierre?: string
     duracion_cita_minutos?: number
+    capacidad_citas_simultaneas?: number
+    seleccion_empleado?: boolean
   }
+  empleados?: { id: string; nombre_completo: string }[]
 }
 
-export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, resenas, whatsapp, simboloMoneda = '$', pais = 'EC', configCitas }: Props) {
+export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, resenas, whatsapp, simboloMoneda = '$', pais = 'EC', configCitas, empleados = [] }: Props) {
   const router = useRouter()
   const { agregar } = usarCarrito()
   const { esFavorito, toggleFavorito } = usarFavoritos()
@@ -75,6 +78,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   const [mostrarFormResena, setMostrarFormResena] = useState(false)
   const [citaFecha, setCitaFecha] = useState<string>('')
   const [citaHora, setCitaHora] = useState<string>('')
+  const [citaEmpleadoId, setCitaEmpleadoId] = useState<string>('cualquiera')
   const [horasOcupadas, setHorasOcupadas] = useState<string[]>([])
   const [cargandoHoras, setCargandoHoras] = useState(false)
   const [videoAbierto, setVideoAbierto] = useState(false)
@@ -91,27 +95,58 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
     habilitar_citas: configCitas?.habilitar_citas ?? true,
     hora_apertura: configCitas?.hora_apertura ?? '09:00',
     hora_cierre: configCitas?.hora_cierre ?? '18:00',
-    duracion: configCitas?.duracion_cita_minutos ?? 30
+    duracion: configCitas?.duracion_cita_minutos ?? 30,
+    capacidad: configCitas?.capacidad_citas_simultaneas ?? 1,
+    seleccion_empleado: configCitas?.seleccion_empleado ?? false,
   }
 
   useEffect(() => {
     if (producto.tipo_producto !== 'servicio' || !citaFecha) return
 
-    async function cargarCitas() {
+    async function cargarDisponibilidad() {
       setCargandoHoras(true)
       const supabase = crearClienteSupabase()
-      const { data } = await supabase
-        .from('citas')
-        .select('hora_inicio')
-        .eq('producto_id', producto.id)
-        .eq('fecha', citaFecha)
-      if (data) setHorasOcupadas(data.map(c => c.hora_inicio.slice(0, 5)))
+
+      if (configValida.seleccion_empleado && citaEmpleadoId !== 'cualquiera') {
+        // Empleado específico: ver sus slots tomados
+        const { data } = await supabase
+          .from('citas')
+          .select('hora_inicio')
+          .eq('fecha', citaFecha)
+          .eq('empleado_id', citaEmpleadoId)
+          .in('estado', ['reservada', 'confirmada'])
+        setHorasOcupadas(data?.map(c => c.hora_inicio.slice(0, 5)) ?? [])
+      } else {
+        // Sin empleado específico: contar por slot y comparar vs capacidad
+        const { data } = await supabase
+          .from('citas')
+          .select('hora_inicio')
+          .eq('fecha', citaFecha)
+          .in('estado', ['reservada', 'confirmada'])
+        if (data) {
+          const counts: Record<string, number> = {}
+          data.forEach(c => {
+            const h = c.hora_inicio.slice(0, 5)
+            counts[h] = (counts[h] || 0) + 1
+          })
+          const capacidad = configValida.seleccion_empleado
+            ? empleados.length || 1
+            : configValida.capacidad
+          setHorasOcupadas(
+            Object.entries(counts)
+              .filter(([, n]) => n >= capacidad)
+              .map(([h]) => h)
+          )
+        } else {
+          setHorasOcupadas([])
+        }
+      }
       setCargandoHoras(false)
     }
 
-    cargarCitas()
+    cargarDisponibilidad()
     setCitaHora('')
-  }, [citaFecha, producto.id, producto.tipo_producto])
+  }, [citaFecha, citaEmpleadoId, configValida.seleccion_empleado, configValida.capacidad, empleados.length, producto.tipo_producto])
 
   const slots: string[] = []
   if (configValida.hora_apertura && configValida.hora_cierre) {
@@ -180,7 +215,11 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
       cita: producto.tipo_producto === 'servicio' ? {
         fecha: citaFecha,
         hora_inicio: citaHora,
-        hora_fin: '00:00'
+        hora_fin: '00:00',
+        empleado_id: (configValida.seleccion_empleado && citaEmpleadoId !== 'cualquiera') ? citaEmpleadoId : null,
+        empleado_nombre: (configValida.seleccion_empleado && citaEmpleadoId !== 'cualquiera')
+          ? (empleados.find(e => e.id === citaEmpleadoId)?.nombre_completo ?? undefined)
+          : undefined,
       } : undefined
     })
     toast.success('Añadido al carrito', {
@@ -590,6 +629,44 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                   </div>
                 ) : (
                   <p className="text-xs text-foreground-muted italic">Selecciona una fecha para ver horarios disponibles</p>
+                )}
+
+                {/* Selector de empleado */}
+                {configValida.seleccion_empleado && empleados.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                      <User className="w-4 h-4 text-primary" /> Con quien
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setCitaEmpleadoId('cualquiera')}
+                        className={cn(
+                          'w-full h-10 rounded-xl border text-sm font-medium text-left px-3 transition-all',
+                          citaEmpleadoId === 'cualquiera'
+                            ? 'border-primary bg-primary/5 text-primary font-semibold'
+                            : 'border-border bg-card text-foreground hover:border-primary/40'
+                        )}
+                      >
+                        Cualquier persona disponible
+                      </button>
+                      {empleados.map(emp => (
+                        <button
+                          key={emp.id}
+                          type="button"
+                          onClick={() => setCitaEmpleadoId(emp.id)}
+                          className={cn(
+                            'w-full h-10 rounded-xl border text-sm font-medium text-left px-3 transition-all',
+                            citaEmpleadoId === emp.id
+                              ? 'border-primary bg-primary/5 text-primary font-semibold'
+                              : 'border-border bg-card text-foreground hover:border-primary/40'
+                          )}
+                        >
+                          {emp.nombre_completo}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
