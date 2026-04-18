@@ -224,7 +224,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
         .eq('producto_id', item.producto_id)
         .eq('fecha', item.cita!.fecha)
         .eq('hora_inicio', item.cita!.hora_inicio)
-        .neq('estado', 'cancelada')
+        .in('estado', ['reservada', 'confirmada'])
         .maybeSingle()
 
       if (citaOcupada) {
@@ -292,7 +292,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
         fecha: i.cita!.fecha,
         hora_inicio: i.cita!.hora_inicio,
         hora_fin: i.cita!.hora_fin,
-        estado: 'pendiente'
+        estado: 'reservada'
       }))
       await supabase.from('citas').insert(citasPayload)
     }
