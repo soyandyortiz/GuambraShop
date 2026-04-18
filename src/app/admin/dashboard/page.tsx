@@ -72,11 +72,11 @@ export default async function PáginaDashboard() {
     supabase.from('pedidos').select('*', { count: 'exact', head: true }),
     supabase.from('mensajes_admin').select('*').order('creado_en', { ascending: false }).limit(5),
     supabase.from('configuracion_tienda').select('id, nombre_tienda, esta_activa, mensaje_suspension, info_pago, cobro_activo, fecha_inicio_sistema, dias_pago').single(),
-    // Pedidos del mes (no cancelados)
+    // Pedidos del mes confirmados (ingresos reales)
     supabase.from('pedidos')
       .select('total, estado, creado_en')
       .gte('creado_en', inicioMes)
-      .neq('estado', 'cancelado'),
+      .in('estado', ['confirmado', 'en_proceso', 'enviado', 'entregado']),
     // Pedidos pendientes
     supabase.from('pedidos')
       .select('id', { count: 'exact', head: false })
@@ -86,16 +86,16 @@ export default async function PáginaDashboard() {
       .select('id, numero_orden, nombres, total, estado, creado_en, tipo')
       .order('creado_en', { ascending: false })
       .limit(5),
-    // Pedidos de últimas 4 semanas (para gráfico)
+    // Pedidos confirmados de últimas 4 semanas (para gráfico)
     supabase.from('pedidos')
       .select('creado_en, total')
       .gte('creado_en', hace28Dias)
-      .neq('estado', 'cancelado'),
-    // Items de pedidos últimas 4 semanas (para top productos)
+      .in('estado', ['confirmado', 'en_proceso', 'enviado', 'entregado']),
+    // Items de pedidos confirmados últimas 4 semanas (para top productos)
     supabase.from('pedidos')
       .select('items')
       .gte('creado_en', hace28Dias)
-      .neq('estado', 'cancelado'),
+      .in('estado', ['confirmado', 'en_proceso', 'enviado', 'entregado']),
     // Productos con stock bajo
     supabase.from('productos')
       .select('id, nombre, slug, stock')
@@ -252,14 +252,17 @@ export default async function PáginaDashboard() {
             <p className="text-[11px] text-foreground-muted leading-tight">Pedidos del mes</p>
           </div>
 
-          {/* Ingresos del mes */}
-          <div className="rounded-2xl bg-card border border-card-border p-4 flex flex-col gap-1">
+          {/* Ingresos del mes → enlace al módulo */}
+          <Link
+            href="/admin/dashboard/ingresos"
+            className="rounded-2xl bg-card border border-card-border p-4 flex flex-col gap-1 hover:border-success/40 hover:shadow-sm transition-all active:scale-[0.98]"
+          >
             <div className="w-8 h-8 rounded-xl bg-success/10 flex items-center justify-center mb-2">
               <DollarSign className="w-4 h-4 text-success" />
             </div>
             <p className="text-xl font-bold text-foreground leading-tight">{formatearPrecio(ingresosMes)}</p>
             <p className="text-[11px] text-foreground-muted leading-tight">Ingresos del mes</p>
-          </div>
+          </Link>
 
           {/* Pendientes */}
           <Link

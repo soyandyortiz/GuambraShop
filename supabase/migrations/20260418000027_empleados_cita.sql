@@ -13,12 +13,28 @@ CREATE TABLE IF NOT EXISTS empleados_cita (
 
 ALTER TABLE empleados_cita ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "admin_gestionar_empleados_cita" ON empleados_cita
-  FOR ALL USING (obtener_rol() IN ('admin', 'superadmin'));
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename  = 'empleados_cita'
+      AND policyname = 'admin_gestionar_empleados_cita'
+  ) THEN
+    CREATE POLICY "admin_gestionar_empleados_cita" ON empleados_cita
+      FOR ALL USING (obtener_rol() IN ('admin', 'superadmin'));
+  END IF;
 
--- Público puede leer empleados activos para el selector de citas
-CREATE POLICY "publico_leer_empleados_activos" ON empleados_cita
-  FOR SELECT USING (activo = true);
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename  = 'empleados_cita'
+      AND policyname = 'publico_leer_empleados_activos'
+  ) THEN
+    CREATE POLICY "publico_leer_empleados_activos" ON empleados_cita
+      FOR SELECT USING (activo = true);
+  END IF;
+END $$;
 
 -- 2. Nuevos campos en configuracion_tienda
 ALTER TABLE configuracion_tienda
@@ -29,11 +45,9 @@ ALTER TABLE configuracion_tienda
 ALTER TABLE citas
   ADD COLUMN IF NOT EXISTS empleado_id UUID REFERENCES empleados_cita(id) ON DELETE SET NULL;
 
--- 4. Reemplazar el índice único anterior por uno correcto:
---    • Si hay empleado asignado: único por empleado+fecha+hora
---    • El bloqueo global (sin empleado) lo gestiona la lógica de la app
+-- 4. Índice único por empleado+fecha+hora (el bloqueo global lo gestiona la app)
 DROP INDEX IF EXISTS idx_citas_activas_horario;
 
-CREATE UNIQUE INDEX idx_citas_empleado_horario
+CREATE UNIQUE INDEX IF NOT EXISTS idx_citas_empleado_horario
   ON citas(empleado_id, fecha, hora_inicio)
   WHERE estado IN ('reservada', 'confirmada') AND empleado_id IS NOT NULL;
