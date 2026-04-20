@@ -30,7 +30,7 @@ interface Props {
 export function TarjetaProducto({
   id, nombre, slug, precio, precio_descuento,
   imagen_url, calificacion_promedio, total_resenas,
-  etiquetas, variante_count, tipo_producto, stock,
+  etiquetas, variante_count, tipo_producto, stock, variantes,
 }: Props) {
   const agotado = stock !== null && stock !== undefined && stock === 0
   const pocasUnidades = stock !== null && stock !== undefined && stock > 0 && stock <= 5
