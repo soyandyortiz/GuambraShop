@@ -16,19 +16,6 @@ import {
 import type { Rol } from '@/types'
 import { usarConteosAdmin } from '@/hooks/usar-conteos-admin'
 
-const navegacion = [
-  { href: '/admin/dashboard',             icono: <LayoutDashboard className="w-4 h-4" />, etiqueta: 'Inicio',        badge: null },
-  { href: '/admin/dashboard/productos',   icono: <Package className="w-4 h-4" />,         etiqueta: 'Productos',     badge: null },
-  { href: '/admin/dashboard/categorias',  icono: <Tag className="w-4 h-4" />,              etiqueta: 'Categorías',    badge: null },
-  { href: '/admin/dashboard/cupones',     icono: <Ticket className="w-4 h-4" />,           etiqueta: 'Cupones',       badge: null },
-  { href: '/admin/dashboard/promociones', icono: <Megaphone className="w-4 h-4" />,        etiqueta: 'Promociones',   badge: null },
-  { href: '/admin/dashboard/pedidos',     icono: <ClipboardList className="w-4 h-4" />,    etiqueta: 'Pedidos',       badge: 'pedidos' },
-  { href: '/admin/dashboard/ingresos',   icono: <TrendingUp className="w-4 h-4" />,         etiqueta: 'Ingresos',      badge: null },
-  { href: '/admin/dashboard/solicitudes',icono: <PartyPopper className="w-4 h-4" />,        etiqueta: 'Eventos',       badge: 'solicitudes' },
-  { href: '/admin/dashboard/envios',      icono: <Truck className="w-4 h-4" />,             etiqueta: 'Envíos',        badge: null },
-  { href: '/admin/dashboard/calendario',  icono: <CalendarDays className="w-4 h-4" />,     etiqueta: 'Calendario',    badge: 'citas' },
-  { href: '/admin/dashboard/resenas',     icono: <Star className="w-4 h-4" />,             etiqueta: 'Reseñas',       badge: null },
-  { href: '/admin/dashboard/perfil',      icono: <Settings className="w-4 h-4" />,         etiqueta: 'Perfil tienda', badge: null },
 ]
 
 interface PropsHeaderAdmin {
@@ -55,6 +42,24 @@ export function HeaderAdmin({ nombre, rol, fotoPerfil }: PropsHeaderAdmin) {
   const router = useRouter()
   const esSuperadmin = rol === 'superadmin'
   const { pedidosPendientes, citasPendientes, solicitudesNuevas } = usarConteosAdmin()
+
+  const itemsNavegacion = [
+    { href: '/admin/dashboard',             icono: <LayoutDashboard className="w-4 h-4" />, etiqueta: 'Inicio',        badge: null },
+    { href: '/admin/dashboard/productos',   icono: <Package className="w-4 h-4" />,         etiqueta: 'Productos',     badge: null },
+    { href: '/admin/dashboard/categorias',  icono: <Tag className="w-4 h-4" />,              etiqueta: 'Categorías',    badge: null },
+    { href: '/admin/dashboard/cupones',     icono: <Ticket className="w-4 h-4" />,           etiqueta: 'Cupones',       badge: null },
+    { href: '/admin/dashboard/promociones', icono: <Megaphone className="w-4 h-4" />,        etiqueta: 'Promociones',   badge: null },
+    { href: '/admin/dashboard/pedidos',     icono: <ClipboardList className="w-4 h-4" />,    etiqueta: 'Pedidos',       badge: 'pedidos' },
+    { href: '/admin/dashboard/ingresos',   icono: <TrendingUp className="w-4 h-4" />,         etiqueta: 'Ingresos',      badge: null },
+    { href: '/admin/dashboard/solicitudes',icono: <PartyPopper className="w-4 h-4" />,        etiqueta: 'Eventos',       badge: 'solicitudes' },
+    { href: '/admin/dashboard/envios',      icono: <Truck className="w-4 h-4" />,             etiqueta: 'Envíos',        badge: null },
+    { href: '/admin/dashboard/calendario',  icono: <CalendarDays className="w-4 h-4" />,     etiqueta: 'Calendario',    badge: 'citas' },
+    { href: '/admin/dashboard/resenas',     icono: <Star className="w-4 h-4" />,             etiqueta: 'Reseñas',       badge: null },
+    ...(esSuperadmin ? [
+      { href: '/admin/dashboard/mensajes',    icono: <MessageSquare className="w-4 h-4" />,    etiqueta: 'Mensajes',      badge: null },
+    ] : []),
+    { href: '/admin/dashboard/perfil',      icono: <Settings className="w-4 h-4" />,         etiqueta: 'Perfil tienda', badge: null },
+  ]
 
   function obtenerBadge(badge: string | null) {
     if (badge === 'pedidos')     return pedidosPendientes
@@ -130,7 +135,7 @@ export function HeaderAdmin({ nombre, rol, fotoPerfil }: PropsHeaderAdmin) {
 
             {/* Links */}
             <div className="flex-1 overflow-y-auto py-3 px-2">
-              {navegacion.map((item) => {
+              {itemsNavegacion.map((item) => {
                 const activo = pathname === item.href
                 const count  = obtenerBadge(item.badge)
                 return (
