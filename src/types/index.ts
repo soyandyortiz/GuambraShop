@@ -36,6 +36,7 @@ export interface ConfiguracionTienda {
   duracion_cita_minutos: number
   capacidad_citas_simultaneas: number
   seleccion_empleado: boolean
+  pais: string
   creado_en: string
   actualizado_en: string
 }
@@ -269,6 +270,8 @@ export interface ItemPedido {
     fecha: string
     hora_inicio: string
     hora_fin: string
+    empleado_id?: string | null
+    empleado_nombre?: string
   }
 }
 
@@ -315,6 +318,8 @@ export interface ItemCarrito {
     fecha: string
     hora_inicio: string
     hora_fin: string
+    empleado_id?: string | null
+    empleado_nombre?: string
   }
   extras?: { id: string; nombre: string; precio: number }[]
 }

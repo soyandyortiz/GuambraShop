@@ -81,6 +81,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   const [citaEmpleadoId, setCitaEmpleadoId] = useState<string>('cualquiera')
   const [horasOcupadas, setHorasOcupadas] = useState<string[]>([])
   const [cargandoHoras, setCargandoHoras] = useState(false)
+  const [modalEmpleado, setModalEmpleado] = useState(false)
   const [videoAbierto, setVideoAbierto] = useState(false)
 
   function urlEmbed(url: string): string | null {
@@ -107,7 +108,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
       setCargandoHoras(true)
       const supabase = crearClienteSupabase()
 
-      if (configValida.seleccion_empleado && citaEmpleadoId !== 'cualquiera') {
+      if (empleados.length > 0 && citaEmpleadoId !== 'cualquiera') {
         // Empleado específico: ver sus slots tomados
         const { data } = await supabase
           .from('citas')
@@ -129,8 +130,8 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
             const h = c.hora_inicio.slice(0, 5)
             counts[h] = (counts[h] || 0) + 1
           })
-          const capacidad = configValida.seleccion_empleado
-            ? empleados.length || 1
+          const capacidad = empleados.length > 0
+            ? empleados.length
             : configValida.capacidad
           setHorasOcupadas(
             Object.entries(counts)
@@ -146,7 +147,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
 
     cargarDisponibilidad()
     setCitaHora('')
-  }, [citaFecha, citaEmpleadoId, configValida.seleccion_empleado, configValida.capacidad, empleados.length, producto.tipo_producto])
+  }, [citaFecha, citaEmpleadoId, configValida.capacidad, empleados.length, producto.tipo_producto])
 
   const slots: string[] = []
   if (configValida.hora_apertura && configValida.hora_cierre) {
@@ -216,8 +217,8 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
         fecha: citaFecha,
         hora_inicio: citaHora,
         hora_fin: '00:00',
-        empleado_id: (configValida.seleccion_empleado && citaEmpleadoId !== 'cualquiera') ? citaEmpleadoId : null,
-        empleado_nombre: (configValida.seleccion_empleado && citaEmpleadoId !== 'cualquiera')
+        empleado_id: (empleados.length > 0 && citaEmpleadoId !== 'cualquiera') ? citaEmpleadoId : null,
+        empleado_nombre: (empleados.length > 0 && citaEmpleadoId !== 'cualquiera')
           ? (empleados.find(e => e.id === citaEmpleadoId)?.nombre_completo ?? undefined)
           : undefined,
       } : undefined
@@ -610,7 +611,10 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                               key={hora}
                               type="button"
                               disabled={ocupada}
-                              onClick={() => setCitaHora(hora)}
+                              onClick={() => {
+                                setCitaHora(hora)
+                                if (empleados.length > 0) setModalEmpleado(true)
+                              }}
                               className={cn(
                                 'h-10 rounded-xl text-sm font-semibold transition-all flex items-center justify-center',
                                 ocupada ? 'bg-background-subtle text-foreground-muted/40 cursor-not-allowed line-through' :
@@ -631,42 +635,26 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                   <p className="text-xs text-foreground-muted italic">Selecciona una fecha para ver horarios disponibles</p>
                 )}
 
-                {/* Selector de empleado */}
-                {configValida.seleccion_empleado && empleados.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
-                      <User className="w-4 h-4 text-primary" /> Con quien
-                    </p>
-                    <div className="flex flex-col gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setCitaEmpleadoId('cualquiera')}
-                        className={cn(
-                          'w-full h-10 rounded-xl border text-sm font-medium text-left px-3 transition-all',
-                          citaEmpleadoId === 'cualquiera'
-                            ? 'border-primary bg-primary/5 text-primary font-semibold'
-                            : 'border-border bg-card text-foreground hover:border-primary/40'
-                        )}
-                      >
-                        Cualquier persona disponible
-                      </button>
-                      {empleados.map(emp => (
-                        <button
-                          key={emp.id}
-                          type="button"
-                          onClick={() => setCitaEmpleadoId(emp.id)}
-                          className={cn(
-                            'w-full h-10 rounded-xl border text-sm font-medium text-left px-3 transition-all',
-                            citaEmpleadoId === emp.id
-                              ? 'border-primary bg-primary/5 text-primary font-semibold'
-                              : 'border-border bg-card text-foreground hover:border-primary/40'
-                          )}
-                        >
-                          {emp.nombre_completo}
-                        </button>
-                      ))}
+                {/* Chip de empleado seleccionado */}
+                {empleados.length > 0 && citaHora && (
+                  <button
+                    type="button"
+                    onClick={() => setModalEmpleado(true)}
+                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl border-2 border-primary/30 bg-primary/5 hover:border-primary/60 hover:bg-primary/10 transition-all text-left"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                      <User className="w-4 h-4 text-primary" />
                     </div>
-                  </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-semibold text-primary uppercase tracking-wide">Personal que te atiende</p>
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {citaEmpleadoId === 'cualquiera'
+                          ? 'Cualquier persona disponible'
+                          : (empleados.find(e => e.id === citaEmpleadoId)?.nombre_completo ?? 'Cualquiera')}
+                      </p>
+                    </div>
+                    <span className="text-xs text-primary font-semibold flex-shrink-0">Cambiar</span>
+                  </button>
                 )}
               </div>
             </div>
@@ -818,6 +806,124 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
         </div>
       </div>
     </div>
+
+    {/* Modal de selección de empleado */}
+    {modalEmpleado && empleados.length > 0 && (
+      <div className="fixed inset-0 z-50 flex items-end justify-center">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setModalEmpleado(false)} />
+        <div className="relative w-full max-w-lg bg-card rounded-t-3xl shadow-2xl overflow-hidden">
+          {/* Tirante de arrastre */}
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full bg-border" />
+          </div>
+
+          {/* Cabecera */}
+          <div className="flex items-start justify-between px-5 pt-2 pb-4 border-b border-border">
+            <div>
+              <h3 className="text-base font-bold text-foreground">¿Con quién prefieres tu cita?</h3>
+              {citaFecha && citaHora && (
+                <p className="text-xs text-foreground-muted mt-1 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-primary" />
+                  {new Date(citaFecha + 'T00:00:00').toLocaleDateString('es-EC', {
+                    weekday: 'long', day: 'numeric', month: 'long',
+                  })} · {citaHora}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => setModalEmpleado(false)}
+              className="w-8 h-8 rounded-xl bg-background-subtle flex items-center justify-center text-foreground-muted hover:text-foreground transition-colors flex-shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Opciones */}
+          <div className="p-4 flex flex-col gap-2 max-h-72 overflow-y-auto pb-safe">
+            {/* Cualquier persona */}
+            <button
+              type="button"
+              onClick={() => { setCitaEmpleadoId('cualquiera'); setModalEmpleado(false) }}
+              className={cn(
+                'flex items-center gap-3 w-full px-4 py-3 rounded-2xl border-2 text-left transition-all',
+                citaEmpleadoId === 'cualquiera'
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border bg-background-subtle hover:border-primary/40'
+              )}
+            >
+              <div className={cn(
+                'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-lg',
+                citaEmpleadoId === 'cualquiera' ? 'bg-primary/20' : 'bg-border/60'
+              )}>
+                <User className={cn('w-5 h-5', citaEmpleadoId === 'cualquiera' ? 'text-primary' : 'text-foreground-muted')} />
+              </div>
+              <div className="flex-1">
+                <p className={cn('text-sm font-semibold', citaEmpleadoId === 'cualquiera' ? 'text-primary' : 'text-foreground')}>
+                  Cualquier persona disponible
+                </p>
+                <p className="text-xs text-foreground-muted">Se asignará automáticamente</p>
+              </div>
+              {citaEmpleadoId === 'cualquiera' && (
+                <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                  <Check className="w-3 h-3 text-white" />
+                </div>
+              )}
+            </button>
+
+            {/* Empleados */}
+            {empleados.map(emp => {
+              const iniciales = emp.nombre_completo
+                .split(' ')
+                .slice(0, 2)
+                .map(n => n[0]?.toUpperCase() ?? '')
+                .join('')
+              const seleccionado = citaEmpleadoId === emp.id
+              return (
+                <button
+                  key={emp.id}
+                  type="button"
+                  onClick={() => { setCitaEmpleadoId(emp.id); setModalEmpleado(false) }}
+                  className={cn(
+                    'flex items-center gap-3 w-full px-4 py-3 rounded-2xl border-2 text-left transition-all',
+                    seleccionado
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border bg-card hover:border-primary/40'
+                  )}
+                >
+                  <div className={cn(
+                    'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-sm font-bold',
+                    seleccionado ? 'bg-primary text-white' : 'bg-primary/10 text-primary'
+                  )}>
+                    {iniciales}
+                  </div>
+                  <div className="flex-1">
+                    <p className={cn('text-sm font-semibold', seleccionado ? 'text-primary' : 'text-foreground')}>
+                      {emp.nombre_completo}
+                    </p>
+                    <p className="text-xs text-foreground-muted">Disponible</p>
+                  </div>
+                  {seleccionado && (
+                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                      <Check className="w-3 h-3 text-white" />
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Botón confirmar */}
+          <div className="px-4 pb-6 pt-2">
+            <button
+              onClick={() => setModalEmpleado(false)}
+              className="w-full h-12 rounded-2xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 active:scale-[0.98] transition-all"
+            >
+              Confirmar selección
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Modal de video */}
     {videoAbierto && producto.url_video && urlEmbed(producto.url_video) && (

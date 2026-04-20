@@ -30,6 +30,14 @@ src/app/
 │   ├── perfil-tienda/     ← Info pública del negocio
 │   ├── producto/[slug]/   ← Detalle del producto
 │   └── categoria/[slug]/  ← Productos por categoría
+├── api/
+│   ├── auth/logout/       ← Cierra sesión (Route Handler)
+│   ├── superadmin/reset-password/
+│   └── telegram/          ← Notificaciones Telegram (opcional)
+│       ├── notificar-pedido/
+│       ├── notificar-solicitud/
+│       ├── notificar-confirmacion-evento/
+│       └── notificar-stock-bajo/
 └── admin/
     ├── page.tsx           ← Login (admin y superadmin)
     └── dashboard/
@@ -39,7 +47,9 @@ src/app/
         ├── promociones/
         ├── envios/
         ├── pedidos/       ← Órdenes de clientes
-        ├── citas/         ← Agenda de servicios agendados
+        ├── ingresos/      ← Resumen financiero con filtro por fechas
+        ├── solicitudes/   ← Solicitudes de cotización para eventos
+        ├── calendario/    ← Agenda de citas (servicios agendados)
         ├── resenas/       ← Reseñas de productos
         ├── perfil/
         └── mensajes/
@@ -60,27 +70,28 @@ src/app/
 - `src/lib/utils.ts` → `cn()`, `formatearPrecio()`, `calcularDescuento()`, `generarSlug()`, `generarSessionId()`
 - `src/lib/whatsapp.ts` → generadores de mensajes de WhatsApp
 - `src/lib/paletas.ts` → `PALETAS[]` y `obtenerPaleta(color)` — 8 paletas predefinidas
-- `src/lib/ecuador.ts` → `PROVINCIAS_ECUADOR[]` y `CODIGOS_PAIS[]`
+- `src/lib/locales.ts` → multi-país (EC, PE, CO): `obtenerRegiones()`, `obtenerCiudades()`, `obtenerInfoPais()`, `INFO_PAIS`
+- `src/hooks/usar-conteos-admin.ts` → badges en tiempo real para pedidos pendientes, citas y solicitudes nuevas
 
 ## Theming dinámico
 
 El color de la tienda se lee de `configuracion_tienda.color_primario` en el `RootLayout` del servidor y se aplica como CSS variables globales (`--primary`, `--primary-hover`, `--primary-foreground`). Siempre usar `var(--primary)` o la clase `bg-primary` en lugar de colores hardcodeados.
 
-## Base de datos (19 tablas)
+## Base de datos (21 tablas)
 
 Schema en `supabase/migrations/`. Aplicar en orden cronológico.
 
 | Tabla | Propósito |
 |-------|-----------|
 | `perfiles` | Extiende auth.users con rol admin/superadmin |
-| `configuracion_tienda` | Una sola fila — datos del negocio + citas (`habilitar_citas`, `hora_apertura`, `hora_cierre`, `duracion_cita_minutos`) + cobro (`cobro_activo`, `fecha_inicio_sistema`, `dias_pago`) |
+| `configuracion_tienda` | Una sola fila — datos del negocio + citas (`habilitar_citas`, `hora_apertura`, `hora_cierre`, `duracion_cita_minutos`, `capacidad_citas_simultaneas`, `seleccion_empleado`) + cobro (`cobro_activo`, `fecha_inicio_sistema`, `dias_pago`) + país (`pais`) |
 | `direcciones_negocio` | Múltiples direcciones físicas |
 | `redes_sociales` | Botones de redes sociales |
 | `mensajes_admin` | Del superadmin al admin |
 | `categorias` | Con subcategorías via parent_id |
-| `productos` | Full-text search en español; `tipo_producto: 'producto' \| 'servicio'` |
+| `productos` | Full-text search en español; `tipo_producto: 'producto' \| 'servicio' \| 'evento'` |
 | `imagenes_producto` | Máx 5 imágenes, orden=0 es la principal |
-| `variantes_producto` | precio_variante reemplaza al precio base |
+| `variantes_producto` | `tipo_precio: 'reemplaza'` (sustituye precio base) o `'suma'` (add-on) |
 | `tallas_producto` | Tallas disponibles (aplica si `requiere_tallas=true`) |
 | `productos_relacionados` | Selección manual |
 | `likes_producto` | Anónimos via session_id (localStorage) |
@@ -90,11 +101,17 @@ Schema en `supabase/migrations/`. Aplicar en orden cronológico.
 | `zonas_envio` | Provincia, empresa, precio, tiempo |
 | `leads` | Teléfonos capturados por modal de promoción |
 | `pedidos` | Órdenes completas con `numero_orden` auto-generado; `tipo: 'delivery' \| 'local'`; `estado: 'pendiente' \| 'confirmado' \| ...` |
-| `citas` | Reservas de servicios agendados; vinculadas a un `pedido_id` y `producto_id` |
+| `citas` | Reservas de servicios agendados; vinculadas a un `pedido_id` y `producto_id`; `estado: 'pendiente' \| 'reservada' \| 'confirmada' \| 'cancelada'` |
+| `empleados_cita` | Empleados disponibles para asignar a citas (`nombre_completo`, `activo`, `orden`) |
+| `solicitudes_evento` | Solicitudes de cotización para productos tipo `'evento'`; `estado: 'nueva' \| 'en_conversacion' \| 'cotizacion_enviada' \| 'confirmada' \| 'rechazada'` |
 
-## Productos vs Servicios
+## Productos, Servicios y Eventos
 
-`tipo_producto` en la tabla `productos` puede ser `'producto'` o `'servicio'`. Los servicios ocultan stock y tallas, y habilitan la selección de cita (fecha/hora) en el carrito y el detalle. Cuando `configuracion_tienda.habilitar_citas = true` el flujo de cita queda activo para servicios.
+`tipo_producto` en la tabla `productos` puede ser `'producto'`, `'servicio'` o `'evento'`:
+
+- **producto**: flujo normal con stock, tallas y variantes.
+- **servicio**: oculta stock y tallas; habilita selección de cita (fecha/hora/empleado) en carrito y detalle. Requiere `configuracion_tienda.habilitar_citas = true`. Si `seleccion_empleado = true`, el cliente elige entre empleados disponibles en `empleados_cita`.
+- **evento**: muestra paquetes (`paquetes_evento: PaqueteEvento[]`) y un formulario de solicitud que crea una fila en `solicitudes_evento`. No pasa por el carrito normal.
 
 ## Flujo del carrito (3 pasos)
 
@@ -148,6 +165,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 NEXT_PUBLIC_SITE_URL
 NEXT_PUBLIC_SOPORTE_WHATSAPP=0982650929
 ```
+
+Variables opcionales (notificaciones Telegram):
+```
+TELEGRAM_BOT_TOKEN   # Token del bot de Telegram
+TELEGRAM_CHAT_ID     # Chat/grupo destino de las notificaciones
+```
+Si no están definidas, las rutas `/api/telegram/*` responden `{ ok: true, skipped: true }` sin interrumpir el flujo.
 
 ## Deploy por cliente
 
