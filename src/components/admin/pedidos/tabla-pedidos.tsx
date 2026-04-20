@@ -401,9 +401,6 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                               {pedido.direccion}
                               {pedido.detalles_direccion && ` — ${pedido.detalles_direccion}`}
                               <span className="font-medium text-foreground"> · {pedido.ciudad}, {pedido.provincia}</span>
-                              {pedido.nombre_zona && (
-                                <span className="text-xs"> ({pedido.empresa_envio}{pedido.tiempo_entrega ? ` · ${pedido.tiempo_entrega}` : ''})</span>
-                              )}
                             </span>
                           </div>
                         )}

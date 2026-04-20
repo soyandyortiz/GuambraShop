@@ -29,7 +29,8 @@ src/app/
 │   ├── categorias/        ← Listado de categorías
 │   ├── perfil-tienda/     ← Info pública del negocio
 │   ├── producto/[slug]/   ← Detalle del producto
-│   └── categoria/[slug]/  ← Productos por categoría
+│   ├── categoria/[slug]/  ← Productos por categoría
+│   └── pedido/[numero]/   ← Confirmación de pedido
 ├── api/
 │   ├── auth/logout/       ← Cierra sesión (Route Handler)
 │   ├── superadmin/reset-password/
@@ -49,11 +50,22 @@ src/app/
         ├── pedidos/       ← Órdenes de clientes
         ├── ingresos/      ← Resumen financiero con filtro por fechas
         ├── solicitudes/   ← Solicitudes de cotización para eventos
-        ├── calendario/    ← Agenda de citas (servicios agendados)
+        ├── calendario/    ← Vista calendario de citas
+        ├── citas/         ← Tabla de citas agendadas
         ├── resenas/       ← Reseñas de productos
         ├── perfil/
         └── mensajes/
 ```
+
+## Páginas del dashboard
+
+Todas las páginas bajo `admin/dashboard/` que hacen consultas al servidor deben incluir al inicio:
+
+```ts
+export const dynamic = 'force-dynamic'
+```
+
+Esto evita que Next.js las trate como rutas estáticas en build.
 
 ## Clientes Supabase
 
@@ -71,7 +83,16 @@ src/app/
 - `src/lib/whatsapp.ts` → generadores de mensajes de WhatsApp
 - `src/lib/paletas.ts` → `PALETAS[]` y `obtenerPaleta(color)` — 8 paletas predefinidas
 - `src/lib/locales.ts` → multi-país (EC, PE, CO): `obtenerRegiones()`, `obtenerCiudades()`, `obtenerInfoPais()`, `INFO_PAIS`
+- `src/lib/ecuador.ts` → lista de provincias/ciudades **solo Ecuador** (más granular); legado — usar `locales.ts` en código nuevo
 - `src/hooks/usar-conteos-admin.ts` → badges en tiempo real para pedidos pendientes, citas y solicitudes nuevas
+
+### Campos de `configuracion_tienda` fuera del tipo TS
+
+`ConfiguracionTienda` en `types/index.ts` **no incluye** `color_primario`, `cobro_activo`, `fecha_inicio_sistema` ni `dias_pago`. Estos campos existen en la base de datos y se consultan con `.select(...)` directo. Al editar queries sobre `configuracion_tienda`, agrégalos manualmente al select si se necesitan.
+
+### `ItemCarrito` duplicado
+
+`ItemCarrito` está definido en `src/types/index.ts` **y** en `src/components/providers/carrito-provider.tsx`. Los componentes que usen `useCarritoContext()` deben importar `ItemCarrito` desde el provider, no desde `types`.
 
 ## Theming dinámico
 
@@ -124,6 +145,8 @@ Schema en `supabase/migrations/`. Aplicar en orden cronológico.
 ## Modo demo
 
 El sitio puede correr en modo demo (sin Supabase real). `DemoProvider` expone `usarModoDemo()`. Los datos se persisten en localStorage mediante `DemoStore` (`src/lib/supabase/demo-store.ts`). El hook `useDemoDatos(tabla, datosServidor)` (`src/hooks/usar-demo-datos.ts`) intercala datos de servidor con los cambios locales demo. En modo demo los cambios no llegan a Supabase.
+
+El modo demo se activa cuando `user.email === 'demo@tiendademo.local'` (comprobado en `dashboard/layout.tsx`), no vía variable de entorno.
 
 ## Roles
 

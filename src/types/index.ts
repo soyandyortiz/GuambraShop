@@ -226,12 +226,10 @@ export interface Promocion {
 export interface ZonaEnvio {
   id: string
   provincia: string
-  ciudad: string | null
-  empresa_envio: string
+  ciudad: string
   precio: number
   tiempo_entrega: string | null
   esta_activa: boolean
-  orden: number
   creado_en: string
 }
 
@@ -287,10 +285,6 @@ export interface Pedido {
   direccion: string | null
   detalles_direccion: string | null
   items: ItemPedido[]
-  zona_envio_id: string | null
-  nombre_zona: string | null
-  empresa_envio: string | null
-  tiempo_entrega: string | null
   simbolo_moneda: string
   subtotal: number
   descuento_cupon: number
