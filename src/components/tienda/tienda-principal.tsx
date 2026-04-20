@@ -18,6 +18,7 @@ interface Producto {
   etiquetas: string[]; variante_count: number
   tipo_producto?: 'producto' | 'servicio'
   stock?: number | null
+  variantes?: any[]
 }
 
 interface Categoria { id: string; nombre: string; slug: string }
@@ -93,7 +94,7 @@ export function TiendaPrincipal({ precioMinGlobal, precioMaxGlobal, categorias }
       .select(`
         id, nombre, slug, precio, precio_descuento, etiquetas, tipo_producto, stock,
         imagenes_producto(url, orden),
-        variantes_producto(id)
+        variantes_producto(id, nombre, precio_variante, stock, esta_activa, orden, tipo_precio)
       `)
       .eq('esta_activo', true)
       .range(nuevoOffset, nuevoOffset + LIMITE - 1)
@@ -124,6 +125,7 @@ export function TiendaPrincipal({ precioMinGlobal, precioMaxGlobal, categorias }
       stock: p.stock ?? null,
       imagen_url: p.imagenes_producto?.sort((a: any, b: any) => a.orden - b.orden)[0]?.url || null,
       variante_count: p.variantes_producto?.length || 0,
+      variantes: p.variantes_producto?.filter((v: any) => v.esta_activa).sort((a: any, b: any) => a.orden - b.orden) || [],
     }))
 
     if (nueva) setProductos(mapeados)

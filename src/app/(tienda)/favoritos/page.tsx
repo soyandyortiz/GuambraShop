@@ -12,6 +12,7 @@ interface Producto {
   etiquetas: string[]; variante_count: number
   tipo_producto?: 'producto' | 'servicio'
   stock?: number | null
+  variantes?: any[]
 }
 
 export default function PáginaFavoritos() {
@@ -25,7 +26,7 @@ export default function PáginaFavoritos() {
     const supabase = crearClienteSupabase()
     supabase
       .from('productos')
-      .select('id, nombre, slug, precio, precio_descuento, etiquetas, tipo_producto, stock, imagenes_producto(url, orden), variantes_producto(id)')
+      .select('id, nombre, slug, precio, precio_descuento, etiquetas, tipo_producto, stock, imagenes_producto(url, orden), variantes_producto(id, nombre, precio_variante, stock, esta_activa, orden, tipo_precio)')
       .in('id', favoritos)
       .eq('esta_activo', true)
       .then(({ data }) => {
@@ -47,6 +48,7 @@ export default function PáginaFavoritos() {
           variante_count: ((p.variantes_producto ?? []) as { id: string }[]).length,
           tipo_producto: (p as any).tipo_producto,
           stock: (p as any).stock ?? null,
+          variantes: (p.variantes_producto ?? []).filter((v: any) => v.esta_activa).sort((a: any, b: any) => a.orden - b.orden),
         })))
         setCargando(false)
       })

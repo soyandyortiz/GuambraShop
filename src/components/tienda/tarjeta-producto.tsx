@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Heart, Star, ShoppingCart, Check, Eye, Calendar } from 'lucide-react'
+import { Heart, Star, ShoppingCart, Check, Eye, Calendar, ChevronDown } from 'lucide-react'
 import { cn, formatearPrecio, calcularDescuento } from '@/lib/utils'
 import { usarFavoritos } from '@/hooks/usar-favoritos'
 import { usarCarrito } from '@/hooks/usar-carrito'
@@ -24,6 +24,7 @@ interface Props {
   variante_count?: number
   tipo_producto?: TipoProducto
   stock?: number | null
+  variantes?: any[]
 }
 
 export function TarjetaProducto({
@@ -38,6 +39,10 @@ export function TarjetaProducto({
   const { agregar } = usarCarrito()
   const [agregando, setAgregando] = useState(false)
   const [modalAgendarAbierto, setModalAgendarAbierto] = useState(false)
+  
+  // Gestión de variantes
+  const [varianteId, setVarianteId] = useState<string>(variantes?.[0]?.id || '')
+  const varianteSeleccionada = variantes?.find(v => v.id === varianteId)
 
   const fav = esFavorito(id)
   const descuento = precio_descuento ? calcularDescuento(precio, precio_descuento) : 0
@@ -55,18 +60,26 @@ export function TarjetaProducto({
     }
     if (agregando) return
     setAgregando(true)
+
+    const precioFinal = varianteSeleccionada?.precio_variante ?? (precio_descuento ?? precio)
+    
     agregar({
       producto_id: id,
       nombre,
       slug,
       tipo_producto: tipo_producto ?? 'producto',
-      imagen_url,
-      precio: precio_descuento ?? precio,
+      imagen_url: varianteSeleccionada?.imagen_url || imagen_url,
+      precio: precioFinal,
       cantidad: 1,
+      variante_id: varianteSeleccionada?.id,
+      nombre_variante: varianteSeleccionada?.nombre,
     })
-    toast.success('Añadido al carrito')
+    toast.success(`${nombre}${varianteSeleccionada ? ` (${varianteSeleccionada.nombre})` : ''} añadido`)
     setTimeout(() => setAgregando(false), 2000)
   }
+
+  const precioActual = varianteSeleccionada?.precio_variante ?? (precio_descuento ?? precio)
+  const hayDescuento = !!precio_descuento && !varianteSeleccionada
 
   return (
     <>
@@ -140,30 +153,49 @@ export function TarjetaProducto({
       {/* Info */}
       <div className="flex flex-col flex-1 p-2 gap-0.5">
         <Link href={`/producto/${slug}`} className="block">
-          <p className="text-xs text-foreground font-medium line-clamp-3 leading-tight min-h-[3.75rem] hover:text-primary transition-colors">
+          <p className="text-[11px] text-foreground font-bold line-clamp-2 leading-tight min-h-[1.8rem] hover:text-primary transition-colors">
             {nombre}
           </p>
         </Link>
 
         {/* Precio */}
-        <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
+        <div className="mt-0.5 flex items-baseline gap-1.5 flex-wrap">
           {tipo_producto === 'evento' ? (
-            <p className="text-sm font-bold text-emerald-600 leading-none">
+            <p className="text-xs font-bold text-emerald-600 leading-none">
               Desde {formatearPrecio(precio)}
             </p>
           ) : (
             <>
-              <p className="text-sm font-bold text-emerald-600 leading-none">
-                {formatearPrecio(precio_descuento ?? precio)}
+              <p className="text-xs font-black text-emerald-600 leading-none">
+                {formatearPrecio(precioActual)}
               </p>
-              {precio_descuento && (
+              {hayDescuento && (
                 <p className="text-[9px] text-foreground-muted leading-none">
-                  Antes <span className="line-through">{formatearPrecio(precio)}</span>
+                  <span className="line-through">{formatearPrecio(precio)}</span>
                 </p>
               )}
             </>
           )}
         </div>
+
+        {/* Selector de variantes (si existen) */}
+        {variantes && variantes.length > 0 && (
+          <div className="mt-1.5 relative group/select">
+            <select
+              value={varianteId}
+              onChange={(e) => setVarianteId(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full h-8 pl-2 pr-7 rounded-lg bg-background-subtle border border-card-border text-[10px] font-medium text-foreground appearance-none focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer transition-all hover:border-primary/30"
+            >
+              {variantes.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.nombre} {v.precio_variante ? `(${formatearPrecio(v.precio_variante)})` : ''}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-foreground-muted pointer-events-none group-hover/select:text-primary transition-colors" />
+          </div>
+        )}
 
         {/* Rating */}
         {(calificacion_promedio ?? 0) > 0 && (
@@ -186,12 +218,12 @@ export function TarjetaProducto({
         )}
 
         {/* Botones Ver + Agregar — siempre visibles, 2 columnas */}
-        <div className="grid grid-cols-2 gap-1.5 mt-2">
+        <div className="grid grid-cols-2 gap-1 mt-2">
           <Link
             href={`/producto/${slug}`}
-            className="flex items-center justify-center gap-1 py-2 rounded-xl bg-foreground text-background text-[10px] font-bold hover:opacity-80 active:scale-95 transition-all"
+            className="flex items-center justify-center gap-1 h-8 rounded-lg bg-foreground text-background text-[10px] font-bold hover:opacity-80 active:scale-95 transition-all"
           >
-            <Eye className="w-3.5 h-3.5 flex-shrink-0" />
+            <Eye className="w-3 h-3 flex-shrink-0" />
             Ver
           </Link>
 
@@ -200,24 +232,24 @@ export function TarjetaProducto({
             onClick={agregarAlCarrito}
             disabled={agregando && tipo_producto !== 'servicio' && tipo_producto !== 'evento'}
             className={cn(
-              'flex items-center justify-center gap-1 py-2 rounded-xl text-[10px] font-bold active:scale-95 transition-all',
+              'flex items-center justify-center gap-1 h-8 rounded-lg text-[10px] font-bold active:scale-95 transition-all',
               tipo_producto === 'evento'
                 ? 'bg-purple-600 text-white hover:bg-purple-700'
                 : agregando && tipo_producto !== 'servicio'
                   ? 'bg-green-600 text-white'
-                  : agotado && tipo_producto !== 'servicio'
+                  : (agotado || (varianteSeleccionada?.stock === 0)) && tipo_producto !== 'servicio'
                     ? 'bg-gray-400 text-white hover:opacity-90'
                     : 'bg-primary text-white hover:opacity-90'
             )}
           >
             {tipo_producto === 'evento' ? (
-              <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+              <Calendar className="w-3 h-3 flex-shrink-0" />
             ) : agregando && tipo_producto !== 'servicio' ? (
-              <Check className="w-3.5 h-3.5 flex-shrink-0 animate-in zoom-in duration-300" />
+              <Check className="w-3 h-3 flex-shrink-0 animate-in zoom-in duration-300" />
             ) : tipo_producto === 'servicio' ? (
-              <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+              <Calendar className="w-3 h-3 flex-shrink-0" />
             ) : (
-              <ShoppingCart className="w-3.5 h-3.5 flex-shrink-0" />
+              <ShoppingCart className="w-3 h-3 flex-shrink-0" />
             )}
             {tipo_producto === 'evento'
               ? 'Cotizar'
@@ -225,8 +257,8 @@ export function TarjetaProducto({
                 ? '¡Listo!'
                 : tipo_producto === 'servicio'
                   ? 'Agendar'
-                  : agotado
-                    ? 'Agotado'
+                  : (agotado || (varianteSeleccionada?.stock === 0))
+                    ? 'Sin stock'
                     : 'Agregar'}
           </button>
         </div>

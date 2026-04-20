@@ -14,6 +14,7 @@ interface Producto {
   tipo_producto?: 'producto' | 'servicio'
   stock?: number | null
   likes_count?: number; calificacion_promedio?: number; total_resenas?: number
+  variantes?: any[]
 }
 interface Categoria { id: string; nombre: string; slug: string }
 

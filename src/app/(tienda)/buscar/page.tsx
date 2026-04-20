@@ -21,7 +21,7 @@ export default async function PáginaBuscar({ searchParams }: Props) {
     .select(`
       id, nombre, slug, precio, precio_descuento, etiquetas, tipo_producto, stock, creado_en,
       imagenes_producto(url, orden),
-      variantes_producto(id),
+      variantes_producto(id, nombre, precio_variante, stock, esta_activa, orden, tipo_precio),
       likes_producto(id),
       resenas_producto(calificacion)
     `)
@@ -61,7 +61,7 @@ export default async function PáginaBuscar({ searchParams }: Props) {
     stock: number | null
     creado_en: string
     imagenes_producto: { url: string; orden: number }[]
-    variantes_producto: { id: string }[]
+    variantes_producto: { id: string, nombre: string, precio_variante: number, stock: number, esta_activa: boolean, orden: number, tipo_precio: string }[]
     likes_producto: { id: string }[]
     resenas_producto: { calificacion: number }[]
   }
@@ -87,6 +87,7 @@ export default async function PáginaBuscar({ searchParams }: Props) {
       calificacion_promedio: promedio,
       total_resenas: totalResenas,
       creado_en: p.creado_en,
+      variantes: (p.variantes_producto ?? []).filter((v: any) => v.esta_activa).sort((a: any, b: any) => a.orden - b.orden),
     }
   })
 
