@@ -191,10 +191,18 @@ NEXT_PUBLIC_SOPORTE_WHATSAPP=0982650929
 
 Variables opcionales (notificaciones Telegram):
 ```
-TELEGRAM_BOT_TOKEN   # Token del bot de Telegram
-TELEGRAM_CHAT_ID     # Chat/grupo destino de las notificaciones
+TELEGRAM_BOT_TOKEN        # Token del bot de Telegram
+TELEGRAM_CHAT_ID          # Chat/grupo destino de las notificaciones
+SUPABASE_SERVICE_ROLE_KEY # Requerida para /api/telegram/resumen-diario (cron job)
+CRON_SECRET               # Vercel lo inyecta automáticamente en Pro; protege el endpoint del cron
 ```
-Si no están definidas, las rutas `/api/telegram/*` responden `{ ok: true, skipped: true }` sin interrumpir el flujo.
+Si `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` no están definidas, las rutas `api/telegram/*` responden `{ ok: true, skipped: true }` sin interrumpir el flujo.
+
+## Cron job (Vercel)
+
+`vercel.json` define un cron que llama `GET /api/telegram/resumen-diario` diariamente a las 12:00 UTC (8:00 AM Ecuador).
+El endpoint usa `SUPABASE_SERVICE_ROLE_KEY` para leer pedidos/citas/solicitudes sin sesión de usuario.
+`CRON_SECRET` se valida vía header `Authorization: Bearer {secret}` si está configurado.
 
 ## Deploy por cliente
 
