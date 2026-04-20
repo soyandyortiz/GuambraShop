@@ -677,7 +677,7 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
           )}
 
           {/* Cantidad */}
-          {producto.tipo_producto !== 'evento' && <div className="px-4 py-4 border-t border-border lg:px-8">
+          {producto.tipo_producto === 'producto' && <div className="px-4 py-4 border-t border-border lg:px-8">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-foreground">Cantidad</p>
               <div className="flex items-center gap-3 bg-background-subtle rounded-xl p-1">
@@ -715,14 +715,14 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
                 <button
                   onClick={agregarAlCarrito}
                   className={cn(
-                    'h-12 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.97] transition-all shadow-sm',
+                    'h-12 rounded-2xl text-white text-sm font-bold flex items-center justify-center gap-2.5 px-6 active:scale-[0.97] transition-all shadow-sm',
                     producto.url_video ? 'flex-1' : 'w-full',
                     agotado
                       ? 'bg-gray-500 shadow-gray-500/20 hover:bg-gray-500/90'
                       : 'bg-primary shadow-primary/30 hover:bg-primary/90'
                   )}
                 >
-                  <ShoppingCart className="w-4 h-4" />
+                  <ShoppingCart className="w-4 h-4 flex-shrink-0" />
                   {agotado
                     ? 'Agotado — Agregar igual'
                     : (producto.tipo_producto === 'servicio' && empleados.length > 0 && citaHora)

@@ -440,18 +440,18 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
             <button
               onClick={avanzarAEmpleado}
               disabled={!fecha || !hora || cargando || cargandoEmpleados}
-              className="w-full h-12 rounded-2xl bg-primary text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm shadow-primary/30"
+              className="w-full h-12 rounded-2xl bg-primary text-white text-sm font-bold flex items-center justify-center gap-2.5 px-6 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm shadow-primary/30"
             >
-              {cargandoEmpleados ? (
+              {cargando || cargandoEmpleados ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : empleados.length > 0 ? (
                 <>
-                  <User className="w-4 h-4" />
+                  <User className="w-4 h-4 flex-shrink-0" />
                   Seleccionar personal
                 </>
               ) : (
                 <>
-                  <ShoppingCart className="w-4 h-4" />
+                  <ShoppingCart className="w-4 h-4 flex-shrink-0" />
                   AGREGAR AL CARRITO
                 </>
               )}
@@ -460,9 +460,9 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
             <>
               <button
                 onClick={confirmar}
-                className="w-full h-12 rounded-2xl bg-primary text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm shadow-primary/30"
+                className="w-full h-12 rounded-2xl bg-primary text-white text-sm font-bold flex items-center justify-center gap-2.5 px-6 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm shadow-primary/30"
               >
-                <ShoppingCart className="w-4 h-4" />
+                <ShoppingCart className="w-4 h-4 flex-shrink-0" />
                 AGREGAR AL CARRITO
               </button>
               <button
