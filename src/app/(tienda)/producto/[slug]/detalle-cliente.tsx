@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Star, ShoppingCart,
-  Heart, Share2, MessageCircle, Package, Tag,
+  Heart, Share2, Package, Tag,
   Calendar, Clock, PlayCircle, X, Check, User
 } from 'lucide-react'
 import Link from 'next/link'
@@ -13,7 +13,6 @@ import { cn, formatearPrecio, calcularDescuento } from '@/lib/utils'
 import { usarCarrito } from '@/hooks/usar-carrito'
 import { usarFavoritos } from '@/hooks/usar-favoritos'
 import { toast } from 'sonner'
-import { generarEnlaceWhatsApp } from '@/lib/whatsapp'
 import { FormularioResena } from '@/components/tienda/formulario-resena'
 import { FormularioSolicitud } from '@/components/tienda/formulario-solicitud'
 import type { PaqueteEvento } from '@/types'
@@ -259,12 +258,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
     }
   }
 
-  function consultarWhatsApp() {
-    const msg = `Hola, estoy interesado en *${producto.nombre}*${variante ? ` (${variante.nombre})` : ''}${talla ? `, talla ${talla}` : ''}.\n\nPrecio: ${formatearPrecio(precioTotal, simboloMoneda)}\n\n${window.location.href}`
-    window.open(generarEnlaceWhatsApp(whatsapp, encodeURIComponent(msg)), '_blank')
-  }
-
-  const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes.length)
+const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes.length)
   const siguienteImg = () => setImgActiva(i => (i + 1) % imagenes.length)
 
   return (
@@ -685,50 +679,44 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
             </div>
           </div>}
 
-          {/* Botón video */}
-          {producto.url_video && (
-            <div className="px-4 pt-4 lg:px-8">
-              <button
-                onClick={() => {
-                  const embed = urlEmbed(producto.url_video!)
-                  if (embed) {
-                    setVideoAbierto(true)
-                  } else {
-                    window.open(producto.url_video!, '_blank', 'noopener,noreferrer')
-                  }
-                }}
-                className="w-full h-11 rounded-2xl border-2 border-blue-500 text-blue-600 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-blue-50 active:scale-[0.97] transition-all"
-              >
-                <PlayCircle className="w-4 h-4" />
-                {producto.tipo_producto === 'servicio' ? 'Ver video del servicio' : producto.tipo_producto === 'evento' ? 'Ver video del evento' : 'Ver video del producto'}
-              </button>
+          {/* Botones de acción */}
+          {producto.tipo_producto !== 'evento' && (
+            <div className="px-4 py-4 border-t border-border flex flex-col gap-2.5 lg:px-8">
+              <div className="flex gap-3">
+                {/* Botón de video (reemplaza a Consultar) */}
+                {producto.url_video && (
+                  <button
+                    onClick={() => {
+                      const embed = urlEmbed(producto.url_video!)
+                      if (embed) setVideoAbierto(true)
+                      else window.open(producto.url_video!, '_blank', 'noopener,noreferrer')
+                    }}
+                    className="flex-1 h-12 rounded-2xl border-2 border-blue-500 text-blue-600 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-blue-50 active:scale-[0.97] transition-all"
+                  >
+                    <PlayCircle className="w-4 h-4" />
+                    {producto.tipo_producto === 'servicio' ? 'Ver video' : 'Ver video'}
+                  </button>
+                )}
+                <button
+                  onClick={agregarAlCarrito}
+                  className={cn(
+                    'h-12 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.97] transition-all shadow-sm',
+                    producto.url_video ? 'flex-1' : 'w-full',
+                    agotado
+                      ? 'bg-gray-500 shadow-gray-500/20 hover:bg-gray-500/90'
+                      : 'bg-primary shadow-primary/30 hover:bg-primary/90'
+                  )}
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  {agotado
+                    ? 'Agotado — Agregar igual'
+                    : (producto.tipo_producto === 'servicio' && empleados.length > 0 && citaHora)
+                      ? 'Seleccionar personal'
+                      : 'Añadir al carrito'}
+                </button>
+              </div>
             </div>
           )}
-
-          {/* Botones de acción */}
-          {producto.tipo_producto !== 'evento' && <div className="px-4 py-4 border-t border-border flex flex-col gap-2.5 lg:px-8">
-            <div className="flex gap-3">
-              <button onClick={consultarWhatsApp}
-                className="flex-1 h-12 rounded-2xl border-2 border-primary text-primary text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/5 active:scale-[0.97] transition-all">
-                <MessageCircle className="w-4 h-4" />
-                Consultar
-              </button>
-              <button onClick={agregarAlCarrito}
-                className={cn(
-                  'flex-1 h-12 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.97] transition-all shadow-sm',
-                  agotado
-                    ? 'bg-gray-500 shadow-gray-500/20 hover:bg-gray-500/90'
-                    : 'bg-primary shadow-primary/30 hover:bg-primary/90'
-                )}>
-                <ShoppingCart className="w-4 h-4" />
-                {agotado
-                  ? 'Agotado — Agregar igual'
-                  : (producto.tipo_producto === 'servicio' && empleados.length > 0 && citaHora)
-                    ? 'Seleccionar personal'
-                    : 'Añadir al carrito'}
-              </button>
-            </div>
-          </div>}
 
           {/* Tabs descripción / reseñas */}
           <div className="border-t border-border">
@@ -820,14 +808,9 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
 
     {/* Modal de selección de empleado */}
     {modalEmpleado && empleados.length > 0 && (
-      <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setModalEmpleado(false)} />
-        <div className="relative w-full max-w-lg bg-card rounded-t-3xl shadow-2xl overflow-hidden">
-          {/* Tirante de arrastre */}
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 rounded-full bg-border" />
-          </div>
-
+        <div className="relative w-full max-w-md bg-card rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
           {/* Cabecera */}
           <div className="flex items-start justify-between px-5 pt-2 pb-4 border-b border-border">
             <div>
@@ -850,7 +833,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
           </div>
 
           {/* Opciones */}
-          <div className="p-4 flex flex-col gap-2 max-h-72 overflow-y-auto pb-safe">
+          <div className="p-4 flex flex-col gap-2 overflow-y-auto flex-1">
             {/* Cualquier persona */}
             <button
               type="button"
@@ -924,7 +907,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
           </div>
 
           {/* Botón añadir al carrito */}
-          <div className="px-4 pb-6 pt-2 flex flex-col gap-2">
+          <div className="px-4 pb-5 pt-3 border-t border-border flex-shrink-0 flex flex-col gap-2">
             <button
               onClick={agregarDesdeModalEmpleado}
               className="w-full h-12 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm shadow-primary/30"
