@@ -79,6 +79,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   const [citaHora, setCitaHora] = useState<string>('')
   const [citaEmpleadoId, setCitaEmpleadoId] = useState<string>('cualquiera')
   const [horasOcupadas, setHorasOcupadas] = useState<string[]>([])
+  const [empleadosOcupados, setEmpleadosOcupados] = useState<string[]>([])
   const [cargandoHoras, setCargandoHoras] = useState(false)
   const [modalEmpleado, setModalEmpleado] = useState(false)
   const [videoAbierto, setVideoAbierto] = useState(false)
@@ -122,13 +123,16 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
           .eq('empleado_id', citaEmpleadoId)
           .in('estado', ['reservada', 'confirmada'])
         setHorasOcupadas(data?.map(c => c.hora_inicio.slice(0, 5)) ?? [])
+        setEmpleadosOcupados([])
       } else {
         // Sin empleado específico: contar por slot y comparar vs capacidad
+        // Y TAMBIÉN ver qué empleados están ocupados en el slot seleccionado (si hay uno)
         const { data } = await supabase
           .from('citas')
-          .select('hora_inicio')
+          .select('empleado_id, hora_inicio')
           .eq('fecha', citaFecha)
           .in('estado', ['reservada', 'confirmada'])
+        
         if (data) {
           const counts: Record<string, number> = {}
           data.forEach(c => {
@@ -143,8 +147,19 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
               .filter(([, n]) => n >= capacidad)
               .map(([h]) => h)
           )
+
+          // Si hay una hora seleccionada, ver qué empleados están ocupados en esa hora
+          if (citaHora) {
+            const ocupados = data
+              .filter(c => c.hora_inicio?.slice(0, 5) === citaHora && c.empleado_id)
+              .map(c => c.empleado_id as string)
+            setEmpleadosOcupados(ocupados)
+          } else {
+            setEmpleadosOcupados([])
+          }
         } else {
           setHorasOcupadas([])
+          setEmpleadosOcupados([])
         }
       }
       setCargandoHoras(false)
@@ -712,7 +727,7 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
                     ? 'Agotado — Agregar igual'
                     : (producto.tipo_producto === 'servicio' && empleados.length > 0 && citaHora)
                       ? 'Seleccionar personal'
-                      : 'Añadir al carrito'}
+                      : 'AGREGAR AL CARRITO'}
                 </button>
               </div>
             </div>
@@ -863,7 +878,6 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
                 </div>
               )}
             </button>
-
             {/* Empleados */}
             {empleados.map(emp => {
               const iniciales = emp.nombre_completo
@@ -872,31 +886,38 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
                 .map(n => n[0]?.toUpperCase() ?? '')
                 .join('')
               const seleccionado = citaEmpleadoId === emp.id
+              const ocupado = empleadosOcupados.includes(emp.id)
               return (
                 <button
                   key={emp.id}
                   type="button"
-                  onClick={() => setCitaEmpleadoId(emp.id)}
+                  disabled={ocupado}
+                  onClick={() => !ocupado && setCitaEmpleadoId(emp.id)}
                   className={cn(
                     'flex items-center gap-3 w-full px-4 py-3 rounded-2xl border-2 text-left transition-all',
-                    seleccionado
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border bg-card hover:border-primary/40'
+                    ocupado
+                      ? 'border-border bg-background-subtle opacity-50 cursor-not-allowed'
+                      : seleccionado
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border bg-card hover:border-primary/40'
                   )}
                 >
                   <div className={cn(
                     'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-sm font-bold',
+                    ocupado ? 'bg-border/60 text-foreground-muted' :
                     seleccionado ? 'bg-primary text-white' : 'bg-primary/10 text-primary'
                   )}>
                     {iniciales}
                   </div>
                   <div className="flex-1">
-                    <p className={cn('text-sm font-semibold', seleccionado ? 'text-primary' : 'text-foreground')}>
+                    <p className={cn('text-sm font-semibold', ocupado ? 'text-foreground-muted' : seleccionado ? 'text-primary' : 'text-foreground')}>
                       {emp.nombre_completo}
                     </p>
-                    <p className="text-xs text-foreground-muted">Disponible</p>
+                    <p className={cn('text-xs', ocupado ? 'text-red-400 font-medium' : 'text-foreground-muted')}>
+                      {ocupado ? 'Ocupado en este horario' : 'Disponible'}
+                    </p>
                   </div>
-                  {seleccionado && (
+                  {seleccionado && !ocupado && (
                     <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                       <Check className="w-3 h-3 text-white" />
                     </div>
@@ -921,7 +942,7 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
               className="w-full h-12 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm shadow-primary/30"
             >
               <ShoppingCart className="w-4 h-4" />
-              Añadir al carrito
+              AGREGAR AL CARRITO
             </button>
             <button
               onClick={() => setModalEmpleado(false)}

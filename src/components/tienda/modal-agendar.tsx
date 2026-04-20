@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Calendar, Clock, ShoppingCart, Loader2, CheckCircle2, User, Check, PlayCircle } from 'lucide-react'
+import { X, Calendar, Clock, ShoppingCart, Loader2, CheckCircle2, User, Check } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { usarCarrito } from '@/hooks/usar-carrito'
 import { cn, formatearPrecio } from '@/lib/utils'
@@ -47,7 +47,6 @@ function generarSlots(apertura: string, cierre: string, duracion: number): strin
   return slots
 }
 
-// Paso activo del modal
 type Paso = 'datetime' | 'empleado'
 
 export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simboloMoneda = '$', onCerrar }: Props) {
@@ -59,11 +58,14 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
   const [cargando, setCargando] = useState(true)
 
   const [fecha, setFecha] = useState('')
+  const [hora, setHora] = useState('')
   const [horasOcupadas, setHorasOcupadas] = useState<string[]>([])
   const [cargandoSlots, setCargandoSlots] = useState(false)
-  const [hora, setHora] = useState('')
 
   const [empleadoId, setEmpleadoId] = useState<string>('cualquiera')
+  const [empleadosOcupados, setEmpleadosOcupados] = useState<string[]>([])
+  const [cargandoEmpleados, setCargandoEmpleados] = useState(false)
+
   const [paso, setPaso] = useState<Paso>('datetime')
 
   const hoy = new Date().toISOString().split('T')[0]
@@ -71,45 +73,49 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
   // Cargar config + empleados al abrir
   useEffect(() => {
     async function cargarDatos() {
-      const supabase = crearClienteSupabase()
-      const [{ data: cfg }, { data: emps }] = await Promise.all([
-        supabase
-          .from('configuracion_tienda')
-          .select('hora_apertura, hora_cierre, duracion_cita_minutos, capacidad_citas_simultaneas')
-          .single(),
-        supabase
-          .from('empleados_cita')
-          .select('id, nombre_completo')
-          .eq('activo', true)
-          .order('orden'),
-      ])
-      setConfig(cfg ?? { hora_apertura: '09:00', hora_cierre: '18:00', duracion_cita_minutos: 30, capacidad_citas_simultaneas: 1 })
-      setEmpleados(emps ?? [])
-      setCargando(false)
+      try {
+        const supabase = crearClienteSupabase()
+        const [{ data: cfg }, { data: emps }] = await Promise.all([
+          supabase
+            .from('configuracion_tienda')
+            .select('hora_apertura, hora_cierre, duracion_cita_minutos, capacidad_citas_simultaneas')
+            .single(),
+          supabase
+            .from('empleados_cita')
+            .select('id, nombre_completo')
+            .eq('activo', true)
+            .order('orden'),
+        ])
+        setConfig(cfg ?? { hora_apertura: '09:00', hora_cierre: '18:00', duracion_cita_minutos: 30, capacidad_citas_simultaneas: 1 })
+        setEmpleados(emps ?? [])
+      } catch (error) {
+        console.error('Error cargando configuración de citas:', error)
+        // Valores por defecto en caso de error
+        setConfig({ hora_apertura: '09:00', hora_cierre: '18:00', duracion_cita_minutos: 30, capacidad_citas_simultaneas: 1 })
+      } finally {
+        setCargando(false)
+      }
     }
     cargarDatos()
   }, [])
 
-  // Cargar horas ocupadas cuando cambia fecha o empleado
+  // Resetear hora SOLO cuando cambia la fecha
+  useEffect(() => {
+    setHora('')
+  }, [fecha])
+
+  // Recargar horas ocupadas cuando cambia la fecha (sin resetear hora)
   useEffect(() => {
     if (!fecha || !config) return
-    setHora('')
     setCargandoSlots(true)
     const supabase = crearClienteSupabase()
 
-    const query = supabase
+    supabase
       .from('citas')
       .select('hora_inicio')
       .eq('fecha', fecha)
       .in('estado', ['reservada', 'confirmada'])
-
-    if (empleadoId !== 'cualquiera') {
-      query.eq('empleado_id', empleadoId).then(({ data }) => {
-        setHorasOcupadas((data ?? []).map(c => c.hora_inicio.slice(0, 5)))
-        setCargandoSlots(false)
-      })
-    } else {
-      query.then(({ data }) => {
+      .then(({ data }) => {
         if (data) {
           const counts: Record<string, number> = {}
           data.forEach(c => {
@@ -125,8 +131,7 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
         }
         setCargandoSlots(false)
       })
-    }
-  }, [fecha, empleadoId, config, empleados.length])
+  }, [fecha, config, empleados.length])
 
   const slots = config ? generarSlots(config.hora_apertura, config.hora_cierre, config.duracion_cita_minutos) : []
 
@@ -137,13 +142,34 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
   const empleadoSeleccionado = empleados.find(e => e.id === empleadoId)
   const iniciales = (n: string) => n.split(' ').slice(0, 2).map(x => x[0]?.toUpperCase() ?? '').join('')
 
-  function avanzarAEmpleado() {
+  // Avanzar al paso 2: consulta qué empleados están ocupados en esa fecha+hora
+  async function avanzarAEmpleado() {
     if (!fecha || !hora) return
     if (empleados.length === 0) {
       confirmar()
-    } else {
-      setPaso('empleado')
+      return
     }
+
+    setCargandoEmpleados(true)
+    try {
+      const supabase = crearClienteSupabase()
+      const { data } = await supabase
+        .from('citas')
+        .select('empleado_id, hora_inicio')
+        .eq('fecha', fecha)
+        .in('estado', ['reservada', 'confirmada'])
+
+      const ocupados = (data ?? [])
+        .filter(c => c.hora_inicio?.slice(0, 5) === hora && c.empleado_id)
+        .map(c => c.empleado_id as string)
+
+      setEmpleadosOcupados(ocupados)
+    } catch {
+      setEmpleadosOcupados([])
+    }
+
+    setCargandoEmpleados(false)
+    setPaso('empleado')
   }
 
   function confirmar() {
@@ -176,7 +202,7 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCerrar} />
 
-      {/* Panel — centrado en todos los dispositivos */}
+      {/* Panel */}
       <div className="relative w-full max-w-md bg-card rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
 
         {/* Header */}
@@ -200,7 +226,7 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
           </button>
         </div>
 
-        {/* Indicador de pasos (solo si hay empleados) */}
+        {/* Indicador de pasos */}
         {empleados.length > 0 && !cargando && (
           <div className="flex items-center gap-1.5 px-5 pt-3 pb-1 flex-shrink-0">
             {(['datetime', 'empleado'] as Paso[]).map((p, i) => (
@@ -315,14 +341,14 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
         {/* ─── PASO 2: Selección de empleado ─── */}
         {paso === 'empleado' && (
           <div className="overflow-y-auto flex-1 px-5 py-4 flex flex-col gap-3">
-            {/* Resumen de fecha/hora */}
+            {/* Resumen fecha/hora */}
             <div className="bg-background-subtle rounded-2xl px-4 py-2.5 flex items-center gap-2">
               <Calendar className="w-3.5 h-3.5 text-primary flex-shrink-0" />
               <p className="text-xs text-foreground capitalize">
                 <span className="font-semibold">{fechaLegible}</span> · {hora}
               </p>
               <button
-                onClick={() => setPaso('datetime')}
+                onClick={() => { setPaso('datetime'); setEmpleadosOcupados([]) }}
                 className="ml-auto text-xs text-primary font-semibold hover:underline"
               >
                 Cambiar
@@ -333,7 +359,7 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
               <User className="w-3.5 h-3.5 text-primary" /> ¿Con quién prefieres tu cita?
             </p>
 
-            {/* Opción cualquiera */}
+            {/* Opción: cualquiera */}
             <button
               type="button"
               onClick={() => setEmpleadoId('cualquiera')}
@@ -366,29 +392,38 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
             {/* Empleados */}
             {empleados.map(emp => {
               const sel = empleadoId === emp.id
+              const ocupado = empleadosOcupados.includes(emp.id)
               return (
                 <button
                   key={emp.id}
                   type="button"
-                  onClick={() => setEmpleadoId(emp.id)}
+                  disabled={ocupado}
+                  onClick={() => !ocupado && setEmpleadoId(emp.id)}
                   className={cn(
                     'flex items-center gap-3 w-full px-4 py-3 rounded-2xl border-2 text-left transition-all',
-                    sel ? 'border-primary bg-primary/5' : 'border-border bg-card hover:border-primary/40'
+                    ocupado
+                      ? 'border-border bg-background-subtle opacity-50 cursor-not-allowed'
+                      : sel
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border bg-card hover:border-primary/40'
                   )}
                 >
                   <div className={cn(
                     'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-sm font-bold',
+                    ocupado ? 'bg-border/60 text-foreground-muted' :
                     sel ? 'bg-primary text-white' : 'bg-primary/10 text-primary'
                   )}>
                     {iniciales(emp.nombre_completo)}
                   </div>
                   <div className="flex-1">
-                    <p className={cn('text-sm font-semibold', sel ? 'text-primary' : 'text-foreground')}>
+                    <p className={cn('text-sm font-semibold', ocupado ? 'text-foreground-muted' : sel ? 'text-primary' : 'text-foreground')}>
                       {emp.nombre_completo}
                     </p>
-                    <p className="text-xs text-foreground-muted">Disponible</p>
+                    <p className={cn('text-xs', ocupado ? 'text-red-400 font-medium' : 'text-foreground-muted')}>
+                      {ocupado ? 'Ocupado en este horario' : 'Disponible'}
+                    </p>
                   </div>
-                  {sel && (
+                  {sel && !ocupado && (
                     <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                       <Check className="w-3 h-3 text-white" />
                     </div>
@@ -404,10 +439,12 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
           {paso === 'datetime' ? (
             <button
               onClick={avanzarAEmpleado}
-              disabled={!fecha || !hora || cargando}
+              disabled={!fecha || !hora || cargando || cargandoEmpleados}
               className="w-full h-12 rounded-2xl bg-primary text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm shadow-primary/30"
             >
-              {empleados.length > 0 ? (
+              {cargandoEmpleados ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : empleados.length > 0 ? (
                 <>
                   <User className="w-4 h-4" />
                   Seleccionar personal
@@ -415,7 +452,7 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
               ) : (
                 <>
                   <ShoppingCart className="w-4 h-4" />
-                  Añadir al carrito
+                  AGREGAR AL CARRITO
                 </>
               )}
             </button>
@@ -426,10 +463,10 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
                 className="w-full h-12 rounded-2xl bg-primary text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm shadow-primary/30"
               >
                 <ShoppingCart className="w-4 h-4" />
-                Añadir al carrito
+                AGREGAR AL CARRITO
               </button>
               <button
-                onClick={() => setPaso('datetime')}
+                onClick={() => { setPaso('datetime'); setEmpleadosOcupados([]) }}
                 className="w-full h-10 rounded-2xl border border-border text-sm font-medium text-foreground-muted hover:text-foreground hover:border-primary/30 transition-all"
               >
                 ← Cambiar horario
