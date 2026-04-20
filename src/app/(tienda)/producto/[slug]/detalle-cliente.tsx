@@ -195,12 +195,8 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
     )
   }
 
-  function ejecutarAgregar() {
-    const extrasData = extrasSeleccionados.map(eid => {
-      const ext = variantesExtra.find(v => v.id === eid)!
-      return { id: eid, nombre: ext.nombre, precio: ext.precio_variante ?? 0 }
-    })
-    agregar({
+  function buildItemCarrito() {
+    return {
       producto_id: producto.id,
       nombre: producto.nombre,
       slug: producto.slug,
@@ -211,7 +207,12 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
       tipo_producto: producto.tipo_producto,
       talla: talla ?? undefined,
       cantidad,
-      extras: extrasData.length > 0 ? extrasData : undefined,
+      extras: extrasSeleccionados.length > 0
+        ? extrasSeleccionados.map(eid => {
+            const ext = variantesExtra.find(v => v.id === eid)
+            return { id: eid, nombre: ext?.nombre ?? '', precio: ext?.precio_variante ?? 0 }
+          })
+        : undefined,
       cita: producto.tipo_producto === 'servicio' ? {
         fecha: citaFecha,
         hora_inicio: citaHora,
@@ -220,11 +221,8 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
         empleado_nombre: (empleados.length > 0 && citaEmpleadoId !== 'cualquiera')
           ? (empleados.find(e => e.id === citaEmpleadoId)?.nombre_completo ?? undefined)
           : undefined,
-      } : undefined
-    })
-    toast.success('Añadido al carrito', {
-      action: { label: 'Ver carrito', onClick: () => router.push('/carrito') },
-    })
+      } : undefined,
+    }
   }
 
   function agregarAlCarrito() {
@@ -236,17 +234,14 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
       toast.error('Selecciona el día y la hora para tu cita')
       return
     }
-    // Servicios con empleados: el carrito se agrega desde dentro del modal de empleado
     if (producto.tipo_producto === 'servicio' && empleados.length > 0) {
       setModalEmpleado(true)
       return
     }
-    ejecutarAgregar()
-  }
-
-  function agregarDesdeModalEmpleado() {
-    setModalEmpleado(false)
-    ejecutarAgregar()
+    agregar(buildItemCarrito())
+    toast.success('Añadido al carrito', {
+      action: { label: 'Ver carrito', onClick: () => router.push('/carrito') },
+    })
   }
 
   async function compartir() {
@@ -810,7 +805,7 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
     {modalEmpleado && empleados.length > 0 && (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setModalEmpleado(false)} />
-        <div className="relative w-full max-w-md bg-card rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="relative z-10 w-full max-w-md bg-card rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
           {/* Cabecera */}
           <div className="flex items-start justify-between px-5 pt-2 pb-4 border-b border-border">
             <div>
@@ -909,7 +904,15 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
           {/* Botón añadir al carrito */}
           <div className="px-4 pb-5 pt-3 border-t border-border flex-shrink-0 flex flex-col gap-2">
             <button
-              onClick={agregarDesdeModalEmpleado}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                agregar(buildItemCarrito())
+                toast.success('Añadido al carrito', {
+                  action: { label: 'Ver carrito', onClick: () => router.push('/carrito') },
+                })
+                setModalEmpleado(false)
+              }}
               className="w-full h-12 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm shadow-primary/30"
             >
               <ShoppingCart className="w-4 h-4" />
