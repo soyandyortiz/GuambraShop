@@ -237,6 +237,16 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
       toast.error('Selecciona el día y la hora para tu cita')
       return
     }
+    // Servicios con empleados: el carrito se agrega desde dentro del modal de empleado
+    if (producto.tipo_producto === 'servicio' && empleados.length > 0) {
+      setModalEmpleado(true)
+      return
+    }
+    ejecutarAgregar()
+  }
+
+  function agregarDesdeModalEmpleado() {
+    setModalEmpleado(false)
     ejecutarAgregar()
   }
 
@@ -611,10 +621,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                               key={hora}
                               type="button"
                               disabled={ocupada}
-                              onClick={() => {
-                                setCitaHora(hora)
-                                if (empleados.length > 0) setModalEmpleado(true)
-                              }}
+                              onClick={() => setCitaHora(hora)}
                               className={cn(
                                 'h-10 rounded-xl text-sm font-semibold transition-all flex items-center justify-center',
                                 ocupada ? 'bg-background-subtle text-foreground-muted/40 cursor-not-allowed line-through' :
@@ -714,7 +721,11 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
                     : 'bg-primary shadow-primary/30 hover:bg-primary/90'
                 )}>
                 <ShoppingCart className="w-4 h-4" />
-                {agotado ? 'Agotado — Agregar igual' : 'Añadir al carrito'}
+                {agotado
+                  ? 'Agotado — Agregar igual'
+                  : (producto.tipo_producto === 'servicio' && empleados.length > 0 && citaHora)
+                    ? 'Seleccionar personal'
+                    : 'Añadir al carrito'}
               </button>
             </div>
           </div>}
@@ -912,13 +923,20 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
             })}
           </div>
 
-          {/* Botón confirmar */}
-          <div className="px-4 pb-6 pt-2">
+          {/* Botón añadir al carrito */}
+          <div className="px-4 pb-6 pt-2 flex flex-col gap-2">
+            <button
+              onClick={agregarDesdeModalEmpleado}
+              className="w-full h-12 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm shadow-primary/30"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Añadir al carrito
+            </button>
             <button
               onClick={() => setModalEmpleado(false)}
-              className="w-full h-12 rounded-2xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 active:scale-[0.98] transition-all"
+              className="w-full h-10 rounded-2xl border border-border text-sm font-medium text-foreground-muted hover:text-foreground hover:border-primary/30 transition-all"
             >
-              Confirmar selección
+              Cambiar horario
             </button>
           </div>
         </div>
