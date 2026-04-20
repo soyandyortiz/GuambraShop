@@ -11,7 +11,7 @@ import { DemoStore } from '@/lib/supabase/demo-store'
 import { useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, Ticket,
-  Megaphone, Settings, MessageSquare, LogOut, Star, ClipboardList, CalendarDays, Truck, TrendingUp, PartyPopper
+  Megaphone, Settings, MessageSquare, LogOut, Star, ClipboardList, CalendarDays, Truck, TrendingUp, PartyPopper, Users
 } from 'lucide-react'
 import type { Rol } from '@/types'
 import { usarConteosAdmin } from '@/hooks/usar-conteos-admin'
@@ -48,6 +48,7 @@ export function HeaderAdmin({ nombre, rol, fotoPerfil }: PropsHeaderAdmin) {
     { href: '/admin/dashboard/cupones',     icono: <Ticket className="w-4 h-4" />,           etiqueta: 'Cupones',       badge: null },
     { href: '/admin/dashboard/promociones', icono: <Megaphone className="w-4 h-4" />,        etiqueta: 'Promociones',   badge: null },
     { href: '/admin/dashboard/pedidos',     icono: <ClipboardList className="w-4 h-4" />,    etiqueta: 'Pedidos',       badge: 'pedidos' },
+    { href: '/admin/dashboard/clientes',   icono: <Users className="w-4 h-4" />,               etiqueta: 'Clientes',      badge: null },
     { href: '/admin/dashboard/ingresos',   icono: <TrendingUp className="w-4 h-4" />,         etiqueta: 'Ingresos',      badge: null },
     { href: '/admin/dashboard/solicitudes',icono: <PartyPopper className="w-4 h-4" />,        etiqueta: 'Eventos',       badge: 'solicitudes' },
     { href: '/admin/dashboard/envios',      icono: <Truck className="w-4 h-4" />,             etiqueta: 'Envíos',        badge: null },
