@@ -100,6 +100,12 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
     seleccion_empleado: configCitas?.seleccion_empleado ?? false,
   }
 
+  // Resetear hora SOLO cuando cambia la fecha
+  useEffect(() => {
+    setCitaHora('')
+  }, [citaFecha])
+
+  // Recargar disponibilidad cuando cambia la fecha O el empleado (sin resetear hora)
   useEffect(() => {
     if (producto.tipo_producto !== 'servicio' || !citaFecha) return
 
@@ -145,7 +151,6 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
     }
 
     cargarDisponibilidad()
-    setCitaHora('')
   }, [citaFecha, citaEmpleadoId, configValida.capacidad, empleados.length, producto.tipo_producto])
 
   const slots: string[] = []
