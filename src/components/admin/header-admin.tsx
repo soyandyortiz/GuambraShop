@@ -16,8 +16,6 @@ import {
 import type { Rol } from '@/types'
 import { usarConteosAdmin } from '@/hooks/usar-conteos-admin'
 
-]
-
 interface PropsHeaderAdmin {
   nombre: string
   rol: Rol

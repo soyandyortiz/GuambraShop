@@ -13,8 +13,6 @@ import { useRouter } from 'next/navigation'
 import { usarConteosAdmin } from '@/hooks/usar-conteos-admin'
 import type { Rol } from '@/types'
 
-]
-
 interface PropsSidebar {
   rol: Rol
   nombre: string
