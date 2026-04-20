@@ -837,7 +837,7 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
             {/* Cualquier persona */}
             <button
               type="button"
-              onClick={() => { setCitaEmpleadoId('cualquiera'); setModalEmpleado(false) }}
+              onClick={() => setCitaEmpleadoId('cualquiera')}
               className={cn(
                 'flex items-center gap-3 w-full px-4 py-3 rounded-2xl border-2 text-left transition-all',
                 citaEmpleadoId === 'cualquiera'
@@ -876,7 +876,7 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
                 <button
                   key={emp.id}
                   type="button"
-                  onClick={() => { setCitaEmpleadoId(emp.id); setModalEmpleado(false) }}
+                  onClick={() => setCitaEmpleadoId(emp.id)}
                   className={cn(
                     'flex items-center gap-3 w-full px-4 py-3 rounded-2xl border-2 text-left transition-all',
                     seleccionado
