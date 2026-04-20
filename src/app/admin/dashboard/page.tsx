@@ -189,6 +189,29 @@ export default async function PáginaDashboard() {
   return (
     <div className="flex flex-col gap-6">
 
+      {/* Mensajes del superadmin en la parte superior */}
+      {mensajesNoLeidos > 0 && (
+        <div className="rounded-2xl bg-primary/10 border border-primary/20 p-4 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-primary flex-shrink-0" />
+            <p className="text-sm font-bold text-primary">Tienes {mensajesNoLeidos} mensaje{mensajesNoLeidos > 1 ? 's' : ''} nuevo{mensajesNoLeidos > 1 ? 's' : ''}</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            {(mensajes as MensajeAdmin[]).filter(m => !m.leido).map((msg) => (
+              <div key={msg.id} className="bg-card/50 rounded-xl p-3 border border-primary/10">
+                {msg.asunto && <p className="text-xs font-bold text-foreground">{msg.asunto}</p>}
+                <p className="text-xs text-foreground-muted mt-0.5">{msg.cuerpo}</p>
+                <p className="text-[10px] text-foreground-muted mt-1.5 opacity-70">
+                  {new Date(msg.creado_en).toLocaleDateString('es-ES', {
+                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                  })}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Alerta si tienda suspendida */}
       {!tiendaActiva && (
         <div className="rounded-2xl bg-danger/10 border border-danger/20 p-4 flex items-start gap-3">
@@ -449,48 +472,6 @@ export default async function PáginaDashboard() {
         </div>
       </div>
 
-      {/* Mensajes del superadmin */}
-      {(mensajes && mensajes.length > 0) && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <MessageSquare className="w-4 h-4" />
-              Mensajes
-              {mensajesNoLeidos > 0 && (
-                <span className="w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
-                  {mensajesNoLeidos}
-                </span>
-              )}
-            </h2>
-            <Link href="/admin/dashboard/mensajes" className="text-xs text-primary hover:underline">
-              Ver todos
-            </Link>
-          </div>
-          <div className="flex flex-col gap-2">
-            {(mensajes as MensajeAdmin[]).slice(0, 3).map((msg) => (
-              <div
-                key={msg.id}
-                className={`rounded-xl border p-4 transition-all ${
-                  msg.leido
-                    ? 'bg-card border-card-border'
-                    : 'bg-primary/5 border-primary/20'
-                }`}
-              >
-                {msg.asunto && (
-                  <p className="text-sm font-semibold text-foreground">{msg.asunto}</p>
-                )}
-                <p className="text-sm text-foreground-muted mt-0.5 line-clamp-2">{msg.cuerpo}</p>
-                <p className="text-[10px] text-foreground-muted mt-2">
-                  {new Date(msg.creado_en).toLocaleDateString('es-ES', {
-                    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                  })}
-                  {!msg.leido && <span className="ml-2 text-primary font-semibold">• Nuevo</span>}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Contador de pago — solo admin (no superadmin) */}
       {!esSuperadmin && config?.cobro_activo && config?.fecha_inicio_sistema && (
