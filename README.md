@@ -17,46 +17,46 @@ En **SQL Editor** ejecutar en este orden:
 
 ## 3. Usuarios administradores
 
-### Superadmin
+### Crear el usuario
 
 1. En el menú lateral izquierdo de Supabase, click en **Authentication**
-2. En el submenú que aparece, click en **Users**
-3. En la parte superior derecha, click en el botón verde **Add user** → seleccionar **Create new user**
-4. Se abre un formulario. Completar:
-   - **Email**: correo del cliente
+2. En el submenú, click en **Users**
+3. En la parte superior derecha, click en **Add user** → **Create new user**
+4. Completar el formulario:
+   - **Email**: correo del administrador
    - **Password**: contraseña segura
-   - Activar el toggle **Auto Confirm User** (evita que Supabase le mande un email de verificación)
-5. Click en **Create User** — el usuario aparece en la lista
-6. En la lista de usuarios, click en la fila del usuario recién creado para abrir su detalle
-7. Dentro del detalle del usuario, bajar hasta encontrar la sección **User Metadata**
-8. Se ve un cuadro con `{}` o datos vacíos. Click en el ícono de lápiz (editar) que aparece a la derecha de esa sección
-9. Borrar todo el contenido del cuadro y escribir exactamente esto:
-```json
-{
-  "rol": "superadmin",
-  "nombre": "Nombre del cliente"
-}
-```
-   _(reemplazar `Nombre del cliente` con el nombre real)_
-10. Click en **Save** para guardar
+   - Activar el toggle **Auto Confirm User** ✅ (evita email de verificación)
+5. Click en **Create User**
 
-### Admin (opcional)
+### Asignar el rol vía SQL
 
-Repetir exactamente los mismos pasos. En el paso 9 usar estos metadatos:
-```json
-{
-  "rol": "admin",
-  "nombre": "Nombre del administrador"
-}
+La interfaz de Supabase ya no permite editar los metadatos visualmente. Hay que hacerlo desde **SQL Editor**.
+
+En el menú lateral, click en **SQL Editor** y ejecutar:
+
+**Para el superadmin:**
+```sql
+UPDATE auth.users
+SET raw_user_meta_data = '{"rol": "superadmin", "nombre": "Nombre del cliente"}'
+WHERE email = 'correo@delcliente.com';
 ```
+
+**Para el admin (opcional):**
+```sql
+UPDATE auth.users
+SET raw_user_meta_data = '{"rol": "admin", "nombre": "Nombre del administrador"}'
+WHERE email = 'correo@admin.com';
+```
+
+> Reemplazar el email y el nombre con los valores reales antes de ejecutar.
 
 ### Verificar que funcionó
 
-1. En el menú lateral izquierdo, click en **Table Editor**
+1. En el menú lateral, click en **Table Editor**
 2. Seleccionar la tabla **perfiles**
-3. Debe aparecer una fila por cada usuario creado con el `rol` correcto (`superadmin` o `admin`)
+3. Debe aparecer una fila por cada usuario con el `rol` correcto
 
-> Si la tabla `perfiles` está vacía después de crear los usuarios, significa que el trigger no se ejecutó. Solución: ir a **SQL Editor** y volver a ejecutar `supabase/schema.sql` desde cero (primero eliminar las tablas existentes con `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`).
+> Si `perfiles` está vacía, el trigger no se ejecutó — probablemente el usuario fue creado antes de correr el `schema.sql`. Solución: eliminar el usuario desde Authentication → Users y volver a crearlo después de haber ejecutado el schema.
 
 ## 4. Datos iniciales del cliente
 
