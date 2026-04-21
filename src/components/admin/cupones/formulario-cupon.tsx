@@ -55,7 +55,7 @@ export function FormularioCupon({ cupon }: Props) {
       valor_descuento: cupon ? String(cupon.valor_descuento) : '',
       compra_minima: cupon?.compra_minima ? String(cupon.compra_minima) : '',
       max_usos: cupon?.max_usos ? String(cupon.max_usos) : '',
-      vence_en: cupon?.vence_en ? cupon.vence_en.split('T')[0] : '',
+      vence_en: cupon?.vence_en ? cupon.vence_en.slice(0, 16) : '',
       esta_activo: cupon?.esta_activo ?? true,
     },
   })
@@ -83,7 +83,7 @@ export function FormularioCupon({ cupon }: Props) {
       valor_descuento: valor,
       compra_minima: datos.compra_minima ? parseFloat(datos.compra_minima) : null,
       max_usos: datos.max_usos ? parseInt(datos.max_usos) : null,
-      vence_en: datos.vence_en ? new Date(datos.vence_en + 'T23:59:59').toISOString() : null,
+      vence_en: datos.vence_en ? new Date(datos.vence_en).toISOString() : null,
       esta_activo: datos.esta_activo,
     }
 
@@ -220,12 +220,13 @@ export function FormularioCupon({ cupon }: Props) {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-foreground">Fecha de vencimiento</label>
+            <label className="text-sm font-medium text-foreground">Fecha y hora de vencimiento</label>
             <input
               {...register('vence_en')}
-              type="date"
+              type="datetime-local"
               className="h-10 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
+            <p className="text-xs text-foreground-muted">Deja vacío si el cupón no tiene límite de tiempo</p>
           </div>
         </div>
 
