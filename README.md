@@ -105,6 +105,65 @@ SUPABASE_SERVICE_ROLE_KEY      → service_role key (Supabase → Settings → A
 - Ingresar al admin (`/admin`) y completar: logo, favicon, tema, colores, redes sociales, zonas de envío, etc.
 - Si el cliente tiene dominio propio, configurarlo en **Vercel → Domains**
 
+## Notificaciones Telegram (opcional)
+
+El sistema puede enviar notificaciones automáticas al grupo o canal de Telegram del cliente cuando ocurren eventos: nuevo pedido, nueva cita, nueva solicitud de evento, stock bajo y resumen diario.
+
+### Paso 1 — Crear el bot con BotFather
+
+1. Abrir Telegram y buscar **@BotFather**
+2. Iniciar conversación y escribir `/newbot`
+3. BotFather pedirá dos cosas:
+   - **Nombre del bot** — el nombre visible, ej: `Notificaciones Ferretería Pérez`
+   - **Username del bot** — debe terminar en `bot`, ej: `ferreterianotif_bot`
+4. BotFather responderá con el token, algo así:
+   ```
+   Done! Use this token to access the HTTP API:
+   7412365890:AAFxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+5. Copiar ese token — es el valor de `TELEGRAM_BOT_TOKEN`
+
+### Paso 2 — Crear el grupo y obtener el Chat ID
+
+1. En Telegram, crear un **grupo nuevo** (ej: "Alertas Tienda Cliente")
+2. Agregar al bot recién creado como miembro del grupo
+3. Escribir cualquier mensaje en el grupo (ej: "hola")
+4. En el navegador, abrir esta URL reemplazando el token:
+   ```
+   https://api.telegram.org/bot{TOKEN}/getUpdates
+   ```
+   Ejemplo real:
+   ```
+   https://api.telegram.org/bot7412365890:AAFxxx/getUpdates
+   ```
+5. En la respuesta JSON buscar el campo `"id"` dentro de `"chat"`. Será un número negativo, ej:
+   ```json
+   "chat": { "id": -1002345678901, "title": "Alertas Tienda" }
+   ```
+6. Ese número negativo (con el `-` incluido) es el valor de `TELEGRAM_CHAT_ID`
+
+> Si el JSON aparece vacío `{"ok":true,"result":[]}`, escribir otro mensaje en el grupo e intentar de nuevo.
+
+### Paso 3 — Agregar las variables en Vercel
+
+En el proyecto del cliente en Vercel → **Settings → Environment Variables**:
+
+```
+TELEGRAM_BOT_TOKEN        → el token de BotFather
+TELEGRAM_CHAT_ID          → el id del grupo (número negativo)
+SUPABASE_SERVICE_ROLE_KEY → service_role key (Supabase → Settings → API)
+```
+
+Hacer **redeploy** después de agregar las variables.
+
+### Paso 4 — Verificar que funciona
+
+Crear un pedido de prueba en la tienda. Debe llegar un mensaje al grupo de Telegram en segundos.
+
+> Si no llega nada, verificar que el bot esté en el grupo y que el `TELEGRAM_CHAT_ID` tenga el `-` al inicio.
+
+---
+
 ## Personalización visual
 
 Desde `/admin/dashboard/perfil` → pestaña **Colores**:
