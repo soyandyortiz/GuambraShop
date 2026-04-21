@@ -10,6 +10,7 @@ import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { SubidorImagenes } from '@/components/ui/subidor-imagenes'
 import { cn } from '@/lib/utils'
 import { PALETAS } from '@/lib/paletas'
+import { TEMAS, obtenerTema } from '@/lib/temas'
 
 // ─── Tipos ───────────────────────────────────────────────────
 interface HorarioDia {
@@ -29,6 +30,7 @@ interface ConfigTienda {
   foto_perfil_url: string | null
   foto_portada_url: string | null
   color_primario: string | null
+  tema_id: string | null
   whatsapp: string | null
   moneda: string
   simbolo_moneda: string
@@ -441,22 +443,47 @@ function TabImagenes({ config }: { config: ConfigTienda }) {
 
 // ─── Tab Colores ──────────────────────────────────────────────
 function TabColores({ config }: { config: ConfigTienda }) {
+  const [temaActual,  setTemaActual]  = useState(config.tema_id ?? 'claro')
   const [colorActual, setColorActual] = useState(config.color_primario ?? '#ef4444')
-  const [guardando, setGuardando] = useState(false)
-  const [exito, setExito] = useState(false)
+  const [guardandoTema,  setGuardandoTema]  = useState(false)
+  const [guardandoColor, setGuardandoColor] = useState(false)
 
-  async function guardar(primario: string) {
-    setColorActual(primario)
-    setGuardando(true)
+  // ── Guardar tema base ────────────────────────────────────────
+  async function guardarTema(temaId: string) {
+    if (temaId === temaActual) return
+    setTemaActual(temaId)
+    setGuardandoTema(true)
     const supabase = crearClienteSupabase()
-    const { error } = await supabase.from('configuracion_tienda').update({ color_primario: primario }).eq('id', config.id)
-    setGuardando(false)
-    if (error) { toast.error('Error al guardar'); return }
-    
-    setExito(true)
-    toast.success('Cambios guardados correctamente')
-    
-    // Actualiza la variable CSS en tiempo real
+    const { error } = await supabase
+      .from('configuracion_tienda')
+      .update({ tema_id: temaId })
+      .eq('id', config.id)
+    setGuardandoTema(false)
+    if (error) { toast.error('Error al guardar tema'); return }
+
+    // Aplica las variables CSS en tiempo real
+    const tema = obtenerTema(temaId)
+    Object.entries(tema.vars).forEach(([key, val]) => {
+      document.documentElement.style.setProperty(key, val)
+    })
+
+    toast.success('Tema aplicado')
+    setTimeout(() => window.location.reload(), 1000)
+  }
+
+  // ── Guardar color de acento ──────────────────────────────────
+  async function guardarColor(primario: string) {
+    setColorActual(primario)
+    setGuardandoColor(true)
+    const supabase = crearClienteSupabase()
+    const { error } = await supabase
+      .from('configuracion_tienda')
+      .update({ color_primario: primario })
+      .eq('id', config.id)
+    setGuardandoColor(false)
+    if (error) { toast.error('Error al guardar color'); return }
+
+    // Aplica en tiempo real
     document.documentElement.style.setProperty('--primary', primario)
     const paleta = PALETAS.find(p => p.primary === primario)
     if (paleta) {
@@ -464,7 +491,8 @@ function TabColores({ config }: { config: ConfigTienda }) {
       document.documentElement.style.setProperty('--primary-foreground', paleta.foreground)
     }
 
-    setTimeout(() => window.location.reload(), 1200)
+    toast.success('Color aplicado')
+    setTimeout(() => window.location.reload(), 1000)
   }
 
   const grupos = [
@@ -477,69 +505,148 @@ function TabColores({ config }: { config: ConfigTienda }) {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <p className="text-sm font-semibold text-foreground mb-1">Paleta de colores</p>
-        <p className="text-xs text-foreground-muted">El color que elijas se aplicará en toda la tienda para todos los dispositivos</p>
+    <div className="flex flex-col gap-8">
+
+      {/* ── Sección 1: Tema base ── */}
+      <div className="flex flex-col gap-4">
+        <div>
+          <p className="text-sm font-bold text-foreground">Tema base</p>
+          <p className="text-xs text-foreground-muted mt-0.5">
+            Cambia los fondos, cards y colores de texto de toda la tienda
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          {TEMAS.map(tema => {
+            const activo = temaActual === tema.id
+            return (
+              <button
+                key={tema.id}
+                onClick={() => guardarTema(tema.id)}
+                disabled={guardandoTema}
+                className={cn(
+                  'relative flex flex-col rounded-2xl overflow-hidden border-2 transition-all text-left',
+                  activo
+                    ? 'border-primary shadow-lg scale-[1.03]'
+                    : 'border-border hover:border-foreground-muted/50 hover:scale-[1.02]'
+                )}
+              >
+                {/* Preview visual del tema */}
+                <div
+                  className="w-full h-16 flex flex-col justify-between p-2"
+                  style={{ backgroundColor: tema.preview.bg }}
+                >
+                  {/* Card simulada */}
+                  <div
+                    className="w-full rounded-lg px-2 py-1.5 flex items-center gap-1.5"
+                    style={{ backgroundColor: tema.preview.card, border: `1px solid ${tema.preview.border}` }}
+                  >
+                    <div className="w-4 h-1.5 rounded-full" style={{ backgroundColor: colorActual }} />
+                    <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: tema.preview.muted, opacity: 0.4 }} />
+                  </div>
+                  {/* Líneas de texto simuladas */}
+                  <div className="flex flex-col gap-1 px-1">
+                    <div className="h-1 w-3/4 rounded-full" style={{ backgroundColor: tema.preview.text, opacity: 0.7 }} />
+                    <div className="h-1 w-1/2 rounded-full" style={{ backgroundColor: tema.preview.muted, opacity: 0.5 }} />
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div
+                  className="px-2.5 py-2"
+                  style={{ backgroundColor: tema.preview.card, borderTop: `1px solid ${tema.preview.border}` }}
+                >
+                  <p className="text-[11px] font-bold leading-tight" style={{ color: tema.preview.text }}>
+                    {tema.nombre}
+                  </p>
+                  <p className="text-[9px] leading-tight mt-0.5" style={{ color: tema.preview.muted }}>
+                    {tema.descripcion}
+                  </p>
+                </div>
+
+                {/* Check activo */}
+                {activo && (
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center text-white text-[9px] font-bold shadow">
+                    ✓
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        {guardandoTema && (
+          <div className="flex items-center gap-2 text-xs text-primary font-medium">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Aplicando tema...
+          </div>
+        )}
       </div>
 
-      {grupos.map(grupo => {
-        const paletas = grupo.ids.map(id => PALETAS.find(p => p.id === id)!).filter(Boolean)
-        return (
-          <div key={grupo.label}>
-            <p className="text-[11px] font-bold text-foreground-muted uppercase tracking-wider mb-2">{grupo.label}</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-              {paletas.map(p => {
-                const activo = colorActual.toLowerCase() === p.primary.toLowerCase()
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => guardar(p.primary)}
-                    disabled={guardando}
-                    title={p.nombre}
-                    className={cn(
-                      'relative flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all',
-                      activo
-                        ? 'border-[3px] shadow-md scale-[1.03]'
-                        : 'border-border bg-card hover:border-foreground-muted/40 hover:scale-[1.02]'
-                    )}
-                    style={activo ? { borderColor: p.primary } : {}}
-                  >
-                    {/* Círculo de color */}
-                    <div
-                      className="w-10 h-10 rounded-full shadow-sm flex items-center justify-center flex-shrink-0 transition-transform"
-                      style={{ backgroundColor: p.primary, color: p.foreground }}
-                    >
-                      {activo && <Star className="w-4 h-4 fill-current" />}
-                    </div>
+      {/* Divisor */}
+      <div className="border-t border-border" />
 
-                    {/* Nombre */}
-                    <p className="text-[11px] font-semibold text-foreground text-center leading-tight">{p.nombre}</p>
-
-                    {/* Código hex */}
-                    <p className="text-[9px] text-foreground-muted font-mono uppercase">{p.primary}</p>
-
-                    {/* Tick activo */}
-                    {activo && (
-                      <span
-                        className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
-                        style={{ backgroundColor: p.primary }}
-                      >✓</span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })}
-
-      {(guardando || exito) && (
-        <div className="flex items-center gap-2 text-xs text-primary font-medium">
-          {guardando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>✓</span>}
-          {guardando ? 'Guardando...' : '¡Color aplicado! Recargando...'}
+      {/* ── Sección 2: Color de acento ── */}
+      <div className="flex flex-col gap-4">
+        <div>
+          <p className="text-sm font-bold text-foreground">Color de acento</p>
+          <p className="text-xs text-foreground-muted mt-0.5">
+            Se aplica en botones, badges y elementos interactivos de la tienda
+          </p>
         </div>
-      )}
+
+        {grupos.map(grupo => {
+          const paletas = grupo.ids.map(id => PALETAS.find(p => p.id === id)!).filter(Boolean)
+          return (
+            <div key={grupo.label}>
+              <p className="text-[11px] font-bold text-foreground-muted uppercase tracking-wider mb-2">{grupo.label}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                {paletas.map(p => {
+                  const activo = colorActual.toLowerCase() === p.primary.toLowerCase()
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => guardarColor(p.primary)}
+                      disabled={guardandoColor}
+                      title={p.nombre}
+                      className={cn(
+                        'relative flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all',
+                        activo
+                          ? 'border-[3px] shadow-md scale-[1.03]'
+                          : 'border-border bg-card hover:border-foreground-muted/40 hover:scale-[1.02]'
+                      )}
+                      style={activo ? { borderColor: p.primary } : {}}
+                    >
+                      <div
+                        className="w-10 h-10 rounded-full shadow-sm flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: p.primary, color: p.foreground }}
+                      >
+                        {activo && <Star className="w-4 h-4 fill-current" />}
+                      </div>
+                      <p className="text-[11px] font-semibold text-foreground text-center leading-tight">{p.nombre}</p>
+                      <p className="text-[9px] text-foreground-muted font-mono uppercase">{p.primary}</p>
+                      {activo && (
+                        <span
+                          className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
+                          style={{ backgroundColor: p.primary }}
+                        >✓</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+
+        {guardandoColor && (
+          <div className="flex items-center gap-2 text-xs text-primary font-medium">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Aplicando color...
+          </div>
+        )}
+      </div>
+
     </div>
   )
 }

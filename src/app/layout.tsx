@@ -5,6 +5,7 @@ import { FavoritosProvider } from '@/components/providers/favoritos-provider'
 import { Toaster } from 'sonner'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { obtenerPaleta } from '@/lib/paletas'
+import { obtenerTema } from '@/lib/temas'
 import './globals.css'
 
 const geist = Geist({
@@ -61,15 +62,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const supabase = await crearClienteServidor()
   const { data: config } = await supabase
     .from('configuracion_tienda')
-    .select('color_primario')
+    .select('color_primario, tema_id')
     .single()
 
   const paleta = obtenerPaleta(config?.color_primario)
+  const tema   = obtenerTema(config?.tema_id)
 
   return (
     <html lang="es" suppressHydrationWarning data-scroll-behavior="smooth"
       className={geist.variable}
       style={{
+        // Variables del tema base (fondos, textos, bordes, cards)
+        ...tema.vars,
+        // Variables del color de acento (primary)
         '--primary': paleta.primary,
         '--primary-hover': paleta.hover,
         '--primary-foreground': paleta.foreground,
