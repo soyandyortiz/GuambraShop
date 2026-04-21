@@ -129,7 +129,13 @@ export function TarjetaProducto({
               Agotado
             </div>
           )}
-          {pocasUnidades && (
+          {pocasUnidades && (stock ?? 0) <= 2 && (
+            <div className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
+              <span className="w-1 h-1 rounded-full bg-white animate-pulse flex-shrink-0" />
+              ¡Solo {stock === 1 ? 'queda 1' : `quedan ${stock}`}!
+            </div>
+          )}
+          {pocasUnidades && (stock ?? 0) > 2 && (
             <div className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg shadow-sm">
               Últimas {stock}
             </div>

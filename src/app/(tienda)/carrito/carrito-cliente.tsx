@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { generarMensajeWhatsApp, generarEnlaceWhatsApp } from '@/lib/whatsapp'
 import { CODIGOS_PAIS } from '@/lib/ecuador'
 import { obtenerNombresRegiones, obtenerCiudades, obtenerInfoPais } from '@/lib/locales'
+import { ContadorRegresivo } from '@/components/ui/contador-regresivo'
 
 interface MetodoPago {
   id: string
@@ -38,6 +39,7 @@ interface Cupon {
   valor_descuento: number
   compra_minima: number | null
   usos_actuales: number
+  vence_en: string | null
 }
 
 interface PedidoCreado {
@@ -611,17 +613,33 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
               <Tag className="w-3.5 h-3.5 text-primary" /> Cupón de descuento
             </p>
             {cupon ? (
-              <div className="flex items-center justify-between bg-success/10 border border-success/20 rounded-xl px-3 py-2">
-                <div>
-                  <p className="text-sm font-bold text-success">{cupon.codigo}</p>
-                  <p className="text-xs text-foreground-muted">
-                    -{cupon.tipo_descuento === 'porcentaje' ? `${cupon.valor_descuento}%` : formatearPrecio(cupon.valor_descuento, simboloMoneda)}
-                  </p>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between bg-success/10 border border-success/20 rounded-xl px-3 py-2">
+                  <div>
+                    <p className="text-sm font-bold text-success">{cupon.codigo}</p>
+                    <p className="text-xs text-foreground-muted">
+                      -{cupon.tipo_descuento === 'porcentaje' ? `${cupon.valor_descuento}%` : formatearPrecio(cupon.valor_descuento, simboloMoneda)}
+                    </p>
+                  </div>
+                  <button onClick={() => { setCupon(null); setCodigoCupon('') }}
+                    className="text-xs text-foreground-muted hover:text-danger transition-colors">
+                    Quitar
+                  </button>
                 </div>
-                <button onClick={() => { setCupon(null); setCodigoCupon('') }}
-                  className="text-xs text-foreground-muted hover:text-danger transition-colors">
-                  Quitar
-                </button>
+                {cupon.vence_en && (
+                  <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+                    <Tag className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                    <p className="text-xs text-red-700 font-medium flex-1">
+                      Oferta vence en{' '}
+                      <ContadorRegresivo
+                        fechaFin={cupon.vence_en}
+                        compacto
+                        className="text-red-600"
+                        onExpirado={() => { setCupon(null); setCodigoCupon(''); toast.error('El cupón ha expirado'); }}
+                      />
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex gap-2">

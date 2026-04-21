@@ -411,19 +411,32 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
 
             {/* Disponibilidad de stock */}
             {producto.tipo_producto !== 'servicio' && producto.tipo_producto !== 'evento' && (
-              <div className="mt-2">
+              <div className="mt-2 flex flex-col gap-2">
                 {agotado ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-gray-600 px-2.5 py-1 rounded-lg">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-gray-600 px-2.5 py-1 rounded-lg w-fit">
                     <span className="w-1.5 h-1.5 rounded-full bg-white/70 flex-shrink-0" />
                     Sin stock
                   </span>
+                ) : pocasUnidades && stockEfectivo !== null && stockEfectivo <= 2 ? (
+                  <div className="flex flex-col gap-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-red-500 px-2.5 py-1 rounded-lg w-fit">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse flex-shrink-0" />
+                      ¡{stockEfectivo === 1 ? 'Solo queda 1 en stock!' : `Solo quedan ${stockEfectivo} en stock!`}
+                    </span>
+                    <p className="text-xs text-red-600 font-medium">
+                      Completa tu compra antes de que se agote.
+                    </p>
+                  </div>
                 ) : pocasUnidades ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-lg">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
-                    Últimas {stockEfectivo} unidades disponibles
-                  </span>
+                  <div className="flex flex-col gap-1">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-lg w-fit">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                      Últimas {stockEfectivo} unidades disponibles
+                    </span>
+                    <p className="text-xs text-amber-600">Llévalo ahora antes de que se agote.</p>
+                  </div>
                 ) : stockEfectivo !== null && stockEfectivo > 5 ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg w-fit">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
                     En stock
                   </span>
