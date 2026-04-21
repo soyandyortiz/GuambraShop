@@ -102,5 +102,14 @@ SUPABASE_SERVICE_ROLE_KEY      → service_role key (Supabase → Settings → A
 ## 6. Post-deploy
 
 - Copiar la URL asignada por Vercel y actualizar `NEXT_PUBLIC_SITE_URL` → hacer redeploy
-- Ingresar al admin (`/admin`) y completar: logo, favicon, colores, redes sociales, zonas de envío, etc.
+- Ingresar al admin (`/admin`) y completar: logo, favicon, tema, colores, redes sociales, zonas de envío, etc.
 - Si el cliente tiene dominio propio, configurarlo en **Vercel → Domains**
+
+## Personalización visual
+
+Desde `/admin/dashboard/perfil` → pestaña **Colores**:
+
+- **Tema base** — 5 opciones: Claro, Oscuro, Midnight, Cálido, Océano. Cambia fondos, cards y textos.
+- **Color de acento** — 28 paletas predefinidas para botones y elementos interactivos.
+
+Ambos ajustes son independientes y se aplican en tiempo real sin redeploy.
