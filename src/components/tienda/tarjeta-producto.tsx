@@ -34,6 +34,7 @@ export function TarjetaProducto({
 }: Props) {
   const agotado = stock !== null && stock !== undefined && stock === 0
   const pocasUnidades = stock !== null && stock !== undefined && stock > 0 && stock <= 5
+  const enStock = stock !== null && stock !== undefined && stock > 5 && tipo_producto === 'producto'
   const router = useRouter()
   const { esFavorito, toggleFavorito } = usarFavoritos()
   const { agregar } = usarCarrito()
@@ -131,6 +132,11 @@ export function TarjetaProducto({
           {pocasUnidades && (
             <div className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg shadow-sm">
               Últimas {stock}
+            </div>
+          )}
+          {enStock && (
+            <div className="bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg shadow-sm">
+              En stock
             </div>
           )}
         </div>
