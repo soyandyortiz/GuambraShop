@@ -50,11 +50,21 @@ WHERE email = 'correo@delcliente.com';
 
 > Reemplazar el email y nombre del admin con los datos reales del cliente.
 
-### Verificar que funcionó
+### Verificar y corregir roles
 
 1. En el menú lateral, click en **Table Editor**
 2. Seleccionar la tabla **perfiles**
 3. Debe aparecer una fila por cada usuario con el `rol` correcto
+
+> **Problema frecuente:** el trigger crea la fila en `perfiles` en el momento que se crea el usuario, antes de que se ejecute el SQL que asigna los metadatos. Por eso el rol queda como `admin` aunque sea superadmin.
+
+Si el rol en `perfiles` está incorrecto, corregirlo directamente desde **SQL Editor**:
+
+```sql
+UPDATE perfiles
+SET rol = 'superadmin'
+WHERE id = (SELECT id FROM auth.users WHERE email = 'andyortiz.ec@gmail.com');
+```
 
 > Si `perfiles` está vacía, el trigger no se ejecutó — probablemente el usuario fue creado antes de correr el `schema.sql`. Solución: eliminar el usuario desde Authentication → Users y volver a crearlo después de haber ejecutado el schema.
 
