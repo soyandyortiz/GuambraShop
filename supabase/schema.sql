@@ -34,12 +34,6 @@ begin
 end;
 $$ language plpgsql;
 
--- Helper RLS: devuelve el rol del usuario autenticado
-create or replace function obtener_rol()
-returns text as $$
-  select rol from perfiles where id = auth.uid();
-$$ language sql security definer stable;
-
 -- Helper RLS: true cuando el usuario activo es el demo de solo-lectura
 create or replace function es_usuario_demo()
 returns boolean language sql stable security definer as $$
@@ -83,6 +77,12 @@ $$ language plpgsql security definer set search_path = public;
 create trigger tr_crear_perfil_al_registrar
   after insert on auth.users
   for each row execute function crear_perfil_nuevo_usuario();
+
+-- Helper RLS: devuelve el rol del usuario autenticado (requiere tabla perfiles)
+create or replace function obtener_rol()
+returns text as $$
+  select rol from perfiles where id = auth.uid();
+$$ language sql security definer stable;
 
 
 -- ============================================================
