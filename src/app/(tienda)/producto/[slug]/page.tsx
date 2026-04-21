@@ -63,13 +63,7 @@ export default async function PáginaProducto({ params }: Props) {
         variantes_producto(id, nombre, descripcion, precio_variante, imagen_url, stock, esta_activa, orden, tipo_precio),
         tallas_producto(id, talla, disponible, stock, orden),
         resenas_producto(id, nombre_cliente, calificacion, comentario, creado_en, es_visible),
-        categoria:categorias(id, nombre, slug),
-        productos_relacionados(
-          relacionado:productos!productos_relacionados_producto_relacionado_id_fkey(
-            id, nombre, slug, precio, precio_descuento, stock, tipo_producto,
-            imagenes_producto(url, orden)
-          )
-        )
+        categoria:categorias(id, nombre, slug)
       `)
       .eq('slug', slug)
       .eq('esta_activo', true)
@@ -92,6 +86,7 @@ export default async function PáginaProducto({ params }: Props) {
     new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime()
   )
 
+  // Query separada para no afectar la query principal si hay error de FK
   type ProductoRelacionado = {
     id: string; nombre: string; slug: string
     precio: number; precio_descuento: number | null
@@ -99,11 +94,22 @@ export default async function PáginaProducto({ params }: Props) {
     imagen_url: string | null
   }
 
-  const relacionados: ProductoRelacionado[] = (producto.productos_relacionados ?? [])
-    .map((r: any) => r.relacionado)
-    .filter(Boolean)
-    .filter((r: any) => r.esta_activo !== false)
-    .map((r: any) => {
+  const { data: idsRelacionados } = await supabase
+    .from('productos_relacionados')
+    .select('producto_relacionado_id')
+    .eq('producto_id', producto.id)
+
+  let relacionados: ProductoRelacionado[] = []
+
+  if (idsRelacionados && idsRelacionados.length > 0) {
+    const ids = idsRelacionados.map((r: any) => r.producto_relacionado_id)
+    const { data: prodRelacionados } = await supabase
+      .from('productos')
+      .select('id, nombre, slug, precio, precio_descuento, stock, tipo_producto, imagenes_producto(url, orden)')
+      .in('id', ids)
+      .eq('esta_activo', true)
+
+    relacionados = (prodRelacionados ?? []).map((r: any) => {
       const imgs = [...(r.imagenes_producto ?? [])].sort((a: any, b: any) => a.orden - b.orden)
       return {
         id: r.id,
@@ -116,6 +122,7 @@ export default async function PáginaProducto({ params }: Props) {
         imagen_url: imgs[0]?.url ?? null,
       }
     })
+  }
 
   return (
     <DetalleProductoCliente
