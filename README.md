@@ -17,10 +17,36 @@ En **SQL Editor** ejecutar en este orden:
 
 ## 3. Usuarios administradores
 
-En **Authentication → Users → Add user** crear:
+### Superadmin
 
-- **Superadmin**: email + contraseña del cliente → metadatos: `{ "rol": "superadmin", "nombre": "Nombre" }`
-- **Admin** (opcional): email + contraseña → metadatos: `{ "rol": "admin", "nombre": "Nombre" }`
+1. En el panel de Supabase ir a **Authentication → Users**
+2. Click en **Add user → Create new user**
+3. Completar:
+   - **Email**: correo del cliente (será su usuario para entrar al admin)
+   - **Password**: contraseña segura
+   - Marcar **Auto Confirm User** ✅
+4. Click en **Create User**
+5. Una vez creado, click en el usuario → sección **User Metadata** → click en el ícono editar
+6. Reemplazar el contenido con:
+```json
+{
+  "rol": "superadmin",
+  "nombre": "Nombre del cliente"
+}
+```
+7. Guardar
+
+### Admin (opcional)
+
+Repetir los mismos pasos con los metadatos:
+```json
+{
+  "rol": "admin",
+  "nombre": "Nombre del administrador"
+}
+```
+
+> El trigger `tr_crear_perfil_al_registrar` crea automáticamente la fila en la tabla `perfiles` al guardar el usuario. Si algo falla, verificar en **Table Editor → perfiles** que exista la fila con el rol correcto.
 
 ## 4. Datos iniciales del cliente
 
