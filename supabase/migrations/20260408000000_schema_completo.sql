@@ -79,8 +79,6 @@ create table configuracion_tienda (
   esta_activa         boolean not null default true,
   mensaje_suspension  text not null default 'Esta tienda está temporalmente suspendida. Contáctanos para más información.',
   info_pago           text,
-  color_primario      text default '#ef4444',
-  tema_id             text default 'claro' check (tema_id in ('claro', 'oscuro', 'midnight', 'calido', 'oceano')),
   creado_en           timestamptz default now(),
   actualizado_en      timestamptz default now()
 );

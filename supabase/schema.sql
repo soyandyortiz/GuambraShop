@@ -104,6 +104,7 @@ create table configuracion_tienda (
   politicas_negocio           text,
   meta_descripcion            text,
   color_primario              text default '#ef4444',
+  tema_id                     text default 'claro' check (tema_id in ('claro', 'oscuro', 'midnight', 'calido', 'oceano')),
   -- País (determina localización de regiones/ciudades)
   pais                        text default 'EC' check (pais in ('EC', 'PE', 'CO')),
   -- Estado de la tienda
