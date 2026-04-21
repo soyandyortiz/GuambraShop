@@ -64,10 +64,6 @@ export function CarruselCategorias({ categorias }: Props) {
         ref={trackRef}
         onScroll={actualizarFlechas}
         className="flex gap-3 sm:gap-5 overflow-x-auto scrollbar-none py-2"
-        style={{
-          maskImage: 'linear-gradient(to right, transparent, black 6%, black 94%, transparent)',
-          WebkitMaskImage: 'linear-gradient(to right, transparent, black 6%, black 94%, transparent)',
-        }}
       >
         {categorias.map((cat) => (
           <Link
