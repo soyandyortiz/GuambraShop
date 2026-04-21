@@ -68,9 +68,15 @@ WHERE id = (SELECT id FROM auth.users WHERE email = 'andyortiz.ec@gmail.com');
 
 > Si `perfiles` está vacía, el trigger no se ejecutó — probablemente el usuario fue creado antes de correr el `schema.sql`. Solución: eliminar el usuario desde Authentication → Users y volver a crearlo después de haber ejecutado el schema.
 
-## 4. Datos iniciales del cliente
+## 4. Datos iniciales del cliente (opcional)
 
-Editar `supabase/produccion/seed_nuevo_cliente.sql` con los datos del cliente (nombre de tienda, WhatsApp, moneda, etc.) y ejecutarlo en **SQL Editor**.
+El `01_datos_iniciales.sql` ya crea una fila base en `configuracion_tienda` con datos genéricos, por lo que la tienda funciona sin este paso.
+
+Hay dos opciones:
+
+**Opción A — vía SQL (antes del deploy):** editar `supabase/produccion/seed_nuevo_cliente.sql` con los datos reales del cliente y ejecutarlo en **SQL Editor**.
+
+**Opción B — vía panel admin (después del deploy):** ingresar a `/admin/dashboard/perfil` y completar los datos desde el formulario visual. Es la opción más cómoda.
 
 ## 5. Deploy en Vercel
 
