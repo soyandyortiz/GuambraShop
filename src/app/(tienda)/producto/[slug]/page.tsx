@@ -63,7 +63,13 @@ export default async function PáginaProducto({ params }: Props) {
         variantes_producto(id, nombre, descripcion, precio_variante, imagen_url, stock, esta_activa, orden, tipo_precio),
         tallas_producto(id, talla, disponible, stock, orden),
         resenas_producto(id, nombre_cliente, calificacion, comentario, creado_en, es_visible),
-        categoria:categorias(id, nombre, slug)
+        categoria:categorias(id, nombre, slug),
+        productos_relacionados(
+          relacionado:productos!productos_relacionados_producto_relacionado_id_fkey(
+            id, nombre, slug, precio, precio_descuento, stock, tipo_producto,
+            imagenes_producto(url, orden)
+          )
+        )
       `)
       .eq('slug', slug)
       .eq('esta_activo', true)
@@ -85,6 +91,31 @@ export default async function PáginaProducto({ params }: Props) {
   const resenas = [...(producto.resenas_producto ?? [])].filter(r => r.es_visible).sort((a, b) =>
     new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime()
   )
+
+  type ProductoRelacionado = {
+    id: string; nombre: string; slug: string
+    precio: number; precio_descuento: number | null
+    stock: number | null; tipo_producto: string
+    imagen_url: string | null
+  }
+
+  const relacionados: ProductoRelacionado[] = (producto.productos_relacionados ?? [])
+    .map((r: any) => r.relacionado)
+    .filter(Boolean)
+    .filter((r: any) => r.esta_activo !== false)
+    .map((r: any) => {
+      const imgs = [...(r.imagenes_producto ?? [])].sort((a: any, b: any) => a.orden - b.orden)
+      return {
+        id: r.id,
+        nombre: r.nombre,
+        slug: r.slug,
+        precio: r.precio,
+        precio_descuento: r.precio_descuento,
+        stock: r.stock ?? null,
+        tipo_producto: r.tipo_producto ?? 'producto',
+        imagen_url: imgs[0]?.url ?? null,
+      }
+    })
 
   return (
     <DetalleProductoCliente
@@ -120,6 +151,7 @@ export default async function PáginaProducto({ params }: Props) {
         seleccion_empleado: config?.seleccion_empleado ?? false,
       }}
       empleados={(empleados ?? []) as { id: string; nombre_completo: string }[]}
+      relacionados={relacionados}
     />
   )
 }

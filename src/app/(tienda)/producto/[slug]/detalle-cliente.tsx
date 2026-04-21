@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Star, ShoppingCart,
   Heart, Share2, Package, Tag,
-  Calendar, Clock, PlayCircle, X, Check, User
+  Calendar, Clock, PlayCircle, X, Check, User, ArrowRight
 } from 'lucide-react'
 import Link from 'next/link'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
@@ -35,6 +35,13 @@ interface Variante {
 interface Talla { id: string; talla: string; disponible: boolean; stock?: number | null; orden: number }
 interface Resena { id: string; nombre_cliente: string; calificacion: number; comentario: string | null; creado_en: string }
 
+interface ProductoRelacionado {
+  id: string; nombre: string; slug: string
+  precio: number; precio_descuento: number | null
+  stock: number | null; tipo_producto: string
+  imagen_url: string | null
+}
+
 interface Props {
   producto: Producto
   imagenes: Imagen[]
@@ -54,9 +61,10 @@ interface Props {
     seleccion_empleado?: boolean
   }
   empleados?: { id: string; nombre_completo: string }[]
+  relacionados?: ProductoRelacionado[]
 }
 
-export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, resenas, whatsapp, simboloMoneda = '$', pais = 'EC', configCitas, empleados = [] }: Props) {
+export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, resenas, whatsapp, simboloMoneda = '$', pais = 'EC', configCitas, empleados = [], relacionados = [] }: Props) {
   const router = useRouter()
   const { agregar } = usarCarrito()
   const { esFavorito, toggleFavorito } = usarFavoritos()
@@ -833,6 +841,96 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
         </div>
       </div>
     </div>
+
+    {/* ═══════════════════════════════════════════════════════ */}
+    {/* PRODUCTOS RELACIONADOS                                  */}
+    {/* ═══════════════════════════════════════════════════════ */}
+    {relacionados.length > 0 && (
+      <section className="max-w-5xl mx-auto px-4 py-8 lg:px-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-[10px] font-semibold text-primary uppercase tracking-widest mb-0.5">También te puede interesar</p>
+            <h2 className="text-lg font-bold text-foreground">Productos relacionados</h2>
+          </div>
+          <ArrowRight className="w-5 h-5 text-foreground-muted" />
+        </div>
+
+        {/* Scroll horizontal en móvil, grid en desktop */}
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory lg:grid lg:grid-cols-4 lg:overflow-visible lg:pb-0">
+          {relacionados.map(r => {
+            const descuento = r.precio_descuento
+              ? Math.round(((r.precio - r.precio_descuento) / r.precio) * 100)
+              : 0
+            const agotado = r.stock !== null && r.stock === 0
+            const pocasUnidades = r.stock !== null && r.stock > 0 && r.stock <= 2
+
+            return (
+              <Link
+                key={r.id}
+                href={`/producto/${r.slug}`}
+                className="flex-shrink-0 w-40 lg:w-auto snap-start group"
+              >
+                <div className="bg-card border border-card-border rounded-2xl overflow-hidden hover:shadow-md hover:border-border-strong transition-all duration-300">
+
+                  {/* Imagen */}
+                  <div className="relative aspect-square bg-background-subtle">
+                    {r.imagen_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={r.imagen_url}
+                        alt={r.nombre}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Package className="w-8 h-8 text-foreground-muted/20" />
+                      </div>
+                    )}
+
+                    {/* Badges */}
+                    <div className="absolute top-2 left-2 flex flex-col gap-1">
+                      {agotado && (
+                        <span className="bg-gray-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
+                          Agotado
+                        </span>
+                      )}
+                      {pocasUnidades && (
+                        <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                          <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                          ¡Solo {r.stock}!
+                        </span>
+                      )}
+                      {descuento > 0 && !agotado && (
+                        <span className="bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
+                          -{descuento}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-2.5">
+                    <p className="text-xs font-semibold text-foreground leading-snug line-clamp-2 mb-1.5 group-hover:text-primary transition-colors">
+                      {r.nombre}
+                    </p>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-sm font-bold text-primary">
+                        {formatearPrecio(r.precio_descuento ?? r.precio, simboloMoneda)}
+                      </span>
+                      {r.precio_descuento && (
+                        <span className="text-[10px] text-foreground-muted line-through">
+                          {formatearPrecio(r.precio, simboloMoneda)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+      </section>
+    )}
 
     {/* Modal de selección de empleado */}
     {modalEmpleado && empleados.length > 0 && (
