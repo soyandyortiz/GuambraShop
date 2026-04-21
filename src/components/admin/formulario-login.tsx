@@ -107,7 +107,7 @@ export function FormularioLogin() {
 
             <Input
               etiqueta="Usuario"
-              placeholder="demo"
+              placeholder="correo@ejemplo.com"
               icono={<User className="w-4 h-4" />}
               autoComplete="email"
               autoCapitalize="none"
@@ -152,22 +152,24 @@ export function FormularioLogin() {
             </button>
           </form>
 
-          {/* Demo box */}
-          <button
-            type="button"
-            onClick={rellenarDemo}
-            className="w-full mt-6 rounded-2xl border-2 border-amber-400 bg-amber-400 px-4 py-3 text-left hover:bg-amber-500 hover:border-amber-500 transition-colors group"
-          >
-            <div className="flex items-center gap-2 mb-1.5">
-              <FlaskConical className="w-3.5 h-3.5 text-amber-900 flex-shrink-0" />
-              <p className="text-xs font-bold text-amber-900 uppercase tracking-wide">Modo Demo</p>
-              <span className="ml-auto text-[10px] font-semibold text-amber-800 group-hover:underline">Clic para rellenar</span>
-            </div>
-            <div className="flex gap-4 text-xs text-amber-950 font-medium">
-              <span>Usuario: <span className="font-bold">{DEMO_USUARIO}</span></span>
-              <span>Contraseña: <span className="font-bold">{DEMO_CONTRASENA}</span></span>
-            </div>
-          </button>
+          {/* Demo box — solo visible si NEXT_PUBLIC_MOSTRAR_DEMO=true */}
+          {process.env.NEXT_PUBLIC_MOSTRAR_DEMO === 'true' && (
+            <button
+              type="button"
+              onClick={rellenarDemo}
+              className="w-full mt-6 rounded-2xl border-2 border-amber-400 bg-amber-400 px-4 py-3 text-left hover:bg-amber-500 hover:border-amber-500 transition-colors group"
+            >
+              <div className="flex items-center gap-2 mb-1.5">
+                <FlaskConical className="w-3.5 h-3.5 text-amber-900 flex-shrink-0" />
+                <p className="text-xs font-bold text-amber-900 uppercase tracking-wide">Modo Demo</p>
+                <span className="ml-auto text-[10px] font-semibold text-amber-800 group-hover:underline">Clic para rellenar</span>
+              </div>
+              <div className="flex gap-4 text-xs text-amber-950 font-medium">
+                <span>Usuario: <span className="font-bold">{DEMO_USUARIO}</span></span>
+                <span>Contraseña: <span className="font-bold">{DEMO_CONTRASENA}</span></span>
+              </div>
+            </button>
+          )}
 
           {/* Footer */}
           <p className="text-xs text-foreground-muted text-center mt-8">
