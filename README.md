@@ -34,21 +34,21 @@ La interfaz de Supabase ya no permite editar los metadatos visualmente. Hay que 
 
 En el menú lateral, click en **SQL Editor** y ejecutar:
 
-**Para el superadmin:**
+**Superadmin (siempre GuambraWeb):**
 ```sql
 UPDATE auth.users
-SET raw_user_meta_data = '{"rol": "superadmin", "nombre": "Nombre del cliente"}'
+SET raw_user_meta_data = '{"rol": "superadmin", "nombre": "GuambraWeb"}'
+WHERE email = 'andyortiz.ec@gmail.com';
+```
+
+**Admin (cuenta del cliente):**
+```sql
+UPDATE auth.users
+SET raw_user_meta_data = '{"rol": "admin", "nombre": "Nombre del cliente"}'
 WHERE email = 'correo@delcliente.com';
 ```
 
-**Para el admin (opcional):**
-```sql
-UPDATE auth.users
-SET raw_user_meta_data = '{"rol": "admin", "nombre": "Nombre del administrador"}'
-WHERE email = 'correo@admin.com';
-```
-
-> Reemplazar el email y el nombre con los valores reales antes de ejecutar.
+> Reemplazar el email y nombre del admin con los datos reales del cliente.
 
 ### Verificar que funcionó
 
