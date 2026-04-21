@@ -24,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const supabase = await crearClienteServidor()
   const { data: config } = await supabase
     .from('configuracion_tienda')
-    .select('nombre_tienda, meta_descripcion, favicon_url, logo_url, foto_perfil_url')
+    .select('nombre_tienda, meta_descripcion')
     .single()
 
   const nombre      = config?.nombre_tienda ?? 'Tienda'
@@ -34,12 +34,12 @@ export async function generateMetadata(): Promise<Metadata> {
   // No se incluyen imágenes en OG del root layout para evitar que Next.js
   // inyecte <link rel="preload"> en TODAS las páginas. Cada página define
   // sus propias imágenes OG (el producto usa la imagen del producto, etc.).
+  // El favicon se inyecta directamente en el <head> del RootLayout (no aquí)
+  // para evitar que Next.js genere <link rel="preload"> al usar URLs externas.
   return {
     title: nombre,
     description: descripcion,
-    icons: config?.favicon_url
-      ? { icon: config.favicon_url, shortcut: config.favicon_url }
-      : { icon: '/favicon-blank.png' },
+    icons: { icon: '/favicon-blank.png' },
     openGraph: {
       title: nombre,
       description: descripcion,
@@ -61,11 +61,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const supabase = await crearClienteServidor()
   const { data: config } = await supabase
     .from('configuracion_tienda')
-    .select('color_primario, tema_id')
+    .select('color_primario, tema_id, favicon_url')
     .single()
 
   const paleta = obtenerPaleta(config?.color_primario)
   const tema   = obtenerTema(config?.tema_id)
+  const faviconUrl = config?.favicon_url ?? '/favicon-blank.png'
 
   return (
     <html lang="es" suppressHydrationWarning data-scroll-behavior="smooth"
@@ -80,7 +81,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         '--input-focus': paleta.primary,
         '--danger': paleta.primary === '#ef4444' ? '#dc2626' : '#ef4444',
       } as React.CSSProperties}>
-      <head />
+      {/* Favicon inyectado directamente para evitar <link rel="preload"> de Next.js con URLs externas */}
+      <head>
+        <link rel="icon" href={faviconUrl} />
+        <link rel="shortcut icon" href={faviconUrl} />
+      </head>
       <body className="min-h-screen bg-background text-foreground antialiased" suppressHydrationWarning>
         <CarritoProvider>
           <FavoritosProvider>
