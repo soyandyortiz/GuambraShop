@@ -24,14 +24,16 @@ export async function generateMetadata(): Promise<Metadata> {
   const supabase = await crearClienteServidor()
   const { data: config } = await supabase
     .from('configuracion_tienda')
-    .select('nombre_tienda, meta_descripcion, favicon_url, logo_url, foto_portada_url, foto_perfil_url')
+    .select('nombre_tienda, meta_descripcion, favicon_url, logo_url, foto_perfil_url')
     .single()
 
   const nombre      = config?.nombre_tienda ?? 'Tienda'
   const descripcion = config?.meta_descripcion ?? 'Tu tienda online profesional'
   const siteUrl     = process.env.NEXT_PUBLIC_SITE_URL ?? ''
-  const ogImage     = config?.foto_perfil_url ?? config?.logo_url ?? null
 
+  // No se incluyen imágenes en OG del root layout para evitar que Next.js
+  // inyecte <link rel="preload"> en TODAS las páginas. Cada página define
+  // sus propias imágenes OG (el producto usa la imagen del producto, etc.).
   return {
     title: nombre,
     description: descripcion,
@@ -45,15 +47,11 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: nombre,
       type: 'website',
       locale: 'es_EC',
-      ...(ogImage && {
-        images: [{ url: ogImage, width: 1200, height: 630, alt: nombre }],
-      }),
     },
     twitter: {
       card: 'summary_large_image',
       title: nombre,
       description: descripcion,
-      ...(ogImage && { images: [ogImage] }),
     },
     metadataBase: siteUrl ? new URL(siteUrl) : undefined,
   }

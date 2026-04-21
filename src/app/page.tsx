@@ -5,6 +5,32 @@ import { ModalPromocionPub } from '@/components/tienda/modal-promocion-pub'
 import { CarruselCategorias } from '@/components/tienda/carrusel-categorias'
 import { TiendaPrincipal } from '@/components/tienda/tienda-principal'
 import { FooterTienda } from '@/components/tienda/footer-tienda'
+import type { Metadata } from 'next'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const supabase = await crearClienteServidor()
+  const { data: config } = await supabase
+    .from('configuracion_tienda')
+    .select('nombre_tienda, meta_descripcion, logo_url, foto_perfil_url')
+    .single()
+
+  const nombre      = config?.nombre_tienda ?? 'Tienda'
+  const descripcion = config?.meta_descripcion ?? 'Tu tienda online profesional'
+  const ogImage     = config?.foto_perfil_url ?? config?.logo_url ?? null
+
+  return {
+    openGraph: {
+      title: nombre,
+      description: descripcion,
+      ...(ogImage && {
+        images: [{ url: ogImage, width: 1200, height: 630, alt: nombre }],
+      }),
+    },
+    twitter: {
+      ...(ogImage && { images: [ogImage] }),
+    },
+  }
+}
 
 export default async function PáginaInicio() {
   const supabase = await crearClienteServidor()
