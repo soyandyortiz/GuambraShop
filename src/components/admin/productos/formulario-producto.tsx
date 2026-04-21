@@ -588,11 +588,14 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
                   </button>
                 </div>
 
+                {/* Campo oculto para que RHF registre tipo_precio y lo incluya en handleSubmit */}
+                <input type="hidden" {...register(`variantes.${i}.tipo_precio`)} />
+
                 {/* Tipo de precio */}
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setValue(`variantes.${i}.tipo_precio`, 'reemplaza')}
+                    onClick={() => setValue(`variantes.${i}.tipo_precio`, 'reemplaza', { shouldDirty: true })}
                     className={cn(
                       'flex-1 h-8 rounded-lg text-xs font-semibold border-2 transition-all',
                       tipoPrecioActual === 'reemplaza'
@@ -604,7 +607,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
                   </button>
                   <button
                     type="button"
-                    onClick={() => setValue(`variantes.${i}.tipo_precio`, 'suma')}
+                    onClick={() => setValue(`variantes.${i}.tipo_precio`, 'suma', { shouldDirty: true })}
                     className={cn(
                       'flex-1 h-8 rounded-lg text-xs font-semibold border-2 transition-all',
                       tipoPrecioActual === 'suma'

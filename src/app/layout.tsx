@@ -11,6 +11,7 @@ import './globals.css'
 const geist = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
+  preload: false,
 })
 
 export const viewport: Viewport = {
