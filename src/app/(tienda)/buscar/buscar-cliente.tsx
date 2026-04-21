@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, Package, Star, Clock, MessageSquare, TrendingUp, ArrowUpDown } from 'lucide-react'
+import { Search, X, Package, Star, Clock, MessageSquare, TrendingUp, ArrowUpDown, ShoppingBag, Wrench, PartyPopper } from 'lucide-react'
 import { TarjetaProducto } from '@/components/tienda/tarjeta-producto'
 import { formatearPrecio } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -11,7 +11,7 @@ interface Producto {
   id: string; nombre: string; slug: string; precio: number
   precio_descuento: number | null; imagen_url: string | null
   etiquetas: string[]; variante_count: number
-  tipo_producto?: 'producto' | 'servicio'
+  tipo_producto?: 'producto' | 'servicio' | 'evento'
   stock?: number | null
   likes_count?: number; calificacion_promedio?: number; total_resenas?: number
   variantes?: any[]
@@ -28,6 +28,7 @@ interface Props {
   minInic: number
   maxInic: number
   ordenInic: string
+  tipoInic: string
 }
 
 // ─── Dual-thumb range slider ───────────────────────────────────────────────
@@ -151,9 +152,16 @@ const ORDENES = [
   { id: 'precio_desc', label: 'Precio ↓',     icon: ArrowUpDown },
 ]
 
+const TIPOS = [
+  { id: '',         label: 'Todos',      icon: Package },
+  { id: 'producto', label: 'Productos',  icon: ShoppingBag },
+  { id: 'servicio', label: 'Servicios',  icon: Wrench },
+  { id: 'evento',   label: 'Eventos',    icon: PartyPopper },
+]
+
 export function BuscarCliente({
   productosInic, categorias, qInic, categoriaInic,
-  precioMinGlobal, precioMaxGlobal, minInic, maxInic, ordenInic,
+  precioMinGlobal, precioMaxGlobal, minInic, maxInic, ordenInic, tipoInic,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -162,10 +170,11 @@ export function BuscarCliente({
   const [min, setMin] = useState(minInic)
   const [max, setMax] = useState(maxInic)
   const [orden, setOrden] = useState(ordenInic)
+  const [tipo, setTipo] = useState(tipoInic)
   const [mostrarPrecio, setMostrarPrecio] = useState(false)
 
   const hayFiltroPrecio = min > precioMinGlobal || max < precioMaxGlobal
-  const hayFiltros = !!categoriaId || hayFiltroPrecio || orden !== 'recientes'
+  const hayFiltros = !!categoriaId || hayFiltroPrecio || orden !== 'recientes' || !!tipo
 
   useEffect(() => {
     if (q === qInic) return
@@ -173,24 +182,29 @@ export function BuscarCliente({
     return () => clearTimeout(t)
   }, [q])
 
-  function aplicar(params?: { q?: string; cat?: string; min?: number; max?: number; orden?: string }) {
+  function aplicar(params?: { q?: string; cat?: string; min?: number; max?: number; orden?: string; tipo?: string }) {
     const nq = params?.q ?? q
     const ncat = params?.cat !== undefined ? params.cat : categoriaId
     const nmin = params?.min ?? min
     const nmax = params?.max ?? max
     const nord = params?.orden ?? orden
+    const ntipo = params?.tipo !== undefined ? params.tipo : tipo
     const url = new URLSearchParams()
     if (nq) url.set('q', nq)
     if (ncat) url.set('categoria', ncat)
-    if (nmin > precioMinGlobal) url.set('min', String(nmin))
-    if (nmax < precioMaxGlobal) url.set('max', String(nmax))
+    if (ntipo) url.set('tipo', ntipo)
+    // Precio solo aplica si no se filtró por eventos
+    if (ntipo !== 'evento') {
+      if (nmin > precioMinGlobal) url.set('min', String(nmin))
+      if (nmax < precioMaxGlobal) url.set('max', String(nmax))
+    }
     if (nord !== 'recientes') url.set('orden', nord)
     startTransition(() => router.push(`/buscar?${url.toString()}`, { scroll: false }))
   }
 
   function limpiarFiltros() {
-    setCategoriaId(''); setMin(precioMinGlobal); setMax(precioMaxGlobal); setOrden('recientes')
-    aplicar({ q: '', cat: '', min: precioMinGlobal, max: precioMaxGlobal, orden: 'recientes' })
+    setCategoriaId(''); setMin(precioMinGlobal); setMax(precioMaxGlobal); setOrden('recientes'); setTipo('')
+    aplicar({ q: '', cat: '', min: precioMinGlobal, max: precioMaxGlobal, orden: 'recientes', tipo: '' })
   }
 
   function seleccionarOrden(o: string) {
@@ -199,6 +213,15 @@ export function BuscarCliente({
 
   function seleccionarCategoria(id: string) {
     setCategoriaId(id); aplicar({ cat: id })
+  }
+
+  function seleccionarTipo(t: string) {
+    setTipo(t)
+    // Al cambiar a evento, limpiar filtros de precio
+    if (t === 'evento') {
+      setMin(precioMinGlobal); setMax(precioMaxGlobal); setMostrarPrecio(false)
+    }
+    aplicar({ tipo: t })
   }
 
   return (
@@ -252,21 +275,43 @@ export function BuscarCliente({
           {/* Separador */}
           <div className="w-px h-8 bg-card-border flex-shrink-0 self-center" />
 
-          {/* Chip precio */}
-          <button
-            onClick={() => setMostrarPrecio(v => !v)}
-            className={cn(
-              'flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold whitespace-nowrap snap-start flex-shrink-0 transition-all',
-              hayFiltroPrecio || mostrarPrecio
-                ? 'bg-primary text-white shadow-sm shadow-primary/30'
-                : 'bg-card border border-card-border text-foreground-muted hover:text-foreground'
-            )}
-          >
-            {hayFiltroPrecio
-              ? `${formatearPrecio(min)} – ${formatearPrecio(max)}`
-              : '$ Precio'
-            }
-          </button>
+          {/* Chips tipo de producto */}
+          {TIPOS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => seleccionarTipo(id)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold whitespace-nowrap snap-start flex-shrink-0 transition-all',
+                tipo === id
+                  ? 'bg-primary text-white shadow-sm shadow-primary/30'
+                  : 'bg-card border border-card-border text-foreground-muted hover:text-foreground'
+              )}
+            >
+              <Icon className="w-3 h-3" />
+              {label}
+            </button>
+          ))}
+
+          {/* Separador */}
+          <div className="w-px h-8 bg-card-border flex-shrink-0 self-center" />
+
+          {/* Chip precio — oculto cuando se filtra por eventos */}
+          {tipo !== 'evento' && (
+            <button
+              onClick={() => setMostrarPrecio(v => !v)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold whitespace-nowrap snap-start flex-shrink-0 transition-all',
+                hayFiltroPrecio || mostrarPrecio
+                  ? 'bg-primary text-white shadow-sm shadow-primary/30'
+                  : 'bg-card border border-card-border text-foreground-muted hover:text-foreground'
+              )}
+            >
+              {hayFiltroPrecio
+                ? `${formatearPrecio(min)} – ${formatearPrecio(max)}`
+                : '$ Precio'
+              }
+            </button>
+          )}
 
           {/* Separador */}
           <div className="w-px h-8 bg-card-border flex-shrink-0 self-center" />

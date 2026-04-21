@@ -8,11 +8,12 @@ interface Props {
     min?: string
     max?: string
     orden?: string
+    tipo?: string
   }>
 }
 
 export default async function PáginaBuscar({ searchParams }: Props) {
-  const { q, categoria, min, max, orden = 'recientes' } = await searchParams
+  const { q, categoria, min, max, orden = 'recientes', tipo } = await searchParams
   const supabase = await crearClienteServidor()
 
   // Query base con imágenes, variantes, likes y reseñas
@@ -29,8 +30,10 @@ export default async function PáginaBuscar({ searchParams }: Props) {
 
   if (q) query = query.textSearch('nombre', q, { type: 'websearch', config: 'spanish' })
   if (categoria) query = query.eq('categoria_id', categoria)
-  if (min) query = query.gte('precio', parseFloat(min))
-  if (max) query = query.lte('precio', parseFloat(max))
+  if (tipo && ['producto', 'servicio', 'evento'].includes(tipo)) query = query.eq('tipo_producto', tipo)
+  // El filtro de precio solo aplica a productos y servicios (eventos tienen precio referencial)
+  if (min && tipo !== 'evento') query = query.gte('precio', parseFloat(min))
+  if (max && tipo !== 'evento') query = query.lte('precio', parseFloat(max))
 
   // Ordenamiento base
   query = query.order('creado_en', { ascending: false }).limit(120)
@@ -57,7 +60,7 @@ export default async function PáginaBuscar({ searchParams }: Props) {
     precio: number
     precio_descuento: number | null
     etiquetas: string[]
-    tipo_producto: 'producto' | 'servicio'
+    tipo_producto: 'producto' | 'servicio' | 'evento'
     stock: number | null
     creado_en: string
     imagenes_producto: { url: string; orden: number }[]
@@ -114,6 +117,7 @@ export default async function PáginaBuscar({ searchParams }: Props) {
       minInic={min ? parseFloat(min) : precioMin}
       maxInic={max ? parseFloat(max) : precioMax}
       ordenInic={orden}
+      tipoInic={tipo ?? ''}
     />
   )
 }
