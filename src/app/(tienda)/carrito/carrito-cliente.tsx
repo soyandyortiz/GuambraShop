@@ -55,7 +55,8 @@ const INPUT_BASE =
 export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = 'EC', metodosPago }: Props) {
   const { items, quitar, actualizarCantidad, limpiar, subtotal, hidratado } = usarCarrito()
 
-  const soloServicios = items.every(i => i.tipo_producto === 'servicio')
+  const soloServicios  = items.length > 0 && items.every(i => i.tipo_producto === 'servicio')
+  const soloAlquileres = items.length > 0 && items.every(i => i.tipo_producto === 'alquiler')
 
   const [confirmarVaciar, setConfirmarVaciar] = useState(false)
   const [codigoCupon, setCodigoCupon] = useState('')
@@ -273,6 +274,37 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
       }
     }
 
+    // Verificar disponibilidad de alquileres antes de crear el pedido
+    for (const item of items.filter(i => i.tipo_producto === 'alquiler' && i.alquiler)) {
+      const al = item.alquiler!
+      const { data: prodData } = await supabase
+        .from('productos')
+        .select('stock')
+        .eq('id', item.producto_id)
+        .single()
+      const stockTotal = prodData?.stock ?? 0
+      const { data: alqData } = await supabase
+        .from('alquileres')
+        .select('cantidad')
+        .eq('producto_id', item.producto_id)
+        .lte('fecha_inicio', al.fecha_fin)
+        .gte('fecha_fin', al.fecha_inicio)
+        .in('estado', ['reservado', 'activo'])
+      const totalReservado = (alqData ?? []).reduce((s: number, r: { cantidad: number }) => s + r.cantidad, 0)
+      const disponible = Math.max(0, stockTotal - totalReservado)
+      if (disponible < item.cantidad) {
+        const fmtFecha = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('es-EC', { day: 'numeric', month: 'long' })
+        toast.error(
+          disponible === 0
+            ? `"${item.nombre}" ya no tiene disponibilidad para el ${fmtFecha(al.fecha_inicio)} al ${fmtFecha(al.fecha_fin)}. Elige otras fechas.`
+            : `"${item.nombre}" solo tiene ${disponible} unidad${disponible !== 1 ? 'es' : ''} disponible${disponible !== 1 ? 's' : ''} para esas fechas.`,
+          { duration: 6000 }
+        )
+        setCreandoPedido(false)
+        return
+      }
+    }
+
     const whatsappCompleto = codigoPais + telefono.replace(/\D/g, '')
 
     const { data, error } = await supabase
@@ -298,6 +330,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
           cantidad: i.cantidad,
           subtotal: +(i.precio * i.cantidad).toFixed(2),
           cita: i.cita,
+          alquiler: i.alquiler,
         })),
         simbolo_moneda: simboloMoneda,
         subtotal: +subtotal.toFixed(2),
@@ -328,6 +361,25 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
         estado: 'reservada'
       }))
       await supabase.from('citas').insert(citasPayload)
+    }
+
+    // Registrar alquileres
+    const alquileresItems = items.filter(i => i.tipo_producto === 'alquiler' && i.alquiler)
+    if (alquileresItems.length > 0) {
+      const alqPayload = alquileresItems.map(i => {
+        const al = i.alquiler!
+        return {
+          pedido_id: data.id,
+          producto_id: i.producto_id,
+          fecha_inicio: al.fecha_inicio,
+          fecha_fin: al.fecha_fin,
+          dias: al.dias,
+          cantidad: i.cantidad,
+          hora_recogida: al.hora_recogida ?? null,
+          estado: 'reservado',
+        }
+      })
+      await supabase.from('alquileres').insert(alqPayload)
     }
 
     // Incrementar uso del cupón
@@ -362,6 +414,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
             hora_inicio: i.cita.hora_inicio,
             empleado_nombre: i.cita.empleado_nombre,
           } : null,
+          alquiler: i.alquiler ?? null,
         })),
         subtotal: +subtotal.toFixed(2),
         descuento_cupon: +descuentoCupon.toFixed(2),
@@ -432,6 +485,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
           slug: i.slug,
           tipo_producto: i.tipo_producto,
           cita: i.cita,
+          alquiler: i.alquiler ?? undefined,
         })),
       cupon: cupon ? { codigo: cupon.codigo, descuento: descuentoCupon } : undefined,
       envio: tipoEnvio === 'tienda'
@@ -580,6 +634,23 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                         <p className="text-[10px] text-foreground-muted">Con: {item.cita.empleado_nombre}</p>
                       )}
                     </div>
+                  ) : item.tipo_producto === 'alquiler' ? (
+                    <div className="flex flex-col gap-0.5">
+                      {item.alquiler && (
+                        <>
+                          <div className="flex items-center gap-1 text-[10px] text-primary font-semibold">
+                            <Calendar className="w-3 h-3 flex-shrink-0" />
+                            {new Date(item.alquiler.fecha_inicio + 'T00:00:00').toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })}
+                            {' → '}
+                            {new Date(item.alquiler.fecha_fin + 'T00:00:00').toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })}
+                          </div>
+                          <p className="text-[10px] text-foreground-muted">
+                            {item.alquiler.dias} día{item.alquiler.dias !== 1 ? 's' : ''}
+                            {item.alquiler.hora_recogida ? ` · Retiro: ${item.alquiler.hora_recogida}` : ''}
+                          </p>
+                        </>
+                      )}
+                    </div>
                   ) : (
                     <div className="flex items-center bg-background-subtle rounded-xl p-1 gap-2">
                       <button onClick={() => actualizarCantidad(item.producto_id, item.cantidad - 1, item.variante_id, item.talla)}
@@ -597,7 +668,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                     <p className="text-xs text-foreground-muted font-medium">
                       = {formatearPrecio(item.precio * item.cantidad, simboloMoneda)}
                     </p>
-                    <button onClick={() => quitar(item.producto_id, item.variante_id, item.talla, item.cita)}
+                    <button onClick={() => quitar(item.producto_id, item.variante_id, item.talla, item.cita, item.alquiler)}
                       className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-all">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -685,7 +756,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
             }
           }}
             className="w-full h-13 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm shadow-primary/30 py-4">
-            {soloServicios ? 'Completar mis datos' : 'Elegir entrega'} <ChevronRight className="w-4 h-4" />
+            {soloServicios ? 'Completar mis datos' : soloAlquileres ? 'Elegir entrega del alquiler' : 'Elegir entrega'} <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -709,7 +780,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
             </div>
             <div className="flex-1">
               <p className="text-sm font-bold text-foreground">
-                {soloServicios ? 'Atención en local físico' : 'Entrega en local físico'}
+                {soloServicios ? 'Atención en local físico' : soloAlquileres ? 'Retiro y devolución en local' : 'Entrega en local físico'}
               </p>
               <p className="text-xs text-foreground-muted">Sin costo adicional</p>
             </div>
@@ -910,10 +981,10 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                 <span className="font-medium text-success">-{formatearPrecio(descuentoCupon, simboloMoneda)}</span>
               </div>
             )}
-            {!soloServicios && (
+            {!soloServicios && !soloAlquileres && (
               <div className="flex justify-between text-sm">
                 <span className="text-foreground-muted">
-                  {tipoEnvio === 'tienda' ? 'Entrega en local' : (
+                  {tipoEnvio === 'tienda' ? 'Retiro en local' : (
                     consultandoEnvio ? 'Calculando envío…' :
                     ciudad ? (costoEnvio !== null ? `Envío a ${ciudad}` : `Envío a ${ciudad}`) : 'Envío a domicilio'
                   )}

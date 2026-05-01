@@ -131,7 +131,7 @@ export interface ResenaProducto {
   creado_en: string
 }
 
-export type TipoProducto = 'producto' | 'servicio' | 'evento'
+export type TipoProducto = 'producto' | 'servicio' | 'evento' | 'alquiler'
 
 export type EstadoSolicitud = 'nueva' | 'en_conversacion' | 'cotizacion_enviada' | 'confirmada' | 'rechazada'
 
@@ -167,6 +167,20 @@ export interface Cita {
   actualizado_en: string
 }
 
+export interface Alquiler {
+  id: string
+  pedido_id: string | null
+  producto_id: string
+  fecha_inicio: string   // DATE → "YYYY-MM-DD"
+  fecha_fin: string      // DATE → "YYYY-MM-DD"
+  dias: number
+  cantidad: number
+  hora_recogida: string | null  // TIME → "HH:MM:SS"
+  estado: 'reservado' | 'activo' | 'devuelto' | 'cancelado'
+  creado_en: string
+  actualizado_en: string
+}
+
 export interface Producto {
   id: string
   nombre: string
@@ -182,6 +196,8 @@ export interface Producto {
   etiquetas: string[]
   url_video?: string | null
   paquetes_evento?: PaqueteEvento[]
+  precio_deposito?: number | null      // Solo alquiler: depósito de garantía
+  max_dias_alquiler?: number | null    // Solo alquiler: máximo de días
   creado_en: string
   actualizado_en: string
   // Relaciones (joins)
@@ -270,6 +286,12 @@ export interface ItemPedido {
     hora_fin: string
     empleado_id?: string | null
     empleado_nombre?: string
+  }
+  alquiler?: {
+    fecha_inicio: string
+    fecha_fin: string
+    dias: number
+    hora_recogida?: string
   }
 }
 

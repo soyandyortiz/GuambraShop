@@ -7,6 +7,7 @@ export interface ItemCarrito {
   slug: string
   tipo_producto?: string
   cita?: { fecha: string; hora_inicio: string; empleado_nombre?: string }
+  alquiler?: { fecha_inicio: string; fecha_fin: string; dias: number; hora_recogida?: string }
   extras?: { id: string; nombre: string; precio: number }[]
 }
 
@@ -37,6 +38,7 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
   const fmt = (n: number) => `${simboloMoneda}${n.toFixed(2)}`
 
   const soloServicios = items.every(i => i.tipo_producto === 'servicio')
+  const soloAlquileres = items.every(i => i.tipo_producto === 'alquiler')
 
   // Líneas de ítems — formato varía por tipo
   const lineasItems = items
@@ -65,6 +67,22 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
         )
       }
 
+      if (item.tipo_producto === 'alquiler' && item.alquiler) {
+        const al = item.alquiler
+        const fmtFecha = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('es-EC', {
+          weekday: 'short', day: 'numeric', month: 'long', year: 'numeric',
+        })
+        return (
+          `*${i + 1}. ${item.nombre}* _(alquiler)_` +
+          (extras.length ? `\n   _${extras.join(' | ')}_` : '') +
+          `\n   - Retiro:     *${fmtFecha(al.fecha_inicio)}*` +
+          `\n   - Devolución: *${fmtFecha(al.fecha_fin)}*` +
+          `\n   - Días: *${al.dias} día${al.dias !== 1 ? 's' : ''}*` +
+          (al.hora_recogida ? `\n   - Hora retiro: *${al.hora_recogida}*` : '') +
+          `\n   - Cant: ${item.cantidad}  |  Precio: *${fmt(subtotal)}*`
+        )
+      }
+
       return (
         `*${i + 1}. ${item.nombre}*` +
         (extras.length ? `\n   _${extras.join(' | ')}_` : '') +
@@ -80,10 +98,12 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
     ? `Cupon *${cupon.codigo}*: _-${fmt(cupon.descuento)}_\n`
     : ''
 
-  // Envío / atención — servicios solo muestran local
+  // Envío / atención — servicios y alquileres muestran local
   let lineaEnvio = ''
   if (soloServicios) {
     lineaEnvio = `Atencion: *Local fisico*\n`
+  } else if (soloAlquileres) {
+    lineaEnvio = `Entrega: *${envio.tipo === 'tienda' ? 'Retiro en local' : 'Envio a domicilio'}*\n`
   } else if (envio.tipo === 'tienda') {
     lineaEnvio = `Entrega: *Retiro en tienda* (sin costo de envio)\n`
   } else {
@@ -100,7 +120,7 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
   const total = subtotalBase - descuento
 
   // URLs de ítems — label diferenciado por tipo
-  const footerLabel = soloServicios ? `*Servicio(s):*` : `*Productos:*`
+  const footerLabel = soloServicios ? `*Servicio(s):*` : soloAlquileres ? `*Artículo(s) en alquiler:*` : `*Productos:*`
   const urlsItems = items
     .map((item) => `- ${siteUrl}/producto/${item.slug}`)
     .join('\n')
@@ -108,10 +128,14 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
   // Encabezado y sección diferenciados por tipo
   const tituloPedido = soloServicios
     ? `*Cita agendada - ${nombreTienda}*`
-    : `*Nuevo pedido - ${nombreTienda}*`
+    : soloAlquileres
+      ? `*Solicitud de alquiler - ${nombreTienda}*`
+      : `*Nuevo pedido - ${nombreTienda}*`
   const tituloDetalle = soloServicios
     ? `*DETALLE DE LA CITA:*`
-    : `*DETALLE DEL PEDIDO:*`
+    : soloAlquileres
+      ? `*DETALLE DEL ALQUILER:*`
+      : `*DETALLE DEL PEDIDO:*`
 
   const mensaje =
     `${tituloPedido}\n` +

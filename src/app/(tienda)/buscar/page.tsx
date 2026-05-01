@@ -30,10 +30,10 @@ export default async function PáginaBuscar({ searchParams }: Props) {
 
   if (q) query = query.textSearch('nombre', q, { type: 'websearch', config: 'spanish' })
   if (categoria) query = query.eq('categoria_id', categoria)
-  if (tipo && ['producto', 'servicio', 'evento'].includes(tipo)) query = query.eq('tipo_producto', tipo)
-  // El filtro de precio solo aplica a productos y servicios (eventos tienen precio referencial)
-  if (min && tipo !== 'evento') query = query.gte('precio', parseFloat(min))
-  if (max && tipo !== 'evento') query = query.lte('precio', parseFloat(max))
+  if (tipo && ['producto', 'servicio', 'evento', 'alquiler'].includes(tipo)) query = query.eq('tipo_producto', tipo)
+  // El filtro de precio solo aplica a productos y servicios (eventos/alquileres tienen precio referencial)
+  if (min && tipo !== 'evento' && tipo !== 'alquiler') query = query.gte('precio', parseFloat(min))
+  if (max && tipo !== 'evento' && tipo !== 'alquiler') query = query.lte('precio', parseFloat(max))
 
   // Ordenamiento base
   query = query.order('creado_en', { ascending: false }).limit(120)
@@ -60,7 +60,7 @@ export default async function PáginaBuscar({ searchParams }: Props) {
     precio: number
     precio_descuento: number | null
     etiquetas: string[]
-    tipo_producto: 'producto' | 'servicio' | 'evento'
+    tipo_producto: 'producto' | 'servicio' | 'evento' | 'alquiler'
     stock: number | null
     creado_en: string
     imagenes_producto: { url: string; orden: number }[]

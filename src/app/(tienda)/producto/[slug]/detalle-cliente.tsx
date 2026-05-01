@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Star, ShoppingCart,
   Heart, Share2, Package, Tag,
-  Calendar, Clock, PlayCircle, X, Check, User, ArrowRight
+  Calendar, Clock, PlayCircle, X, Check, User, ArrowRight,
+  KeyRound, AlertCircle, Minus, Plus, Info
 } from 'lucide-react'
 import Link from 'next/link'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
@@ -21,10 +22,12 @@ interface Producto {
   id: string; nombre: string; slug: string; descripcion: string | null
   precio: number; precio_descuento: number | null; etiquetas: string[]
   requiere_tallas: boolean; categoria: { id: string; nombre: string; slug: string } | null
-  tipo_producto: 'producto' | 'servicio' | 'evento'
+  tipo_producto: 'producto' | 'servicio' | 'evento' | 'alquiler'
   url_video?: string | null
   stock?: number | null
   paquetes_evento?: PaqueteEvento[]
+  precio_deposito?: number | null
+  max_dias_alquiler?: number | null
 }
 interface Imagen { id: string; url: string; orden: number }
 interface Variante {
@@ -91,6 +94,13 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   const [cargandoHoras, setCargandoHoras] = useState(false)
   const [modalEmpleado, setModalEmpleado] = useState(false)
   const [videoAbierto, setVideoAbierto] = useState(false)
+
+  // Estado del selector de alquiler
+  const [alquilerFechaInicio, setAlquilerFechaInicio] = useState('')
+  const [alquilerDias, setAlquilerDias] = useState(1)
+  const [alquilerHoraRecogida, setAlquilerHoraRecogida] = useState('')
+  const [alquilerStockDisponible, setAlquilerStockDisponible] = useState<number | null>(null)
+  const [cargandoDisponibilidadAlquiler, setCargandoDisponibilidadAlquiler] = useState(false)
 
   function urlEmbed(url: string): string | null {
     const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
@@ -176,6 +186,45 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
     cargarDisponibilidad()
   }, [citaFecha, citaEmpleadoId, configValida.capacidad, empleados.length, producto.tipo_producto])
 
+  function calcularFechaFin(fechaInicio: string, dias: number): string {
+    const d = new Date(fechaInicio + 'T00:00:00')
+    d.setDate(d.getDate() + dias - 1)
+    return d.toISOString().split('T')[0]
+  }
+
+  function formatearFechaCorta(fecha: string): string {
+    return new Date(fecha + 'T00:00:00').toLocaleDateString('es-EC', {
+      weekday: 'short', day: 'numeric', month: 'short',
+    })
+  }
+
+  // Verificar disponibilidad de alquiler cuando cambia fecha o días
+  useEffect(() => {
+    if (producto.tipo_producto !== 'alquiler' || !alquilerFechaInicio || alquilerDias < 1) {
+      setAlquilerStockDisponible(null)
+      return
+    }
+    const fechaFin = calcularFechaFin(alquilerFechaInicio, alquilerDias)
+
+    async function verificarDisponibilidadAlquiler() {
+      setCargandoDisponibilidadAlquiler(true)
+      const supabase = crearClienteSupabase()
+      const { data } = await supabase
+        .from('alquileres')
+        .select('cantidad')
+        .eq('producto_id', producto.id)
+        .lte('fecha_inicio', fechaFin)
+        .gte('fecha_fin', alquilerFechaInicio)
+        .in('estado', ['reservado', 'activo'])
+      const totalReservado = (data ?? []).reduce((s: number, r: { cantidad: number }) => s + r.cantidad, 0)
+      const stockTotal = producto.stock ?? 0
+      setAlquilerStockDisponible(Math.max(0, stockTotal - totalReservado))
+      setCargandoDisponibilidadAlquiler(false)
+    }
+    verificarDisponibilidadAlquiler()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alquilerFechaInicio, alquilerDias, producto.id, producto.tipo_producto, producto.stock])
+
   const slots: string[] = []
   if (configValida.hora_apertura && configValida.hora_cierre) {
     let actual = new Date(`1970-01-01T${configValida.hora_apertura}`)
@@ -200,6 +249,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
 
   const stockEfectivo: number | null = (() => {
     if (producto.tipo_producto === 'servicio' || producto.tipo_producto === 'evento') return null
+    if (producto.tipo_producto === 'alquiler') return alquilerStockDisponible
     if (varianteId) {
       const v = variantesReemplaza.find(v => v.id === varianteId)
       if (v && v.stock !== undefined) return v.stock ?? null
@@ -224,12 +274,17 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   }
 
   function buildItemCarrito() {
+    // Para alquiler: precio = precio_por_dia × dias (total por unidad)
+    const precioFinal = producto.tipo_producto === 'alquiler'
+      ? precioTotal * alquilerDias
+      : precioTotal
+
     return {
       producto_id: producto.id,
       nombre: producto.nombre,
       slug: producto.slug,
       imagen_url: imagenes[0]?.url ?? null,
-      precio: precioTotal,
+      precio: precioFinal,
       variante_id: varianteId ?? undefined,
       nombre_variante: variante?.nombre ?? undefined,
       tipo_producto: producto.tipo_producto,
@@ -250,6 +305,12 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
           ? (empleados.find(e => e.id === citaEmpleadoId)?.nombre_completo ?? undefined)
           : undefined,
       } : undefined,
+      alquiler: producto.tipo_producto === 'alquiler' ? {
+        fecha_inicio: alquilerFechaInicio,
+        fecha_fin: calcularFechaFin(alquilerFechaInicio, alquilerDias),
+        dias: alquilerDias,
+        hora_recogida: alquilerHoraRecogida || undefined,
+      } : undefined,
     }
   }
 
@@ -265,6 +326,20 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
     if (producto.tipo_producto === 'servicio' && empleados.length > 0) {
       setModalEmpleado(true)
       return
+    }
+    if (producto.tipo_producto === 'alquiler') {
+      if (!alquilerFechaInicio) {
+        toast.error('Selecciona la fecha de retiro')
+        return
+      }
+      if (alquilerDias < 1) {
+        toast.error('El número de días debe ser al menos 1')
+        return
+      }
+      if (alquilerStockDisponible !== null && alquilerStockDisponible < cantidad) {
+        toast.error(`Solo hay ${alquilerStockDisponible} unidad${alquilerStockDisponible !== 1 ? 'es' : ''} disponible${alquilerStockDisponible !== 1 ? 's' : ''} para esas fechas`)
+        return
+      }
     }
     agregar(buildItemCarrito())
     toast.success('Añadido al carrito', {
@@ -402,6 +477,25 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
                   <p className="text-sm text-foreground-muted mb-0.5">Precio referencial desde</p>
                   <p className="text-3xl font-bold text-purple-600">{formatearPrecio(precioBase, simboloMoneda)}</p>
                 </div>
+              ) : producto.tipo_producto === 'alquiler' ? (
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-3xl font-bold text-primary">{formatearPrecio(precioTotal, simboloMoneda)}</p>
+                    <span className="text-sm font-semibold text-foreground-muted bg-primary/10 text-primary px-2 py-0.5 rounded-lg">/ día</span>
+                  </div>
+                  {alquilerFechaInicio && alquilerDias >= 1 && (
+                    <p className="text-sm font-semibold text-foreground">
+                      Total {alquilerDias} día{alquilerDias !== 1 ? 's' : ''}: <span className="text-primary">{formatearPrecio(precioTotal * alquilerDias * cantidad, simboloMoneda)}</span>
+                      {cantidad > 1 && <span className="text-xs text-foreground-muted ml-1">({cantidad} uds.)</span>}
+                    </p>
+                  )}
+                  {producto.precio_deposito && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1">
+                      <Info className="w-3 h-3" />
+                      Depósito de garantía: {formatearPrecio(producto.precio_deposito, simboloMoneda)} (reembolsable)
+                    </p>
+                  )}
+                </div>
               ) : (
                 <>
                   <p className="text-3xl font-bold text-primary">{formatearPrecio(precioTotal, simboloMoneda)}</p>
@@ -418,7 +512,7 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
             </div>
 
             {/* Disponibilidad de stock */}
-            {producto.tipo_producto !== 'servicio' && producto.tipo_producto !== 'evento' && (
+            {producto.tipo_producto !== 'servicio' && producto.tipo_producto !== 'evento' && producto.tipo_producto !== 'alquiler' && (
               <div className="mt-2 flex flex-col gap-2">
                 {agotado ? (
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-gray-600 px-2.5 py-1 rounded-lg w-fit">
@@ -697,7 +791,146 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
             </div>
           )}
 
-          {/* Cantidad */}
+          {/* ══ FLUJO ALQUILER: selector de fechas y días ══ */}
+          {producto.tipo_producto === 'alquiler' && (
+            <div className="px-4 py-4 border-t border-border lg:px-8">
+              <p className="text-xs font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                <KeyRound className="w-4 h-4 text-primary" /> Período de alquiler
+              </p>
+              <div className="flex flex-col gap-4">
+
+                {/* Fecha de retiro */}
+                <div>
+                  <label className="block text-xs font-medium text-foreground-muted mb-1.5 flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5" /> Fecha de retiro *
+                  </label>
+                  <input
+                    type="date"
+                    value={alquilerFechaInicio}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => { setAlquilerFechaInicio(e.target.value); setCantidad(1) }}
+                    className="w-full h-11 px-3 rounded-xl border border-input-border text-sm bg-input-bg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Número de días */}
+                <div>
+                  <label className="block text-xs font-medium text-foreground-muted mb-1.5 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" /> Días de alquiler *
+                    {producto.max_dias_alquiler && (
+                      <span className="text-foreground-muted/70 ml-1">(máx. {producto.max_dias_alquiler} días)</span>
+                    )}
+                  </label>
+                  <div className="flex items-center gap-3 bg-background-subtle rounded-xl p-1 w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setAlquilerDias(d => Math.max(1, d - 1))}
+                      className="w-9 h-9 rounded-lg bg-card border border-border flex items-center justify-center text-foreground hover:border-primary/40 transition-all">
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <span className="w-8 text-center text-sm font-bold text-foreground tabular-nums">{alquilerDias}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAlquilerDias(d => producto.max_dias_alquiler ? Math.min(producto.max_dias_alquiler, d + 1) : d + 1)}
+                      className="w-9 h-9 rounded-lg bg-card border border-border flex items-center justify-center text-foreground hover:border-primary/40 transition-all">
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Fecha de devolución calculada */}
+                {alquilerFechaInicio && (
+                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/5 border border-primary/20">
+                    <Calendar className="w-4 h-4 text-primary flex-shrink-0" />
+                    <div>
+                      <p className="text-[10px] font-semibold text-primary uppercase tracking-wide">Devolución</p>
+                      <p className="text-sm font-bold text-foreground">
+                        {formatearFechaCorta(calcularFechaFin(alquilerFechaInicio, alquilerDias))}
+                      </p>
+                    </div>
+                    <div className="ml-auto text-right">
+                      <p className="text-[10px] text-foreground-muted">Período total</p>
+                      <p className="text-sm font-bold text-primary">{alquilerDias} día{alquilerDias !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Hora de recogida (opcional) */}
+                <div>
+                  <label className="block text-xs font-medium text-foreground-muted mb-1.5 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" /> Hora de retiro
+                    <span className="text-foreground-muted/60 ml-1">(opcional)</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={alquilerHoraRecogida}
+                    onChange={(e) => setAlquilerHoraRecogida(e.target.value)}
+                    className="w-full h-11 px-3 rounded-xl border border-input-border text-sm bg-input-bg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Disponibilidad */}
+                {alquilerFechaInicio && (
+                  cargandoDisponibilidadAlquiler ? (
+                    <div className="flex items-center gap-2 text-xs text-foreground-muted">
+                      <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      Verificando disponibilidad…
+                    </div>
+                  ) : alquilerStockDisponible !== null && (
+                    alquilerStockDisponible === 0 ? (
+                      <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-danger/10 border border-danger/20">
+                        <AlertCircle className="w-4 h-4 text-danger flex-shrink-0" />
+                        <p className="text-xs font-semibold text-danger">Sin disponibilidad para esas fechas. Elige otro período.</p>
+                      </div>
+                    ) : alquilerStockDisponible <= 2 ? (
+                      <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                        <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                        <p className="text-xs font-semibold text-amber-700">¡Solo {alquilerStockDisponible} disponible{alquilerStockDisponible !== 1 ? 's' : ''} para esas fechas!</p>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                        <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                        <p className="text-xs font-semibold text-emerald-700">Disponible para las fechas seleccionadas</p>
+                      </div>
+                    )
+                  )
+                )}
+
+              </div>
+            </div>
+          )}
+
+          {/* Cantidad para alquiler y producto */}
+          {(producto.tipo_producto === 'alquiler') && alquilerFechaInicio && (
+            <div className="px-4 py-4 border-t border-border lg:px-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-foreground">Cantidad de piezas</p>
+                  {alquilerStockDisponible !== null && (
+                    <p className="text-[10px] text-foreground-muted">Máx. disponible: {alquilerStockDisponible}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 bg-background-subtle rounded-xl p-1">
+                  <button
+                    type="button"
+                    onClick={() => setCantidad(c => Math.max(1, c - 1))}
+                    className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-foreground font-bold hover:border-primary/40 transition-all">
+                    −
+                  </button>
+                  <span className="w-6 text-center text-sm font-bold text-foreground tabular-nums">{cantidad}</span>
+                  <button
+                    type="button"
+                    onClick={() => setCantidad(c => alquilerStockDisponible !== null ? Math.min(alquilerStockDisponible, c + 1) : c + 1)}
+                    disabled={alquilerStockDisponible !== null && cantidad >= alquilerStockDisponible}
+                    className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-foreground font-bold hover:border-primary/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cantidad (producto normal) */}
           {producto.tipo_producto === 'producto' && <div className="px-4 py-4 border-t border-border lg:px-8">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-foreground">Cantidad</p>
@@ -716,7 +949,7 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
           </div>}
 
           {/* Botones de acción */}
-          {producto.tipo_producto !== 'evento' && (
+          {producto.tipo_producto !== 'evento' && producto.tipo_producto !== 'alquiler' && (
             <div className="px-4 py-4 border-t border-border flex flex-col gap-2.5 lg:px-8">
               <div className="flex gap-3">
                 {/* Botón de video (reemplaza a Consultar) */}
@@ -751,6 +984,37 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
                       : 'AGREGAR AL CARRITO'}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Botón alquiler */}
+          {producto.tipo_producto === 'alquiler' && (
+            <div className="px-4 py-4 border-t border-border flex flex-col gap-2.5 lg:px-8">
+              {producto.precio_deposito && (
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                  <Info className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700">
+                    Se solicita un depósito de garantía de <strong>{formatearPrecio(producto.precio_deposito, simboloMoneda)}</strong> reembolsable al devolver el artículo en buen estado.
+                  </p>
+                </div>
+              )}
+              <button
+                onClick={agregarAlCarrito}
+                disabled={alquilerStockDisponible === 0}
+                className={cn(
+                  'w-full h-12 rounded-2xl text-white text-sm font-bold flex items-center justify-center gap-2.5 px-6 active:scale-[0.97] transition-all shadow-sm',
+                  alquilerStockDisponible === 0
+                    ? 'bg-gray-500 shadow-gray-500/20 cursor-not-allowed'
+                    : 'bg-primary shadow-primary/30 hover:bg-primary/90'
+                )}
+              >
+                <KeyRound className="w-4 h-4 flex-shrink-0" />
+                {alquilerStockDisponible === 0
+                  ? 'Sin disponibilidad'
+                  : alquilerFechaInicio
+                    ? `RESERVAR ALQUILER — ${formatearPrecio(precioTotal * alquilerDias * cantidad, simboloMoneda)}`
+                    : 'SELECCIONA FECHAS PRIMERO'}
+              </button>
             </div>
           )}
 

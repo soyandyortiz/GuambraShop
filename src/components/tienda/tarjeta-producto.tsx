@@ -51,7 +51,7 @@ export function TarjetaProducto({
   function agregarAlCarrito(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
-    if (tipo_producto === 'evento') {
+    if (tipo_producto === 'evento' || tipo_producto === 'alquiler') {
       router.push(`/producto/${slug}`)
       return
     }
@@ -119,6 +119,11 @@ export function TarjetaProducto({
               Servicio
             </div>
           )}
+          {tipo_producto === 'alquiler' && (
+            <div className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg shadow-sm">
+              Alquiler
+            </div>
+          )}
           {descuento > 0 && tipo_producto !== 'evento' && (
             <div className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg">
               -{descuento}%
@@ -175,6 +180,10 @@ export function TarjetaProducto({
           {tipo_producto === 'evento' ? (
             <p className="text-xs font-bold text-emerald-600 leading-none">
               Desde {formatearPrecio(precio)}
+            </p>
+          ) : tipo_producto === 'alquiler' ? (
+            <p className="text-xs font-bold text-amber-600 leading-none">
+              {formatearPrecio(precio)}<span className="text-[9px] font-semibold text-foreground-muted ml-0.5">/día</span>
             </p>
           ) : (
             <>

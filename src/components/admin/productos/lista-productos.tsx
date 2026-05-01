@@ -40,7 +40,7 @@ export function ListaProductosAdmin({ productos: productosServidor, categorias }
   const filtrados = productos.filter(p => {
     const coincideBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase())
     const coincideCategoria = categoriaFiltro === 'todas' || p.categoria_id === categoriaFiltro
-    const esProductoFisico = p.tipo_producto !== 'servicio' && p.stock !== null
+    const esProductoFisico = p.tipo_producto !== 'servicio' && p.tipo_producto !== 'evento' && p.stock !== null
     const coincideEstado = estadoFiltro === 'todos'
       || (estadoFiltro === 'activos'    && p.esta_activo)
       || (estadoFiltro === 'inactivos'  && !p.esta_activo)
@@ -49,8 +49,8 @@ export function ListaProductosAdmin({ productos: productosServidor, categorias }
     return coincideBusqueda && coincideCategoria && coincideEstado
   })
 
-  const totalStockBajo = productos.filter(p => p.tipo_producto !== 'servicio' && p.stock !== null && (p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5).length
-  const totalAgotados  = productos.filter(p => p.tipo_producto !== 'servicio' && p.stock !== null && p.stock === 0).length
+  const totalStockBajo = productos.filter(p => p.tipo_producto !== 'servicio' && p.tipo_producto !== 'evento' && p.stock !== null && (p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5).length
+  const totalAgotados  = productos.filter(p => p.tipo_producto !== 'servicio' && p.tipo_producto !== 'evento' && p.stock !== null && p.stock === 0).length
 
   async function toggleActivo(id: string, activo: boolean) {
     const supabase = crearClienteSupabase()
@@ -149,10 +149,11 @@ export function ListaProductosAdmin({ productos: productosServidor, categorias }
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {filtrados.map(producto => {
             const img = imagenPrincipal(producto.imagenes_producto)
-            const esServicio = producto.tipo_producto === 'servicio'
-            const esEvento   = producto.tipo_producto === 'evento'
-            const agotado    = !esServicio && !esEvento && producto.stock !== null && producto.stock === 0
-            const stockBajo  = !esServicio && !esEvento && producto.stock !== null && producto.stock > 0 && producto.stock <= 5
+            const esServicio  = producto.tipo_producto === 'servicio'
+            const esEvento    = producto.tipo_producto === 'evento'
+            const esAlquiler  = producto.tipo_producto === 'alquiler'
+            const agotado     = !esServicio && !esEvento && producto.stock !== null && producto.stock === 0
+            const stockBajo   = !esServicio && !esEvento && producto.stock !== null && producto.stock > 0 && producto.stock <= 5
 
             return (
               <div
@@ -185,6 +186,11 @@ export function ListaProductosAdmin({ productos: productosServidor, categorias }
                     {esServicio && (
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500 text-white shadow-sm">
                         Servicio
+                      </span>
+                    )}
+                    {esAlquiler && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500 text-white shadow-sm">
+                        Alquiler
                       </span>
                     )}
                   </div>

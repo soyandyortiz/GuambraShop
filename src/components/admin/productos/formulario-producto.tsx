@@ -6,7 +6,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Plus, Trash2, Tag, Save, ArrowLeft, Ruler, Package, Video, ImagePlus, X, PackagePlus, PartyPopper, PlusCircle } from 'lucide-react'
+import { Plus, Trash2, Tag, Save, ArrowLeft, Ruler, Package, Video, ImagePlus, X, PackagePlus, PartyPopper, PlusCircle, KeyRound } from 'lucide-react'
 import { usarSubirImagen } from '@/hooks/usar-subir-imagen'
 import { useEffect } from 'react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
@@ -28,8 +28,10 @@ const esquema = z.object({
   etiquetas:        z.string().optional(),
   url_video:        z.string().optional(),
   requiere_tallas:  z.boolean(),
-  tipo_producto:    z.enum(['producto', 'servicio', 'evento']),
-  stock:            z.string().optional(),
+  tipo_producto:      z.enum(['producto', 'servicio', 'evento', 'alquiler']),
+  stock:              z.string().optional(),
+  precio_deposito:    z.string().optional(),
+  max_dias_alquiler:  z.string().optional(),
   variantes: z.array(z.object({
     id:             z.string().optional(),
     nombre:         z.string().min(1, 'Nombre requerido'),
@@ -98,8 +100,10 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       etiquetas: producto?.etiquetas?.join(', ') ?? '',
       url_video: producto?.url_video ?? '',
       requiere_tallas: producto?.requiere_tallas ?? false,
-      tipo_producto: (producto?.tipo_producto as 'producto' | 'servicio' | 'evento') ?? 'producto',
+      tipo_producto: (producto?.tipo_producto as 'producto' | 'servicio' | 'evento' | 'alquiler') ?? 'producto',
       stock: producto?.stock?.toString() ?? '',
+      precio_deposito: (producto as any)?.precio_deposito?.toString() ?? '',
+      max_dias_alquiler: (producto as any)?.max_dias_alquiler?.toString() ?? '',
       variantes: producto?.variantes?.map(v => ({
         id: v.id, nombre: v.nombre,
         descripcion: v.descripcion ?? '',
@@ -175,6 +179,15 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       }))
     } else {
       payload.paquetes_evento = []
+    }
+
+    // Campos de alquiler
+    if (datos.tipo_producto === 'alquiler') {
+      payload.precio_deposito   = datos.precio_deposito   ? parseFloat(datos.precio_deposito)   : null
+      payload.max_dias_alquiler = datos.max_dias_alquiler ? parseInt(datos.max_dias_alquiler, 10) : null
+    } else {
+      payload.precio_deposito   = null
+      payload.max_dias_alquiler = null
     }
 
     let productoId = producto?.id
@@ -258,7 +271,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
         </Botón>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <button
           type="button"
           onClick={() => setValue('tipo_producto', 'producto')}
@@ -301,6 +314,20 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
           <p className="text-sm font-bold">Evento</p>
           <p className="text-[10px] opacity-70">Solicitud de cotización</p>
         </button>
+        <button
+          type="button"
+          onClick={() => setValue('tipo_producto', 'alquiler')}
+          className={cn(
+            "p-4 rounded-2xl border-2 text-center transition-all",
+            tipoProducto === 'alquiler'
+              ? "border-amber-500 bg-amber-500/5 text-amber-600"
+              : "border-border bg-card text-foreground-muted hover:border-amber-400/40"
+          )}
+        >
+          <KeyRound className="w-6 h-6 mx-auto mb-2" />
+          <p className="text-sm font-bold">Alquiler</p>
+          <p className="text-[10px] opacity-70">Renta por días</p>
+        </button>
       </div>
 
       {/* Aviso para tipo evento */}
@@ -311,6 +338,18 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
             Los clientes verán un formulario para enviar sus datos del evento (fecha, ciudad, presupuesto).
             La solicitud queda registrada en <b>Solicitudes de Evento</b> y se abre WhatsApp con toda la información precargada.
             Puedes agregar paquetes y variantes para mostrar las opciones disponibles.
+          </p>
+        </div>
+      )}
+
+      {/* Aviso para tipo alquiler */}
+      {tipoProducto === 'alquiler' && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+          <p className="font-semibold mb-1">Modo alquiler activo</p>
+          <p className="text-xs opacity-80">
+            El precio se muestra como <b>tarifa por día</b>. El cliente selecciona la fecha de retiro,
+            el número de días y la cantidad de piezas. El <b>stock</b> representa las unidades disponibles
+            simultáneamente. Puedes definir un depósito de garantía y un límite de días.
           </p>
         </div>
       )}
@@ -389,20 +428,54 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       <Sección titulo="Precios">
         <div className="grid grid-cols-2 gap-4">
           <Input
-            etiqueta={tipoProducto === 'evento' ? 'Precio referencial (desde)' : 'Precio normal'}
+            etiqueta={
+              tipoProducto === 'evento' ? 'Precio referencial (desde)' :
+              tipoProducto === 'alquiler' ? 'Precio por día' :
+              'Precio normal'
+            }
             type="number"
             step="0.01"
             placeholder="0.00"
             error={errors.precio?.message}
             {...register('precio')}
           />
-          <Input
-            etiqueta="Precio con descuento (opcional)"
-            type="number"
-            step="0.01"
-            placeholder="0.00"
-            {...register('precio_descuento')}
-          />
+          {tipoProducto !== 'alquiler' && (
+            <Input
+              etiqueta="Precio con descuento (opcional)"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              {...register('precio_descuento')}
+            />
+          )}
+
+          {/* Campos específicos de alquiler */}
+          {tipoProducto === 'alquiler' && (
+            <>
+              <Input
+                etiqueta="Depósito de garantía (opcional)"
+                type="number"
+                step="0.01"
+                placeholder="0.00 — reembolsable al devolver"
+                {...register('precio_deposito')}
+              />
+              <Input
+                etiqueta="Unidades disponibles"
+                type="number"
+                min="0"
+                placeholder="Ej: 3 trajes"
+                {...register('stock')}
+              />
+              <Input
+                etiqueta="Máximo de días (opcional)"
+                type="number"
+                min="1"
+                placeholder="Sin límite"
+                {...register('max_dias_alquiler')}
+              />
+            </>
+          )}
+
           {tipoProducto === 'producto' && (
             <div className="flex flex-col gap-2">
               {esEdicion && (() => {

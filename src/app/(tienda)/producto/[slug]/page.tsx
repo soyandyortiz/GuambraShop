@@ -59,6 +59,7 @@ export default async function PáginaProducto({ params }: Props) {
       .select(`
         id, nombre, slug, descripcion, precio, precio_descuento, stock,
         etiquetas, requiere_tallas, tipo_producto, url_video, paquetes_evento,
+        precio_deposito, max_dias_alquiler,
         imagenes_producto(id, url, orden),
         variantes_producto(id, nombre, descripcion, precio_variante, imagen_url, stock, esta_activa, orden, tipo_precio),
         tallas_producto(id, talla, disponible, stock, orden),
@@ -139,6 +140,8 @@ export default async function PáginaProducto({ params }: Props) {
         tipo_producto: producto.tipo_producto ?? 'producto',
         url_video: producto.url_video ?? null,
         paquetes_evento: (producto.paquetes_evento as any) ?? [],
+        precio_deposito: (producto as any).precio_deposito ?? null,
+        max_dias_alquiler: (producto as any).max_dias_alquiler ?? null,
         categoria: Array.isArray(producto.categoria) ? (producto.categoria[0] ?? null) as { id: string; nombre: string; slug: string } | null : producto.categoria as { id: string; nombre: string; slug: string } | null,
       }}
       imagenes={imagenes as { id: string; url: string; orden: number }[]}

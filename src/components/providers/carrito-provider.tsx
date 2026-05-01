@@ -22,6 +22,12 @@ export interface ItemCarrito {
     empleado_id?: string | null
     empleado_nombre?: string
   }
+  alquiler?: {
+    fecha_inicio: string
+    fecha_fin: string
+    dias: number
+    hora_recogida?: string
+  }
   // Add-ons seleccionados (variantes con tipo_precio = 'suma')
   extras?: { id: string; nombre: string; precio: number }[]
 }
@@ -29,8 +35,8 @@ export interface ItemCarrito {
 interface CarritoContextType {
   items: ItemCarrito[]
   agregar: (item: ItemCarrito) => void
-  quitar: (producto_id: string, variante_id?: string, talla?: string, cita?: ItemCarrito['cita']) => void
-  actualizarCantidad: (producto_id: string, cantidad: number, variante_id?: string, talla?: string) => void
+  quitar: (producto_id: string, variante_id?: string, talla?: string, cita?: ItemCarrito['cita'], alquiler?: ItemCarrito['alquiler']) => void
+  actualizarCantidad: (producto_id: string, cantidad: number, variante_id?: string, talla?: string, cita?: ItemCarrito['cita'], alquiler?: ItemCarrito['alquiler']) => void
   limpiar: () => void
   actualizar: (nuevos: ItemCarrito[]) => void
   conteo: number
@@ -54,9 +60,10 @@ function guardarCarrito(items: ItemCarrito[]) {
   localStorage.setItem(CLAVE, JSON.stringify(items))
 }
 
-function claveItem(item: Pick<ItemCarrito, 'producto_id' | 'variante_id' | 'talla' | 'cita'>) {
+function claveItem(item: Pick<ItemCarrito, 'producto_id' | 'variante_id' | 'talla' | 'cita' | 'alquiler'>) {
   const citaStr = item.cita ? `${item.cita.fecha}|${item.cita.hora_inicio}` : ''
-  return `${item.producto_id}|${item.variante_id ?? ''}|${item.talla ?? ''}|${citaStr}`
+  const alquilerStr = item.alquiler ? `${item.alquiler.fecha_inicio}|${item.alquiler.fecha_fin}` : ''
+  return `${item.producto_id}|${item.variante_id ?? ''}|${item.talla ?? ''}|${citaStr}|${alquilerStr}`
 }
 
 export function CarritoProvider({ children }: { children: ReactNode }) {
@@ -85,19 +92,19 @@ export function CarritoProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const quitar = useCallback((producto_id: string, variante_id?: string, talla?: string, cita?: ItemCarrito['cita']) => {
+  const quitar = useCallback((producto_id: string, variante_id?: string, talla?: string, cita?: ItemCarrito['cita'], alquiler?: ItemCarrito['alquiler']) => {
     setItems(prev => {
-      const nuevos = prev.filter(i => claveItem(i) !== claveItem({ producto_id, variante_id, talla, cita }))
+      const nuevos = prev.filter(i => claveItem(i) !== claveItem({ producto_id, variante_id, talla, cita, alquiler }))
       guardarCarrito(nuevos)
       return nuevos
     })
   }, [])
 
-  const actualizarCantidad = useCallback((producto_id: string, cantidad: number, variante_id?: string, talla?: string, cita?: ItemCarrito['cita']) => {
+  const actualizarCantidad = useCallback((producto_id: string, cantidad: number, variante_id?: string, talla?: string, cita?: ItemCarrito['cita'], alquiler?: ItemCarrito['alquiler']) => {
     setItems(prev => {
       const nuevos = cantidad <= 0
-        ? prev.filter(i => claveItem(i) !== claveItem({ producto_id, variante_id, talla, cita }))
-        : prev.map(i => claveItem(i) === claveItem({ producto_id, variante_id, talla, cita }) ? { ...i, cantidad } : i)
+        ? prev.filter(i => claveItem(i) !== claveItem({ producto_id, variante_id, talla, cita, alquiler }))
+        : prev.map(i => claveItem(i) === claveItem({ producto_id, variante_id, talla, cita, alquiler }) ? { ...i, cantidad } : i)
       guardarCarrito(nuevos)
       return nuevos
     })

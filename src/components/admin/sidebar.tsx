@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, Ticket, Megaphone,
-  Settings, MessageSquare, ShoppingBag, LogOut, Star, ClipboardList, CalendarDays, Truck, PartyPopper, TrendingUp, Users
+  Settings, MessageSquare, ShoppingBag, LogOut, Star, ClipboardList, CalendarDays, Truck, PartyPopper, TrendingUp, Users, KeyRound
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { crearClienteSupabase, CLAVE_DEMO } from '@/lib/supabase/cliente'
@@ -50,6 +50,7 @@ export function Sidebar({ rol, nombre, fotoPerfil, faviconUrl }: PropsSidebar) {
     { href: '/admin/dashboard/solicitudes', icono: <PartyPopper className="w-4 h-4" />,      etiqueta: 'Eventos',        badge: 'solicitudes' },
     { href: '/admin/dashboard/envios',      icono: <Truck className="w-4 h-4" />,             etiqueta: 'Envíos',         badge: null },
     { href: '/admin/dashboard/calendario',  icono: <CalendarDays className="w-4 h-4" />,     etiqueta: 'Calendario',     badge: 'citas' },
+    { href: '/admin/dashboard/alquileres', icono: <KeyRound className="w-4 h-4" />,          etiqueta: 'Alquileres',     badge: null },
     { href: '/admin/dashboard/resenas',     icono: <Star className="w-4 h-4" />,             etiqueta: 'Reseñas',        badge: null },
     ...(esSuperadmin ? [
       { href: '/admin/dashboard/mensajes',    icono: <MessageSquare className="w-4 h-4" />,    etiqueta: 'Mensajes',       badge: null },

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, Package, Star, Clock, MessageSquare, TrendingUp, ArrowUpDown, ShoppingBag, Wrench, PartyPopper } from 'lucide-react'
+import { Search, X, Package, Star, Clock, MessageSquare, TrendingUp, ArrowUpDown, ShoppingBag, Wrench, PartyPopper, KeyRound } from 'lucide-react'
 import { TarjetaProducto } from '@/components/tienda/tarjeta-producto'
 import { formatearPrecio } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -11,7 +11,7 @@ interface Producto {
   id: string; nombre: string; slug: string; precio: number
   precio_descuento: number | null; imagen_url: string | null
   etiquetas: string[]; variante_count: number
-  tipo_producto?: 'producto' | 'servicio' | 'evento'
+  tipo_producto?: 'producto' | 'servicio' | 'evento' | 'alquiler'
   stock?: number | null
   likes_count?: number; calificacion_promedio?: number; total_resenas?: number
   variantes?: any[]
@@ -157,6 +157,7 @@ const TIPOS = [
   { id: 'producto', label: 'Productos',  icon: ShoppingBag },
   { id: 'servicio', label: 'Servicios',  icon: Wrench },
   { id: 'evento',   label: 'Eventos',    icon: PartyPopper },
+  { id: 'alquiler', label: 'Alquileres', icon: KeyRound },
 ]
 
 export function BuscarCliente({
@@ -193,8 +194,8 @@ export function BuscarCliente({
     if (nq) url.set('q', nq)
     if (ncat) url.set('categoria', ncat)
     if (ntipo) url.set('tipo', ntipo)
-    // Precio solo aplica si no se filtró por eventos
-    if (ntipo !== 'evento') {
+    // Precio solo aplica si no se filtró por eventos o alquileres
+    if (ntipo !== 'evento' && ntipo !== 'alquiler') {
       if (nmin > precioMinGlobal) url.set('min', String(nmin))
       if (nmax < precioMaxGlobal) url.set('max', String(nmax))
     }
