@@ -31,15 +31,12 @@ export async function generateMetadata(): Promise<Metadata> {
   const descripcion = config?.meta_descripcion ?? 'Tu tienda online profesional'
   const siteUrl     = process.env.NEXT_PUBLIC_SITE_URL ?? ''
 
-  // No se incluyen imágenes en OG del root layout para evitar que Next.js
-  // inyecte <link rel="preload"> en TODAS las páginas. Cada página define
-  // sus propias imágenes OG (el producto usa la imagen del producto, etc.).
-  // El favicon se inyecta directamente en el <head> del RootLayout (no aquí)
-  // para evitar que Next.js genere <link rel="preload"> al usar URLs externas.
+  // Sin `icons` aquí: el favicon se inyecta dinámicamente en el <head> del
+  // RootLayout usando favicon_url de la BD, para evitar conflictos con el
+  // favicon estático y warnings de <link rel="preload"> con URLs externas.
   return {
     title: nombre,
     description: descripcion,
-    icons: { icon: '/favicon-blank.png' },
     openGraph: {
       title: nombre,
       description: descripcion,
