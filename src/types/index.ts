@@ -196,8 +196,9 @@ export interface Producto {
   etiquetas: string[]
   url_video?: string | null
   paquetes_evento?: PaqueteEvento[]
-  precio_deposito?: number | null      // Solo alquiler: depósito de garantía
+  precio_deposito?: number | null      // Solo alquiler: depósito de garantía (legado)
   max_dias_alquiler?: number | null    // Solo alquiler: máximo de días
+  garantia_descripcion?: string | null // Solo alquiler: texto de garantía (cédula, laptop, etc.)
   creado_en: string
   actualizado_en: string
   // Relaciones (joins)

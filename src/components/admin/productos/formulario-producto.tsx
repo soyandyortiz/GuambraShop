@@ -30,8 +30,9 @@ const esquema = z.object({
   requiere_tallas:  z.boolean(),
   tipo_producto:      z.enum(['producto', 'servicio', 'evento', 'alquiler']),
   stock:              z.string().optional(),
-  precio_deposito:    z.string().optional(),
-  max_dias_alquiler:  z.string().optional(),
+  precio_deposito:       z.string().optional(),
+  max_dias_alquiler:     z.string().optional(),
+  garantia_descripcion:  z.string().optional(),
   variantes: z.array(z.object({
     id:             z.string().optional(),
     nombre:         z.string().min(1, 'Nombre requerido'),
@@ -104,6 +105,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       stock: producto?.stock?.toString() ?? '',
       precio_deposito: (producto as any)?.precio_deposito?.toString() ?? '',
       max_dias_alquiler: (producto as any)?.max_dias_alquiler?.toString() ?? '',
+      garantia_descripcion: (producto as any)?.garantia_descripcion ?? '',
       variantes: producto?.variantes?.map(v => ({
         id: v.id, nombre: v.nombre,
         descripcion: v.descripcion ?? '',
@@ -183,11 +185,13 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
 
     // Campos de alquiler
     if (datos.tipo_producto === 'alquiler') {
-      payload.precio_deposito   = datos.precio_deposito   ? parseFloat(datos.precio_deposito)   : null
-      payload.max_dias_alquiler = datos.max_dias_alquiler ? parseInt(datos.max_dias_alquiler, 10) : null
+      payload.precio_deposito      = datos.precio_deposito   ? parseFloat(datos.precio_deposito)   : null
+      payload.max_dias_alquiler    = datos.max_dias_alquiler ? parseInt(datos.max_dias_alquiler, 10) : null
+      payload.garantia_descripcion = datos.garantia_descripcion?.trim() || null
     } else {
-      payload.precio_deposito   = null
-      payload.max_dias_alquiler = null
+      payload.precio_deposito      = null
+      payload.max_dias_alquiler    = null
+      payload.garantia_descripcion = null
     }
 
     let productoId = producto?.id
@@ -453,14 +457,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
           {tipoProducto === 'alquiler' && (
             <>
               <Input
-                etiqueta="Depósito de garantía (opcional)"
-                type="number"
-                step="0.01"
-                placeholder="0.00 — reembolsable al devolver"
-                {...register('precio_deposito')}
-              />
-              <Input
-                etiqueta="Unidades disponibles"
+                etiqueta="Unidades disponibles (trajes)"
                 type="number"
                 min="0"
                 placeholder="Ej: 3 trajes"
@@ -473,6 +470,37 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
                 placeholder="Sin límite"
                 {...register('max_dias_alquiler')}
               />
+              {/* Garantía */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-foreground">
+                  Garantía (opcional)
+                </label>
+                <p className="text-[11px] text-foreground-muted -mt-0.5">
+                  Selecciona una opción o escribe lo que el cliente debe dejar como garantía.
+                </p>
+                <div className="flex flex-wrap gap-2 mb-1">
+                  {[
+                    'Cédula de Identificación',
+                    'Laptop con cargador en buen estado',
+                    'Cantidad económica',
+                  ].map(op => (
+                    <button
+                      key={op}
+                      type="button"
+                      onClick={() => setValue('garantia_descripcion', op)}
+                      className="text-[11px] px-2.5 py-1 rounded-lg border border-border bg-background-subtle hover:border-primary/50 hover:bg-primary/5 text-foreground transition-all"
+                    >
+                      {op}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  placeholder="Ej: Cantidad económica: $50 o Cédula de Identificación"
+                  className="w-full h-10 px-3 rounded-xl border border-input-border bg-input-bg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  {...register('garantia_descripcion')}
+                />
+              </div>
             </>
           )}
 

@@ -28,6 +28,7 @@ interface Producto {
   paquetes_evento?: PaqueteEvento[]
   precio_deposito?: number | null
   max_dias_alquiler?: number | null
+  garantia_descripcion?: string | null
 }
 interface Imagen { id: string; url: string; orden: number }
 interface Variante {
@@ -799,85 +800,106 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
               </p>
               <div className="flex flex-col gap-4">
 
-                {/* Fecha de retiro */}
-                <div>
-                  <label className="block text-xs font-medium text-foreground-muted mb-1.5 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" /> Fecha de retiro *
-                  </label>
-                  <input
-                    type="date"
-                    value={alquilerFechaInicio}
-                    min={new Date().toISOString().split('T')[0]}
-                    onChange={(e) => { setAlquilerFechaInicio(e.target.value); setCantidad(1) }}
-                    className="w-full h-11 px-3 rounded-xl border border-input-border text-sm bg-input-bg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
+                {/* Fila 1: Fecha de retiro | Hora de retiro */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-foreground-muted mb-1.5 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" /> Fecha de retiro *
+                    </label>
+                    <input
+                      type="date"
+                      value={alquilerFechaInicio}
+                      min={new Date().toISOString().split('T')[0]}
+                      onChange={(e) => { setAlquilerFechaInicio(e.target.value); setCantidad(1) }}
+                      className="w-full h-11 px-3 rounded-xl border border-input-border text-sm bg-input-bg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground-muted mb-1.5 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" /> Hora de retiro
+                    </label>
+                    <input
+                      type="time"
+                      value={alquilerHoraRecogida}
+                      onChange={(e) => setAlquilerHoraRecogida(e.target.value)}
+                      className="w-full h-11 px-3 rounded-xl border border-input-border text-sm bg-input-bg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
                 </div>
 
-                {/* Número de días */}
-                <div>
-                  <label className="block text-xs font-medium text-foreground-muted mb-1.5 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> Días de alquiler *
-                    {producto.max_dias_alquiler && (
-                      <span className="text-foreground-muted/70 ml-1">(máx. {producto.max_dias_alquiler} días)</span>
-                    )}
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-3 bg-background-subtle rounded-xl p-1 w-fit">
+                {/* Fila 2: Cantidad de trajes | Días de alquiler */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-medium text-foreground-muted">Cantidad de trajes</label>
+                      {alquilerStockDisponible !== null && (
+                        <span className="text-[10px] text-foreground-muted">Máx. {alquilerStockDisponible}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-center gap-2 bg-background-subtle rounded-xl p-1 h-11">
+                      <button
+                        type="button"
+                        onClick={() => setCantidad(c => Math.max(1, c - 1))}
+                        className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-foreground font-bold hover:border-primary/40 transition-all">
+                        −
+                      </button>
+                      <span className="w-8 text-center text-sm font-bold text-foreground tabular-nums">{cantidad}</span>
+                      <button
+                        type="button"
+                        onClick={() => setCantidad(c => alquilerStockDisponible !== null ? Math.min(alquilerStockDisponible, c + 1) : c + 1)}
+                        disabled={alquilerStockDisponible !== null && cantidad >= alquilerStockDisponible}
+                        className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-foreground font-bold hover:border-primary/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-medium text-foreground-muted">
+                        Días de alquiler *
+                        {producto.max_dias_alquiler && (
+                          <span className="text-foreground-muted/60 ml-1">(máx. {producto.max_dias_alquiler})</span>
+                        )}
+                      </label>
+                      <span className="text-[10px] text-foreground-muted">1 día = 24 h</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 bg-background-subtle rounded-xl p-1 h-11">
                       <button
                         type="button"
                         onClick={() => setAlquilerDias(d => Math.max(1, d - 1))}
-                        className="w-9 h-9 rounded-lg bg-card border border-border flex items-center justify-center text-foreground hover:border-primary/40 transition-all">
+                        className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-foreground font-bold hover:border-primary/40 transition-all">
                         <Minus className="w-4 h-4" />
                       </button>
                       <span className="w-8 text-center text-sm font-bold text-foreground tabular-nums">{alquilerDias}</span>
                       <button
                         type="button"
                         onClick={() => setAlquilerDias(d => producto.max_dias_alquiler ? Math.min(producto.max_dias_alquiler, d + 1) : d + 1)}
-                        className="w-9 h-9 rounded-lg bg-card border border-border flex items-center justify-center text-foreground hover:border-primary/40 transition-all">
+                        className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-foreground font-bold hover:border-primary/40 transition-all">
                         <Plus className="w-4 h-4" />
                       </button>
                     </div>
-                    <span className="text-[10px] text-foreground-muted leading-tight">
-                      1 día = 24 h<br/>a partir de la hora de retiro
-                    </span>
                   </div>
                 </div>
 
-                {/* Hora de retiro */}
-                <div>
-                  <label className="block text-xs font-medium text-foreground-muted mb-1.5 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> Hora de retiro
-                    <span className="text-foreground-muted/60 ml-1">(opcional)</span>
-                  </label>
-                  <input
-                    type="time"
-                    value={alquilerHoraRecogida}
-                    onChange={(e) => setAlquilerHoraRecogida(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl border border-input-border text-sm bg-input-bg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-
-                {/* Fecha de devolución calculada */}
+                {/* Fila 3: Devolución */}
                 {alquilerFechaInicio && (
                   <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/5 border border-primary/20">
                     <Calendar className="w-4 h-4 text-primary flex-shrink-0" />
-                    <div>
-                      <p className="text-[10px] font-semibold text-primary uppercase tracking-wide">Devolución</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold text-primary uppercase tracking-wide">Deberá devolver</p>
                       <p className="text-sm font-bold text-foreground">
                         {formatearFechaCorta(calcularFechaFin(alquilerFechaInicio, alquilerDias))}
-                        {alquilerHoraRecogida && (
-                          <span className="text-sm font-bold text-foreground"> a las {alquilerHoraRecogida}</span>
-                        )}
+                        {alquilerHoraRecogida && <span> a las {alquilerHoraRecogida}</span>}
                       </p>
                       {alquilerHoraRecogida && (
                         <p className="text-[10px] text-foreground-muted mt-0.5">
-                          Igual hora que el retiro · {alquilerDias} día{alquilerDias !== 1 ? 's' : ''} × 24 h
+                          Misma hora de retiro · {alquilerDias} día{alquilerDias !== 1 ? 's' : ''} × 24 h
                         </p>
                       )}
                     </div>
-                    <div className="ml-auto text-right">
-                      <p className="text-[10px] text-foreground-muted">Período total</p>
-                      <p className="text-sm font-bold text-primary">{alquilerDias} día{alquilerDias !== 1 ? 's' : ''}</p>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[10px] text-foreground-muted">Total</p>
+                      <p className="text-xs font-bold text-primary">{alquilerDias} día{alquilerDias !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
                 )}
@@ -909,36 +931,6 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
                   )
                 )}
 
-              </div>
-            </div>
-          )}
-
-          {/* Cantidad para alquiler y producto */}
-          {(producto.tipo_producto === 'alquiler') && alquilerFechaInicio && (
-            <div className="px-4 py-4 border-t border-border lg:px-8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-foreground">Cantidad de piezas</p>
-                  {alquilerStockDisponible !== null && (
-                    <p className="text-[10px] text-foreground-muted">Máx. disponible: {alquilerStockDisponible}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 bg-background-subtle rounded-xl p-1">
-                  <button
-                    type="button"
-                    onClick={() => setCantidad(c => Math.max(1, c - 1))}
-                    className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-foreground font-bold hover:border-primary/40 transition-all">
-                    −
-                  </button>
-                  <span className="w-6 text-center text-sm font-bold text-foreground tabular-nums">{cantidad}</span>
-                  <button
-                    type="button"
-                    onClick={() => setCantidad(c => alquilerStockDisponible !== null ? Math.min(alquilerStockDisponible, c + 1) : c + 1)}
-                    disabled={alquilerStockDisponible !== null && cantidad >= alquilerStockDisponible}
-                    className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-foreground font-bold hover:border-primary/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
-                    +
-                  </button>
-                </div>
               </div>
             </div>
           )}
@@ -1003,11 +995,11 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
           {/* Botón alquiler */}
           {producto.tipo_producto === 'alquiler' && (
             <div className="px-4 py-4 border-t border-border flex flex-col gap-2.5 lg:px-8">
-              {producto.precio_deposito && (
+              {producto.garantia_descripcion && (
                 <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
                   <Info className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
                   <p className="text-xs text-amber-700">
-                    Se cobra un depósito de garantía de <strong>{formatearPrecio(producto.precio_deposito, simboloMoneda)}</strong> al momento de entregar los artículos. Se devuelve en su totalidad al retornarlos en buen estado.
+                    Se cobra como garantía: <strong>{producto.garantia_descripcion}</strong>, dependiendo de la cantidad de trajes que alquiles. Se devuelve en su totalidad al retornar los trajes en buen estado.
                   </p>
                 </div>
               )}

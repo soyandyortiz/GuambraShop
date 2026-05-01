@@ -59,7 +59,7 @@ export default async function PáginaProducto({ params }: Props) {
       .select(`
         id, nombre, slug, descripcion, precio, precio_descuento, stock,
         etiquetas, requiere_tallas, tipo_producto, url_video, paquetes_evento,
-        precio_deposito, max_dias_alquiler,
+        precio_deposito, max_dias_alquiler, garantia_descripcion,
         imagenes_producto(id, url, orden),
         variantes_producto(id, nombre, descripcion, precio_variante, imagen_url, stock, esta_activa, orden, tipo_precio),
         tallas_producto(id, talla, disponible, stock, orden),
