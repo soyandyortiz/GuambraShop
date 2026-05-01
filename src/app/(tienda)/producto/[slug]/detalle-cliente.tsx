@@ -188,7 +188,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
 
   function calcularFechaFin(fechaInicio: string, dias: number): string {
     const d = new Date(fechaInicio + 'T00:00:00')
-    d.setDate(d.getDate() + dias - 1)
+    d.setDate(d.getDate() + dias)
     return d.toISOString().split('T')[0]
   }
 
@@ -214,7 +214,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
         .select('cantidad')
         .eq('producto_id', producto.id)
         .lte('fecha_inicio', fechaFin)
-        .gte('fecha_fin', alquilerFechaInicio)
+        .gt('fecha_fin', alquilerFechaInicio)
         .in('estado', ['reservado', 'activo'])
       const totalReservado = (data ?? []).reduce((s: number, r: { cantidad: number }) => s + r.cantidad, 0)
       const stockTotal = producto.stock ?? 0
@@ -821,41 +821,29 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
                       <span className="text-foreground-muted/70 ml-1">(máx. {producto.max_dias_alquiler} días)</span>
                     )}
                   </label>
-                  <div className="flex items-center gap-3 bg-background-subtle rounded-xl p-1 w-fit">
-                    <button
-                      type="button"
-                      onClick={() => setAlquilerDias(d => Math.max(1, d - 1))}
-                      className="w-9 h-9 rounded-lg bg-card border border-border flex items-center justify-center text-foreground hover:border-primary/40 transition-all">
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <span className="w-8 text-center text-sm font-bold text-foreground tabular-nums">{alquilerDias}</span>
-                    <button
-                      type="button"
-                      onClick={() => setAlquilerDias(d => producto.max_dias_alquiler ? Math.min(producto.max_dias_alquiler, d + 1) : d + 1)}
-                      className="w-9 h-9 rounded-lg bg-card border border-border flex items-center justify-center text-foreground hover:border-primary/40 transition-all">
-                      <Plus className="w-4 h-4" />
-                    </button>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 bg-background-subtle rounded-xl p-1 w-fit">
+                      <button
+                        type="button"
+                        onClick={() => setAlquilerDias(d => Math.max(1, d - 1))}
+                        className="w-9 h-9 rounded-lg bg-card border border-border flex items-center justify-center text-foreground hover:border-primary/40 transition-all">
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="w-8 text-center text-sm font-bold text-foreground tabular-nums">{alquilerDias}</span>
+                      <button
+                        type="button"
+                        onClick={() => setAlquilerDias(d => producto.max_dias_alquiler ? Math.min(producto.max_dias_alquiler, d + 1) : d + 1)}
+                        className="w-9 h-9 rounded-lg bg-card border border-border flex items-center justify-center text-foreground hover:border-primary/40 transition-all">
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <span className="text-[10px] text-foreground-muted leading-tight">
+                      1 día = 24 h<br/>a partir de la hora de retiro
+                    </span>
                   </div>
                 </div>
 
-                {/* Fecha de devolución calculada */}
-                {alquilerFechaInicio && (
-                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/5 border border-primary/20">
-                    <Calendar className="w-4 h-4 text-primary flex-shrink-0" />
-                    <div>
-                      <p className="text-[10px] font-semibold text-primary uppercase tracking-wide">Devolución</p>
-                      <p className="text-sm font-bold text-foreground">
-                        {formatearFechaCorta(calcularFechaFin(alquilerFechaInicio, alquilerDias))}
-                      </p>
-                    </div>
-                    <div className="ml-auto text-right">
-                      <p className="text-[10px] text-foreground-muted">Período total</p>
-                      <p className="text-sm font-bold text-primary">{alquilerDias} día{alquilerDias !== 1 ? 's' : ''}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Hora de recogida (opcional) */}
+                {/* Hora de retiro */}
                 <div>
                   <label className="block text-xs font-medium text-foreground-muted mb-1.5 flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5" /> Hora de retiro
@@ -868,6 +856,31 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
                     className="w-full h-11 px-3 rounded-xl border border-input-border text-sm bg-input-bg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
+
+                {/* Fecha de devolución calculada */}
+                {alquilerFechaInicio && (
+                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/5 border border-primary/20">
+                    <Calendar className="w-4 h-4 text-primary flex-shrink-0" />
+                    <div>
+                      <p className="text-[10px] font-semibold text-primary uppercase tracking-wide">Devolución</p>
+                      <p className="text-sm font-bold text-foreground">
+                        {formatearFechaCorta(calcularFechaFin(alquilerFechaInicio, alquilerDias))}
+                        {alquilerHoraRecogida && (
+                          <span className="text-sm font-bold text-foreground"> a las {alquilerHoraRecogida}</span>
+                        )}
+                      </p>
+                      {alquilerHoraRecogida && (
+                        <p className="text-[10px] text-foreground-muted mt-0.5">
+                          Igual hora que el retiro · {alquilerDias} día{alquilerDias !== 1 ? 's' : ''} × 24 h
+                        </p>
+                      )}
+                    </div>
+                    <div className="ml-auto text-right">
+                      <p className="text-[10px] text-foreground-muted">Período total</p>
+                      <p className="text-sm font-bold text-primary">{alquilerDias} día{alquilerDias !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Disponibilidad */}
                 {alquilerFechaInicio && (
@@ -994,7 +1007,7 @@ const anteriorImg = () => setImgActiva(i => (i - 1 + imagenes.length) % imagenes
                 <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
                   <Info className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
                   <p className="text-xs text-amber-700">
-                    Se solicita un depósito de garantía de <strong>{formatearPrecio(producto.precio_deposito, simboloMoneda)}</strong> reembolsable al devolver el artículo en buen estado.
+                    Se cobra un depósito de garantía de <strong>{formatearPrecio(producto.precio_deposito, simboloMoneda)}</strong> al momento de entregar los artículos. Se devuelve en su totalidad al retornarlos en buen estado.
                   </p>
                 </div>
               )}
