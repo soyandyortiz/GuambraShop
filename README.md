@@ -10,10 +10,31 @@
 
 ## 2. Base de datos
 
-En **SQL Editor** ejecutar en este orden:
+En **SQL Editor** de Supabase ejecutar en este orden exacto:
 
-1. `supabase/schema.sql` — toda la estructura de tablas, funciones y RLS
-2. `supabase/seed/01_datos_iniciales.sql` — datos base requeridos
+### Paso 1 — Schema completo (tablas, funciones, RLS)
+
+Abrir el archivo `supabase/schema.sql` → copiar todo el contenido → pegarlo en SQL Editor → **Run**.
+
+> Este archivo es el schema unificado que reemplaza las migraciones 1–27. Cubre todas las tablas, políticas RLS, triggers y funciones del sistema.
+
+### Paso 2 — Migraciones posteriores al schema
+
+Estas migraciones se crearon después de la última versión del `schema.sql` y **deben ejecutarse una por una**, en el orden indicado:
+
+| # | Archivo | Qué agrega |
+|---|---------|------------|
+| 1 | `supabase/migrations/20260421000028_tema_id.sql` | Campo `tema_id` en `configuracion_tienda` (selector de tema visual) |
+| 2 | `supabase/migrations/20260501000029_tipo_alquiler.sql` | Tipo de producto `alquiler`, campos `precio_deposito` / `max_dias_alquiler` y tabla `alquileres` |
+| 3 | `supabase/migrations/20260501000030_garantia_alquiler.sql` | Campo `garantia_descripcion` en `productos` |
+
+Para cada una: abrir el archivo → copiar contenido → pegar en SQL Editor → **Run**.
+
+### Paso 3 — Datos iniciales
+
+Ejecutar `supabase/seed/01_datos_iniciales.sql` — crea la fila base en `configuracion_tienda` con valores genéricos para que la tienda arranque sin errores.
+
+> **Nota para futuras migraciones:** cada vez que se agregue un archivo nuevo en `supabase/migrations/` con número mayor al `_028`, deberá ejecutarse manualmente aquí después del schema. El archivo `schema.sql` solo se actualiza periódicamente.
 
 ## 3. Usuarios administradores
 
