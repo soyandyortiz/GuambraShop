@@ -328,7 +328,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
           variante: i.nombre_variante ?? null,
           talla: i.talla ?? null,
           cantidad: i.cantidad,
-          subtotal: +(i.precio * i.cantidad).toFixed(2),
+          subtotal: +(i.precio * (i.alquiler?.dias ?? 1) * i.cantidad).toFixed(2),
           cita: i.cita,
           alquiler: i.alquiler,
         })),
@@ -405,7 +405,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
         items: items.map(i => ({
           nombre: i.nombre,
           cantidad: i.cantidad,
-          subtotal: +(i.precio * i.cantidad).toFixed(2),
+          subtotal: +(i.precio * (i.alquiler?.dias ?? 1) * i.cantidad).toFixed(2),
           variante: i.nombre_variante ?? null,
           talla: i.talla ?? null,
           tipo_producto: i.tipo_producto,
@@ -620,7 +620,13 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                     </span>
                   ))}
                 </div>
-                <p className="text-sm font-bold text-primary mt-1">{formatearPrecio(item.precio, simboloMoneda)}</p>
+                {item.tipo_producto === 'alquiler' && item.alquiler ? (
+                  <p className="text-sm font-bold text-primary mt-1">
+                    {formatearPrecio(item.precio, simboloMoneda)}<span className="text-xs font-normal text-foreground-muted">/día</span>
+                  </p>
+                ) : (
+                  <p className="text-sm font-bold text-primary mt-1">{formatearPrecio(item.precio, simboloMoneda)}</p>
+                )}
                 <div className="flex items-center justify-between mt-2">
                   {item.tipo_producto === 'servicio' ? (
                     <div className="flex flex-col gap-0.5">
@@ -645,7 +651,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                             {new Date(item.alquiler.fecha_fin + 'T00:00:00').toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })}
                           </div>
                           <p className="text-[10px] text-foreground-muted">
-                            {item.alquiler.dias} día{item.alquiler.dias !== 1 ? 's' : ''}
+                            {item.cantidad > 1 ? `${item.cantidad} uds. × ` : ''}{item.alquiler.dias} día{item.alquiler.dias !== 1 ? 's' : ''}
                             {item.alquiler.hora_recogida ? ` · Retiro: ${item.alquiler.hora_recogida}` : ''}
                           </p>
                         </>
@@ -666,7 +672,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                   )}
                   <div className="flex items-center gap-2">
                     <p className="text-xs text-foreground-muted font-medium">
-                      = {formatearPrecio(item.precio * item.cantidad, simboloMoneda)}
+                      = {formatearPrecio(item.precio * (item.alquiler?.dias ?? 1) * item.cantidad, simboloMoneda)}
                     </p>
                     <button onClick={() => quitar(item.producto_id, item.variante_id, item.talla, item.cita, item.alquiler)}
                       className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-all">

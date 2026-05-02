@@ -46,18 +46,29 @@ interface CarritoContextType {
 
 const CarritoContext = createContext<CarritoContextType | undefined>(undefined)
 
-const CLAVE = 'tienda_carrito'
+const CLAVE   = 'tienda_carrito'
+const CLAVE_V = 'tienda_carrito_v'
+const VERSION = '2'  // v2: precio alquiler = tarifa base por día (no × dias)
 
 function leerCarrito(): ItemCarrito[] {
   if (typeof window === 'undefined') return []
   try {
-    return (JSON.parse(localStorage.getItem(CLAVE) ?? '[]') as ItemCarrito[])
+    const version = localStorage.getItem(CLAVE_V) ?? '1'
+    const items = (JSON.parse(localStorage.getItem(CLAVE) ?? '[]') as ItemCarrito[])
       .filter(i => i.tipo_producto !== 'evento')
+    if (version !== VERSION) {
+      // Items de alquiler del formato anterior tenían precio × dias baked in — eliminarlos
+      const migrados = items.filter(i => i.tipo_producto !== 'alquiler')
+      guardarCarrito(migrados)
+      return migrados
+    }
+    return items
   } catch { return [] }
 }
 
 function guardarCarrito(items: ItemCarrito[]) {
   localStorage.setItem(CLAVE, JSON.stringify(items))
+  localStorage.setItem(CLAVE_V, VERSION)
 }
 
 function claveItem(item: Pick<ItemCarrito, 'producto_id' | 'variante_id' | 'talla' | 'cita' | 'alquiler'>) {
@@ -116,7 +127,10 @@ export function CarritoProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const conteo = items.reduce((s, i) => s + i.cantidad, 0)
-  const subtotal = items.reduce((s, i) => s + i.precio * i.cantidad, 0)
+  const subtotal = items.reduce((s, i) => {
+    const dias = i.tipo_producto === 'alquiler' && i.alquiler ? i.alquiler.dias : 1
+    return s + i.precio * dias * i.cantidad
+  }, 0)
 
   return (
     <CarritoContext.Provider value={{ 

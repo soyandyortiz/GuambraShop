@@ -275,17 +275,12 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
   }
 
   function buildItemCarrito() {
-    // Para alquiler: precio = precio_por_dia × dias (total por unidad)
-    const precioFinal = producto.tipo_producto === 'alquiler'
-      ? precioTotal * alquilerDias
-      : precioTotal
-
     return {
       producto_id: producto.id,
       nombre: producto.nombre,
       slug: producto.slug,
       imagen_url: imagenes[0]?.url ?? null,
-      precio: precioFinal,
+      precio: precioTotal,  // siempre precio base (por día para alquileres)
       variante_id: varianteId ?? undefined,
       nombre_variante: variante?.nombre ?? undefined,
       tipo_producto: producto.tipo_producto,

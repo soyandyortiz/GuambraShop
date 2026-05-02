@@ -43,7 +43,7 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
   // Líneas de ítems — formato varía por tipo
   const lineasItems = items
     .map((item, i) => {
-      const subtotal = item.precio * item.cantidad
+      const subtotal = item.precio * (item.alquiler?.dias ?? 1) * item.cantidad
       const extras: string[] = []
       if (item.variante) extras.push(`Variante: ${item.variante}`)
       if (item.talla)    extras.push(`Talla: ${item.talla}`)
@@ -91,7 +91,7 @@ export function generarMensajeWhatsApp(datos: DatosMensaje): string {
     })
     .join('\n\n')
 
-  const subtotalBase = items.reduce((acc, item) => acc + item.precio * item.cantidad, 0)
+  const subtotalBase = items.reduce((acc, item) => acc + item.precio * (item.alquiler?.dias ?? 1) * item.cantidad, 0)
 
   // Cupón
   const lineaCupon = cupon
