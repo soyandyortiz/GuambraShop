@@ -8,6 +8,7 @@ interface ItemNotif {
   talla?: string | null
   tipo_producto?: string
   cita?: { fecha: string; hora_inicio: string; empleado_nombre?: string } | null
+  alquiler?: { fecha_inicio: string; fecha_fin: string; dias: number; hora_recogida?: string | null } | null
 }
 
 interface BodyNotif {
@@ -42,16 +43,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'invalid_body' }, { status: 400 })
   }
 
-  const soloServicios = body.items.length > 0 && body.items.every(i => i.tipo_producto === 'servicio')
+  const soloServicios  = body.items.length > 0 && body.items.every(i => i.tipo_producto === 'servicio')
+  const soloAlquileres = body.items.length > 0 && body.items.every(i => i.tipo_producto === 'alquiler')
 
   // Encabezado y atención diferenciados por tipo
   const encabezado = soloServicios
     ? `📅 <b>Cita agendada — ${body.numero_orden}</b>`
-    : `🛒 <b>Nuevo pedido — ${body.numero_orden}</b>`
+    : soloAlquileres
+      ? `👔 <b>Solicitud de alquiler — ${body.numero_orden}</b>`
+      : `🛒 <b>Nuevo pedido — ${body.numero_orden}</b>`
 
   let atencionLinea: string
   if (soloServicios) {
     atencionLinea = `📍 Atención en local físico`
+  } else if (soloAlquileres) {
+    atencionLinea = body.tipo === 'delivery'
+      ? `🚚 Entrega a domicilio${[body.ciudad, body.provincia].filter(Boolean).length ? ` → ${[body.ciudad, body.provincia].filter(Boolean).join(', ')}` : ''}`
+      : `🏪 Retiro en local`
   } else if (body.tipo === 'delivery') {
     const destino = [body.ciudad, body.provincia].filter(Boolean).join(', ') || '—'
     atencionLinea = `🚚 Delivery → ${destino}`
@@ -59,23 +67,37 @@ export async function POST(req: NextRequest) {
     atencionLinea = `🏪 Retiro en tienda`
   }
 
+  const fmtFecha = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('es-EC', {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+  })
+
   const itemsLineas = body.items.map(i => {
     const extras = [i.variante, i.talla ? `T:${i.talla}` : null].filter(Boolean).join(' ')
     let linea = `  • ${i.nombre}${extras ? ` (${extras})` : ''}`
     if (i.tipo_producto === 'servicio' && i.cita) {
-      const fecha = new Date(i.cita.fecha + 'T00:00:00').toLocaleDateString('es-EC', {
-        weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
-      })
+      const fecha = fmtFecha(i.cita.fecha)
       const hora = i.cita.hora_inicio.slice(0, 5)
       linea += `\n    Fecha: ${fecha}  Hora: ${hora}`
       if (i.cita.empleado_nombre) linea += `\n    Atencion: ${i.cita.empleado_nombre}`
+    } else if (i.tipo_producto === 'alquiler' && i.alquiler) {
+      const al = i.alquiler
+      linea += ` <i>(alquiler)</i>`
+      linea += `\n    Retiro:     ${fmtFecha(al.fecha_inicio)}`
+      linea += `\n    Devolución: ${fmtFecha(al.fecha_fin)}`
+      linea += `\n    Días: ${al.dias} día${al.dias !== 1 ? 's' : ''}`
+      if (al.hora_recogida) linea += `  |  Hora retiro: ${al.hora_recogida.slice(0, 5)}`
+      linea += `\n    Cant: ${i.cantidad}  —  ${body.simbolo_moneda}${i.subtotal.toFixed(2)}`
     } else {
       linea += ` x${i.cantidad} — ${body.simbolo_moneda}${i.subtotal.toFixed(2)}`
     }
     return linea
   }).join('\n')
 
-  const labelItems = soloServicios ? `<b>Servicio(s):</b>` : `<b>Productos:</b>`
+  const labelItems = soloServicios
+    ? `<b>Servicio(s):</b>`
+    : soloAlquileres
+      ? `<b>Artículo(s) en alquiler:</b>`
+      : `<b>Productos:</b>`
 
   const resumen = [
     body.descuento_cupon > 0
