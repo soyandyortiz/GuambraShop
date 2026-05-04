@@ -6,7 +6,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Plus, Trash2, Tag, Save, ArrowLeft, Ruler, Package, Video, ImagePlus, X, PackagePlus, PartyPopper, PlusCircle, KeyRound } from 'lucide-react'
+import { Plus, Trash2, Tag, Save, ArrowLeft, Ruler, Package, Video, ImagePlus, X, PackagePlus, PartyPopper, PlusCircle, KeyRound, Search } from 'lucide-react'
 import { usarSubirImagen } from '@/hooks/usar-subir-imagen'
 import { useEffect } from 'react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
@@ -56,11 +56,12 @@ interface Props {
   categorias: Categoria[]
   producto?: Producto & { variantes?: VarianteProducto[]; tallas?: TallaProducto[] }
   productosExistentes?: { id: string; nombre: string }[]
+  relacionadosIniciales?: string[]
 }
 
 const PAQUETE_VACIO: PaqueteEvento = { id: '', icono: '🎵', nombre: '', descripcion: null, precio_min: null, precio_max: null }
 
-export function FormularioProducto({ categorias, producto, productosExistentes = [] }: Props) {
+export function FormularioProducto({ categorias, producto, productosExistentes = [], relacionadosIniciales = [] }: Props) {
   const router = useRouter()
   const esEdicion = !!producto
 
@@ -69,7 +70,8 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       ? [...producto.imagenes].sort((a, b) => a.orden - b.orden).map(i => i.url)
       : []
   )
-  const [relacionados, setRelacionados] = useState<string[]>([])
+  const [relacionados, setRelacionados] = useState<string[]>(relacionadosIniciales)
+  const [busquedaRelacionados, setBusquedaRelacionados] = useState('')
   const [errorGlobal, setErrorGlobal] = useState('')
   const [subiendoVariante, setSubiendoVariante] = useState<number | null>(null)
   const { subirImagen: subirImagenVariante, eliminarImagen: eliminarImagenVariante } = usarSubirImagen('productos')
@@ -891,21 +893,65 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       {/* Sección: Productos relacionados */}
       {productosExistentes.length > 0 && (
         <Sección titulo="Productos relacionados" descripcion="Aparecen en la página del producto para incentivar más compras.">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-            {productosExistentes.filter(p => p.id !== producto?.id).map(p => (
-              <label key={p.id} className="flex items-center gap-2 cursor-pointer p-2 rounded-xl hover:bg-background-subtle">
-                <input
-                  type="checkbox"
-                  checked={relacionados.includes(p.id)}
-                  onChange={e => {
-                    if (e.target.checked) setRelacionados(prev => [...prev, p.id])
-                    else setRelacionados(prev => prev.filter(id => id !== p.id))
-                  }}
-                  className="rounded"
-                />
-                <span className="text-sm text-foreground">{p.nombre}</span>
-              </label>
-            ))}
+          <div className="flex flex-col gap-3">
+            {/* Buscador */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted pointer-events-none" />
+              <input
+                type="text"
+                value={busquedaRelacionados}
+                onChange={e => setBusquedaRelacionados(e.target.value)}
+                placeholder="Buscar producto..."
+                className="w-full h-10 pl-9 pr-4 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            {/* Seleccionados */}
+            {relacionados.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {relacionados.map(id => {
+                  const p = productosExistentes.find(p => p.id === id)
+                  if (!p) return null
+                  return (
+                    <span key={id} className="flex items-center gap-1 bg-primary/10 text-primary text-xs font-semibold px-2.5 py-1 rounded-full">
+                      {p.nombre}
+                      <button type="button" onClick={() => setRelacionados(prev => prev.filter(r => r !== id))}>
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Lista filtrada */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-52 overflow-y-auto pr-1">
+              {productosExistentes
+                .filter(p => p.id !== producto?.id)
+                .filter(p => p.nombre.toLowerCase().includes(busquedaRelacionados.toLowerCase()))
+                .map(p => (
+                  <label key={p.id} className={cn(
+                    'flex items-center gap-2 cursor-pointer px-3 py-2 rounded-xl border transition-all',
+                    relacionados.includes(p.id)
+                      ? 'bg-primary/5 border-primary/30 text-primary'
+                      : 'border-transparent hover:bg-background-subtle text-foreground'
+                  )}>
+                    <input
+                      type="checkbox"
+                      checked={relacionados.includes(p.id)}
+                      onChange={e => {
+                        if (e.target.checked) setRelacionados(prev => [...prev, p.id])
+                        else setRelacionados(prev => prev.filter(id => id !== p.id))
+                      }}
+                      className="rounded accent-primary"
+                    />
+                    <span className="text-sm leading-tight">{p.nombre}</span>
+                  </label>
+                ))}
+              {productosExistentes.filter(p => p.id !== producto?.id && p.nombre.toLowerCase().includes(busquedaRelacionados.toLowerCase())).length === 0 && (
+                <p className="text-xs text-foreground-muted col-span-2 py-2 text-center">Sin resultados</p>
+              )}
+            </div>
           </div>
         </Sección>
       )}
