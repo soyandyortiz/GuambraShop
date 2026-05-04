@@ -49,11 +49,10 @@ export default async function PáginaInicio() {
       .select('nombre_tienda, logo_url, esta_activa, mensaje_suspension, info_pago, whatsapp')
       .single(),
     supabase.from('categorias')
-      .select('id, nombre, slug, imagen_url')
+      .select('id, nombre, slug, parent_id, imagen_url')
       .eq('esta_activa', true)
-      .is('parent_id', null)
       .order('orden')
-      .limit(30),
+      .limit(60),
     supabase.from('productos').select('precio').eq('esta_activo', true).order('precio', { ascending: true }).limit(1).maybeSingle(),
     supabase.from('productos').select('precio').eq('esta_activo', true).order('precio', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('promociones')
@@ -104,7 +103,7 @@ export default async function PáginaInicio() {
       <main className="pb-20">
         <div className="max-w-4xl mx-auto">
           {/* Categorías (Carrusel) */}
-          <CarruselCategorias categorias={categorias ?? []} />
+          <CarruselCategorias categorias={(categorias ?? []).filter((c: any) => !c.parent_id)} />
 
           {/* Tienda Principal (Buscador, Filtros y Productos Secuenciales) */}
           <TiendaPrincipal

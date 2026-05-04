@@ -21,7 +21,7 @@ interface Producto {
   variantes?: any[]
 }
 
-interface Categoria { id: string; nombre: string; slug: string }
+interface Categoria { id: string; nombre: string; slug: string; parent_id?: string | null }
 
 interface Props {
   precioMinGlobal: number
@@ -104,7 +104,14 @@ export function TiendaPrincipal({ precioMinGlobal, precioMaxGlobal, categorias }
     if (q)         query = query.ilike('nombre', `%${q}%`)
     if (min > precioMinGlobal) query = query.gte('precio', min)
     if (max < precioMaxGlobal) query = query.lte('precio', max)
-    if (catId)     query = query.eq('categoria_id', catId)
+    if (catId) {
+      const hijoIds = categorias.filter(c => c.parent_id === catId).map(c => c.id)
+      if (hijoIds.length > 0) {
+        query = query.in('categoria_id', [catId, ...hijoIds])
+      } else {
+        query = query.eq('categoria_id', catId)
+      }
+    }
     if (tipo)      query = query.eq('tipo_producto', tipo)
     if (soloDesc)  query = query.not('precio_descuento', 'is', null)
 
@@ -176,6 +183,17 @@ export function TiendaPrincipal({ precioMinGlobal, precioMaxGlobal, categorias }
   }
 
   function togglePanel() { set('filtros', panelAbierto ? null : 'true') }
+
+  // ── Jerarquía de categorías ─────────────────────────────────
+  const categoriasParent = categorias.filter(c => !c.parent_id)
+  const catSeleccionada  = categorias.find(c => c.id === catId)
+  // Si la cat seleccionada es un hijo, el padre activo es su parent_id; si es padre, es ella misma
+  const parentIdActivo   = catSeleccionada
+    ? (catSeleccionada.parent_id ?? catSeleccionada.id)
+    : null
+  const subcatsDelPadre  = parentIdActivo
+    ? categorias.filter(c => c.parent_id === parentIdActivo)
+    : []
 
   // ── Render ──────────────────────────────────────────────────
   return (
@@ -282,30 +300,32 @@ export function TiendaPrincipal({ precioMinGlobal, precioMaxGlobal, categorias }
             </div>
 
             {/* ── 2. Categorías ── */}
-            {categorias.length > 0 && (
-              <div>
-                <p className="text-[11px] font-bold text-foreground-muted uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            {categoriasParent.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="text-[11px] font-bold text-foreground-muted uppercase tracking-wide flex items-center gap-1.5">
                   <Tag className="w-3 h-3" /> Categoría
                 </p>
+
+                {/* Categorías padre */}
                 <div className="flex gap-1.5 flex-wrap">
                   <button
                     onClick={() => set('cat', null)}
                     className={cn(
                       'px-3 py-1 rounded-full text-xs font-semibold border transition-all',
-                      catId === ''
+                      !catId
                         ? 'bg-primary text-white border-primary'
                         : 'bg-background-subtle border-border text-foreground-muted hover:border-primary/40 hover:text-foreground'
                     )}
                   >
                     Todas
                   </button>
-                  {categorias.map(cat => (
+                  {categoriasParent.map(cat => (
                     <button
                       key={cat.id}
-                      onClick={() => set('cat', catId === cat.id ? null : cat.id)}
+                      onClick={() => set('cat', parentIdActivo === cat.id ? null : cat.id)}
                       className={cn(
                         'px-3 py-1 rounded-full text-xs font-semibold border transition-all',
-                        catId === cat.id
+                        parentIdActivo === cat.id
                           ? 'bg-primary text-white border-primary'
                           : 'bg-background-subtle border-border text-foreground-muted hover:border-primary/40 hover:text-foreground'
                       )}
@@ -314,6 +334,38 @@ export function TiendaPrincipal({ precioMinGlobal, precioMaxGlobal, categorias }
                     </button>
                   ))}
                 </div>
+
+                {/* Subcategorías del padre activo */}
+                {subcatsDelPadre.length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap pl-3 border-l-2 border-primary/25">
+                    {/* "Todas" del padre */}
+                    <button
+                      onClick={() => set('cat', parentIdActivo)}
+                      className={cn(
+                        'px-2.5 py-0.5 rounded-full text-[11px] font-semibold border transition-all',
+                        catId === parentIdActivo
+                          ? 'bg-primary/15 text-primary border-primary/40'
+                          : 'bg-background-subtle border-border text-foreground-muted hover:border-primary/30 hover:text-foreground'
+                      )}
+                    >
+                      Todas
+                    </button>
+                    {subcatsDelPadre.map(sub => (
+                      <button
+                        key={sub.id}
+                        onClick={() => set('cat', catId === sub.id ? parentIdActivo : sub.id)}
+                        className={cn(
+                          'px-2.5 py-0.5 rounded-full text-[11px] font-semibold border transition-all',
+                          catId === sub.id
+                            ? 'bg-primary/15 text-primary border-primary/40'
+                            : 'bg-background-subtle border-border text-foreground-muted hover:border-primary/30 hover:text-foreground'
+                        )}
+                      >
+                        {sub.nombre}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -419,9 +471,12 @@ export function TiendaPrincipal({ precioMinGlobal, precioMaxGlobal, categorias }
           {tipo && (
             <Chip label={tipo === 'producto' ? 'Productos' : 'Servicios'} onRemove={() => set('tipo', null)} />
           )}
-          {catId && (
-            <Chip label={categorias.find(c => c.id === catId)?.nombre ?? 'Categoría'} onRemove={() => set('cat', null)} />
-          )}
+          {catId && (() => {
+            const padre = categoriasParent.find(c => c.id === parentIdActivo)
+            const sub   = catSeleccionada?.parent_id ? catSeleccionada : null
+            const label = sub ? `${padre?.nombre ?? ''} › ${sub.nombre}` : (padre?.nombre ?? 'Categoría')
+            return <Chip label={label} onRemove={() => set('cat', null)} />
+          })()}
           {(min > precioMinGlobal || max < precioMaxGlobal) && (
             <Chip label={`${formatearPrecio(min)} — ${formatearPrecio(max)}`} onRemove={() => { set('min', null); set('max', null) }} />
           )}
@@ -441,7 +496,7 @@ export function TiendaPrincipal({ precioMinGlobal, precioMaxGlobal, categorias }
             <>Resultados para <span className="text-primary">"{q}"</span></>
           ) : tipo === 'servicio' ? 'Servicios disponibles'
             : tipo === 'producto' ? 'Productos'
-            : catId ? (categorias.find(c => c.id === catId)?.nombre ?? 'Productos')
+            : catId ? (catSeleccionada?.nombre ?? 'Productos')
             : 'Todos los productos'}
         </h2>
         {!cargando && (
