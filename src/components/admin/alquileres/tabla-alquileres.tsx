@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import {
   Search, Calendar, Package,
-  Phone, CheckCircle2, KeyRound, RotateCcw, XCircle
+  Phone, CheckCircle2, KeyRound, RotateCcw, XCircle, AlertTriangle
 } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
@@ -13,6 +13,7 @@ import { cn, formatearPrecio } from '@/lib/utils'
 const ESTADOS: Record<string, { etiqueta: string; color: string }> = {
   reservado: { etiqueta: 'Reservado',  color: 'bg-blue-500/15 text-blue-600 border-blue-300' },
   activo:    { etiqueta: 'Activo',     color: 'bg-success/15 text-success border-success/30' },
+  vencido:   { etiqueta: 'Vencido',    color: 'bg-orange-500/15 text-orange-600 border-orange-300' },
   devuelto:  { etiqueta: 'Devuelto',   color: 'bg-foreground/10 text-foreground-muted border-border' },
   cancelado: { etiqueta: 'Cancelado',  color: 'bg-danger/15 text-danger border-danger/30' },
 }
@@ -47,7 +48,7 @@ export function TablaAlquileres({ alquileres: alqInit }: Props) {
   const [, startTransition] = useTransition()
   const [alquileres, setAlquileres] = useState<AlquilerExt[]>(alqInit)
   const [busqueda, setBusqueda] = useState('')
-  const [filtro, setFiltro] = useState<'todos' | 'reservado' | 'activo' | 'devuelto' | 'cancelado'>('todos')
+  const [filtro, setFiltro] = useState<'todos' | 'reservado' | 'activo' | 'vencido' | 'devuelto' | 'cancelado'>('todos')
   const [actualizando, setActualizando] = useState<string | null>(null)
 
   const filtrados = alquileres.filter(a => {
@@ -79,8 +80,27 @@ export function TablaAlquileres({ alquileres: alqInit }: Props) {
     day: 'numeric', month: 'short', year: 'numeric',
   })
 
+  const vencidosCount = alquileres.filter(a => a.estado === 'vencido').length
+
   return (
     <div className="flex flex-col gap-4">
+
+      {/* Alerta de vencidos */}
+      {vencidosCount > 0 && (
+        <button
+          onClick={() => setFiltro('vencido')}
+          className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3 text-left hover:bg-orange-100 transition-colors"
+        >
+          <AlertTriangle className="w-5 h-5 text-orange-500 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-orange-700">
+              {vencidosCount} alquiler{vencidosCount !== 1 ? 'es' : ''} no devuelto{vencidosCount !== 1 ? 's' : ''}
+            </p>
+            <p className="text-xs text-orange-600">La fecha de devolución ya pasó. Toca para ver.</p>
+          </div>
+        </button>
+      )}
+
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -93,7 +113,7 @@ export function TablaAlquileres({ alquileres: alqInit }: Props) {
           />
         </div>
         <div className="flex gap-2 flex-wrap">
-          {(['todos', 'reservado', 'activo', 'devuelto', 'cancelado'] as const).map(f => (
+          {(['todos', 'reservado', 'activo', 'vencido', 'devuelto', 'cancelado'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFiltro(f)}
@@ -101,10 +121,18 @@ export function TablaAlquileres({ alquileres: alqInit }: Props) {
                 'h-10 px-3 rounded-xl text-xs font-semibold border transition-all',
                 filtro === f
                   ? 'bg-primary text-white border-primary'
-                  : 'bg-card text-foreground-muted border-border hover:border-primary/40'
+                  : 'bg-card text-foreground-muted border-border hover:border-primary/40',
+                f === 'vencido' && vencidosCount > 0 && filtro !== 'vencido'
+                  ? 'border-orange-300 text-orange-600 bg-orange-50'
+                  : ''
               )}
             >
               {f === 'todos' ? 'Todos' : ESTADOS[f]?.etiqueta ?? f}
+              {f === 'vencido' && vencidosCount > 0 && (
+                <span className="ml-1.5 bg-orange-500 text-white text-[9px] rounded-full px-1.5 py-0.5">
+                  {vencidosCount}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -213,9 +241,20 @@ export function TablaAlquileres({ alquileres: alqInit }: Props) {
                 </div>
 
                 {/* Acciones de estado */}
-                <div className="flex items-center gap-2 pt-1 border-t border-border">
-                  <span className="text-[10px] text-foreground-muted mr-1">Cambiar estado:</span>
-                  {alq.estado !== 'activo' && alq.estado !== 'devuelto' && alq.estado !== 'cancelado' && (
+                <div className={cn(
+                  'flex items-center gap-2 pt-1 border-t',
+                  alq.estado === 'vencido' ? 'border-orange-200' : 'border-border'
+                )}>
+                  {alq.estado === 'vencido' && (
+                    <span className="flex items-center gap-1 text-[10px] text-orange-600 font-semibold mr-1">
+                      <AlertTriangle className="w-3 h-3" /> No devuelto:
+                    </span>
+                  )}
+                  {alq.estado !== 'vencido' && (
+                    <span className="text-[10px] text-foreground-muted mr-1">Cambiar estado:</span>
+                  )}
+                  {/* Activar: solo desde reservado */}
+                  {alq.estado === 'reservado' && (
                     <button
                       disabled={actualizando === alq.id}
                       onClick={() => cambiarEstado(alq.id, 'activo')}
@@ -224,16 +263,23 @@ export function TablaAlquileres({ alquileres: alqInit }: Props) {
                       <CheckCircle2 className="w-3 h-3" /> Activar
                     </button>
                   )}
-                  {alq.estado !== 'devuelto' && alq.estado !== 'cancelado' && (
+                  {/* Devuelto: desde activo o vencido */}
+                  {(alq.estado === 'activo' || alq.estado === 'vencido' || alq.estado === 'reservado') && (
                     <button
                       disabled={actualizando === alq.id}
                       onClick={() => cambiarEstado(alq.id, 'devuelto')}
-                      className="flex items-center gap-1 h-7 px-2.5 rounded-lg bg-foreground/10 text-foreground-muted text-[11px] font-semibold hover:bg-foreground/20 disabled:opacity-50 transition-all"
+                      className={cn(
+                        'flex items-center gap-1 h-7 px-2.5 rounded-lg text-[11px] font-semibold disabled:opacity-50 transition-all',
+                        alq.estado === 'vencido'
+                          ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                          : 'bg-foreground/10 text-foreground-muted hover:bg-foreground/20'
+                      )}
                     >
                       <RotateCcw className="w-3 h-3" /> Devuelto
                     </button>
                   )}
-                  {alq.estado !== 'cancelado' && alq.estado !== 'devuelto' && (
+                  {/* Cancelar: solo desde reservado */}
+                  {alq.estado === 'reservado' && (
                     <button
                       disabled={actualizando === alq.id}
                       onClick={() => cambiarEstado(alq.id, 'cancelado')}

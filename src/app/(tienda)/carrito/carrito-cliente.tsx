@@ -277,21 +277,12 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
     // Verificar disponibilidad de alquileres antes de crear el pedido
     for (const item of items.filter(i => i.tipo_producto === 'alquiler' && i.alquiler)) {
       const al = item.alquiler!
-      const { data: prodData } = await supabase
-        .from('productos')
-        .select('stock')
-        .eq('id', item.producto_id)
-        .single()
-      const stockTotal = prodData?.stock ?? 0
-      const { data: alqData } = await supabase
-        .from('alquileres')
-        .select('cantidad')
-        .eq('producto_id', item.producto_id)
-        .lte('fecha_inicio', al.fecha_fin)
-        .gte('fecha_fin', al.fecha_inicio)
-        .in('estado', ['reservado', 'activo'])
-      const totalReservado = (alqData ?? []).reduce((s: number, r: { cantidad: number }) => s + r.cantidad, 0)
-      const disponible = Math.max(0, stockTotal - totalReservado)
+      const { data: dispData } = await supabase.rpc('verificar_disponibilidad_alquiler', {
+        p_producto_id:  item.producto_id,
+        p_fecha_inicio: al.fecha_inicio,
+        p_fecha_fin:    al.fecha_fin,
+      })
+      const disponible = (dispData as { disponible: number }[] | null)?.[0]?.disponible ?? 0
       if (disponible < item.cantidad) {
         const fmtFecha = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('es-EC', { day: 'numeric', month: 'long' })
         toast.error(

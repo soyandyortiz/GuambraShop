@@ -3,6 +3,10 @@
     {
       "path": "/api/telegram/resumen-diario",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/alquileres/marcar-vencidos",
+      "schedule": "0 6 * * *"
     }
   ]
 }

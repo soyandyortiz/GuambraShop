@@ -210,16 +210,13 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
     async function verificarDisponibilidadAlquiler() {
       setCargandoDisponibilidadAlquiler(true)
       const supabase = crearClienteSupabase()
-      const { data } = await supabase
-        .from('alquileres')
-        .select('cantidad')
-        .eq('producto_id', producto.id)
-        .lte('fecha_inicio', fechaFin)
-        .gt('fecha_fin', alquilerFechaInicio)
-        .in('estado', ['reservado', 'activo'])
-      const totalReservado = (data ?? []).reduce((s: number, r: { cantidad: number }) => s + r.cantidad, 0)
-      const stockTotal = producto.stock ?? 0
-      setAlquilerStockDisponible(Math.max(0, stockTotal - totalReservado))
+      const { data } = await supabase.rpc('verificar_disponibilidad_alquiler', {
+        p_producto_id:  producto.id,
+        p_fecha_inicio: alquilerFechaInicio,
+        p_fecha_fin:    fechaFin,
+      })
+      const disponible = (data as { disponible: number }[] | null)?.[0]?.disponible ?? 0
+      setAlquilerStockDisponible(disponible)
       setCargandoDisponibilidadAlquiler(false)
     }
     verificarDisponibilidadAlquiler()

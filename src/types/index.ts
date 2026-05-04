@@ -176,7 +176,7 @@ export interface Alquiler {
   dias: number
   cantidad: number
   hora_recogida: string | null  // TIME → "HH:MM:SS"
-  estado: 'reservado' | 'activo' | 'devuelto' | 'cancelado'
+  estado: 'reservado' | 'activo' | 'vencido' | 'devuelto' | 'cancelado'
   creado_en: string
   actualizado_en: string
 }
