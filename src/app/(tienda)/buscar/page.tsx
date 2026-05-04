@@ -94,6 +94,18 @@ export default async function PáginaBuscar({ searchParams }: Props) {
     }
   })
 
+  // Disponibilidad real de hoy para alquileres (una sola query batch)
+  const alquilerIds = productosNorm.filter(p => p.tipo_producto === 'alquiler').map(p => p.id)
+  const disponibilidadAlquileres: Record<string, number> = {}
+  if (alquilerIds.length > 0) {
+    const { data: disp } = await supabase.rpc('disponibilidad_alquileres_hoy', { p_ids: alquilerIds })
+    if (disp) {
+      for (const row of disp as { producto_id: string; disponible: number }[]) {
+        disponibilidadAlquileres[row.producto_id] = row.disponible
+      }
+    }
+  }
+
   // Ordenar en JS (Supabase no soporta ORDER BY en relaciones agregadas fácilmente)
   if (orden === 'populares') {
     productosNorm = productosNorm.sort((a, b) => b.calificacion_promedio - a.calificacion_promedio || b.total_resenas - a.total_resenas)
@@ -118,6 +130,7 @@ export default async function PáginaBuscar({ searchParams }: Props) {
       maxInic={max ? parseFloat(max) : precioMax}
       ordenInic={orden}
       tipoInic={tipo ?? ''}
+      disponibilidadAlquileres={disponibilidadAlquileres}
     />
   )
 }

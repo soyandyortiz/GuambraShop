@@ -29,6 +29,7 @@ interface Props {
   maxInic: number
   ordenInic: string
   tipoInic: string
+  disponibilidadAlquileres?: Record<string, number>
 }
 
 // ─── Dual-thumb range slider ───────────────────────────────────────────────
@@ -163,6 +164,7 @@ const TIPOS = [
 export function BuscarCliente({
   productosInic, categorias, qInic, categoriaInic,
   precioMinGlobal, precioMaxGlobal, minInic, maxInic, ordenInic, tipoInic,
+  disponibilidadAlquileres = {},
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -385,7 +387,11 @@ export function BuscarCliente({
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {productosInic.map(p => (
-            <TarjetaProducto key={p.id} {...p} />
+            <TarjetaProducto
+              key={p.id}
+              {...p}
+              stockDisponibleHoy={p.tipo_producto === 'alquiler' ? disponibilidadAlquileres[p.id] : undefined}
+            />
           ))}
         </div>
       )}

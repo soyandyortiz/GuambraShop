@@ -10,7 +10,7 @@ interface Producto {
   id: string; nombre: string; slug: string; precio: number
   precio_descuento: number | null; imagen_url: string | null
   etiquetas: string[]; variante_count: number
-  tipo_producto?: 'producto' | 'servicio'
+  tipo_producto?: 'producto' | 'servicio' | 'evento' | 'alquiler'
   stock?: number | null
   variantes?: any[]
 }
@@ -19,6 +19,7 @@ export default function PáginaFavoritos() {
   const { favoritos } = usarFavoritos()
   const [productos, setProductos] = useState<Producto[]>([])
   const [cargando, setCargando] = useState(true)
+  const [disponibilidadHoy, setDisponibilidadHoy] = useState<Record<string, number>>({})
 
   useEffect(() => {
     if (favoritos.length === 0) { setCargando(false); return }
@@ -37,7 +38,7 @@ export default function PáginaFavoritos() {
           return [...imgs].sort((a, b) => a.orden - b.orden)[0].url
         }
 
-        setProductos(data.map(p => ({
+        const mapeados = data.map(p => ({
           id: p.id,
           nombre: p.nombre,
           slug: p.slug,
@@ -49,8 +50,23 @@ export default function PáginaFavoritos() {
           tipo_producto: (p as any).tipo_producto,
           stock: (p as any).stock ?? null,
           variantes: (p.variantes_producto ?? []).filter((v: any) => v.esta_activa).sort((a: any, b: any) => a.orden - b.orden),
-        })))
+        }))
+        setProductos(mapeados)
         setCargando(false)
+
+        // Disponibilidad real de hoy para alquileres
+        const alquilerIds = mapeados.filter(p => p.tipo_producto === 'alquiler').map(p => p.id)
+        if (alquilerIds.length > 0) {
+          supabase.rpc('disponibilidad_alquileres_hoy', { p_ids: alquilerIds })
+            .then(({ data: disp }) => {
+              if (!disp) return
+              const map: Record<string, number> = {}
+              for (const row of disp as { producto_id: string; disponible: number }[]) {
+                map[row.producto_id] = row.disponible
+              }
+              setDisponibilidadHoy(map)
+            })
+        }
       })
   }, [favoritos])
 
@@ -79,7 +95,11 @@ export default function PáginaFavoritos() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {productos.map(p => (
-            <TarjetaProducto key={p.id} {...p} />
+            <TarjetaProducto
+              key={p.id}
+              {...p}
+              stockDisponibleHoy={p.tipo_producto === 'alquiler' ? disponibilidadHoy[p.id] : undefined}
+            />
           ))}
         </div>
       )}

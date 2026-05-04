@@ -16,7 +16,7 @@ interface Producto {
   id: string; nombre: string; slug: string; precio: number
   precio_descuento: number | null; imagen_url: string | null
   etiquetas: string[]; variante_count: number
-  tipo_producto?: 'producto' | 'servicio'
+  tipo_producto?: 'producto' | 'servicio' | 'evento' | 'alquiler'
   stock?: number | null
   variantes?: any[]
 }
@@ -56,12 +56,13 @@ export function TiendaPrincipal({ precioMinGlobal, precioMaxGlobal, categorias }
   const panelAbierto = searchParams.get('filtros') === 'true'
 
   // ── Estado local ────────────────────────────────────────────
-  const [productos,    setProductos]    = useState<Producto[]>([])
-  const [cargando,     setCargando]     = useState(true)
-  const [cargandoMas,  setCargandoMas]  = useState(false)
-  const [offset,       setOffset]       = useState(0)
-  const [hayMas,       setHayMas]       = useState(true)
-  const [inputBusqueda,setInputBusqueda]= useState(q)
+  const [productos,       setProductos]       = useState<Producto[]>([])
+  const [cargando,        setCargando]        = useState(true)
+  const [cargandoMas,     setCargandoMas]     = useState(false)
+  const [offset,          setOffset]          = useState(0)
+  const [hayMas,          setHayMas]          = useState(true)
+  const [inputBusqueda,   setInputBusqueda]   = useState(q)
+  const [disponibilidadHoy, setDisponibilidadHoy] = useState<Record<string, number>>({})
 
   // Valores locales del slider (no disparan fetch hasta soltar)
   const [sliderMin, setSliderMin] = useState(min)
@@ -135,6 +136,22 @@ export function TiendaPrincipal({ precioMinGlobal, precioMaxGlobal, categorias }
     setHayMas((data?.length ?? 0) === LIMITE)
     setCargando(false)
     setCargandoMas(false)
+
+    // Disponibilidad real de hoy para productos de alquiler
+    const alquilerIds = mapeados.filter(p => p.tipo_producto === 'alquiler').map(p => p.id)
+    if (alquilerIds.length > 0) {
+      supabase.rpc('disponibilidad_alquileres_hoy', { p_ids: alquilerIds })
+        .then(({ data: disp }) => {
+          if (!disp) return
+          setDisponibilidadHoy(prev => {
+            const next = nueva ? {} : { ...prev }
+            for (const row of disp as { producto_id: string; disponible: number }[]) {
+              next[row.producto_id] = row.disponible
+            }
+            return next
+          })
+        })
+    }
   }
 
   // ── Helpers para actualizar URL ─────────────────────────────
@@ -454,7 +471,13 @@ export function TiendaPrincipal({ precioMinGlobal, precioMaxGlobal, categorias }
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {productos.map(p => <TarjetaProducto key={p.id} {...p} />)}
+            {productos.map(p => (
+              <TarjetaProducto
+                key={p.id}
+                {...p}
+                stockDisponibleHoy={p.tipo_producto === 'alquiler' ? disponibilidadHoy[p.id] : undefined}
+              />
+            ))}
           </div>
 
           {hayMas && (

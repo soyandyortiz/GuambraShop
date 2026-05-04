@@ -24,17 +24,20 @@ interface Props {
   variante_count?: number
   tipo_producto?: TipoProducto
   stock?: number | null
+  stockDisponibleHoy?: number | null
   variantes?: any[]
 }
 
 export function TarjetaProducto({
   id, nombre, slug, precio, precio_descuento,
   imagen_url, calificacion_promedio, total_resenas,
-  etiquetas, variante_count, tipo_producto, stock, variantes,
+  etiquetas, variante_count, tipo_producto, stock, stockDisponibleHoy, variantes,
 }: Props) {
-  const agotado = stock !== null && stock !== undefined && stock === 0
-  const pocasUnidades = stock !== null && stock !== undefined && stock > 0 && stock <= 5
-  const enStock = stock !== null && stock !== undefined && stock > 5 && tipo_producto === 'producto'
+  const esAlquiler = tipo_producto === 'alquiler'
+  const agotado = !esAlquiler && stock !== null && stock !== undefined && stock === 0
+  const pocasUnidades = !esAlquiler && stock !== null && stock !== undefined && stock > 0 && stock <= 5
+  const enStock = !esAlquiler && stock !== null && stock !== undefined && stock > 5 && tipo_producto === 'producto'
+  const disponibleHoy = esAlquiler ? (stockDisponibleHoy ?? null) : null
   const router = useRouter()
   const { esFavorito, toggleFavorito } = usarFavoritos()
   const { agregar } = usarCarrito()
@@ -128,6 +131,18 @@ export function TarjetaProducto({
             <div className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg">
               -{descuento}%
             </div>
+          )}
+          {/* Badges de stock — lógica diferente según tipo */}
+          {esAlquiler && disponibleHoy !== null && (
+            disponibleHoy === 0 ? (
+              <div className="bg-gray-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg shadow-sm">
+                Sin disponibilidad
+              </div>
+            ) : (
+              <div className="bg-teal-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg shadow-sm">
+                {disponibleHoy} disponible{disponibleHoy !== 1 ? 's' : ''}
+              </div>
+            )
           )}
           {agotado && (
             <div className="bg-gray-700 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg shadow-sm">

@@ -26,6 +26,7 @@ export default async function PáginaCategoria({ params }: Props) {
   // Solo carga productos si es subcategoría o si no tiene hijos (categoría hoja)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let productos: any[] | null = null
+  let disponibilidadHoy: Record<string, number> = {}
   if (esSubcategoria || hijos.length === 0) {
     const ids = [categoria.id, ...hijos.map(h => h.id)]
     const { data } = await supabase
@@ -35,6 +36,16 @@ export default async function PáginaCategoria({ params }: Props) {
       .in('categoria_id', ids)
       .order('creado_en', { ascending: false })
     productos = data as any[] | null
+
+    const alquilerIds = (productos ?? []).filter((p: any) => p.tipo_producto === 'alquiler').map((p: any) => p.id)
+    if (alquilerIds.length > 0) {
+      const { data: disp } = await supabase.rpc('disponibilidad_alquileres_hoy', { p_ids: alquilerIds })
+      if (disp) {
+        for (const row of disp as { producto_id: string; disponible: number }[]) {
+          disponibilidadHoy[row.producto_id] = row.disponible
+        }
+      }
+    }
   }
 
   function imagenPrincipal(imgs: { url: string; orden: number }[]): string | null {
@@ -133,6 +144,7 @@ export default async function PáginaCategoria({ params }: Props) {
                     variante_count={((p.variantes_producto ?? []) as { id: string }[]).length}
                     tipo_producto={p.tipo_producto}
                     stock={p.stock ?? null}
+                    stockDisponibleHoy={p.tipo_producto === 'alquiler' ? disponibilidadHoy[p.id] : undefined}
                     variantes={(p.variantes_producto ?? []).filter((v: any) => v.esta_activa).sort((a: any, b: any) => a.orden - b.orden)}
                   />
                 ))}
