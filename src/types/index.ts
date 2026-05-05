@@ -411,6 +411,7 @@ export interface Factura {
   xml_firmado: string | null
   ride_url: string | null
   error_sri: string | null
+  motivo_anulacion: string | null
   notas: string | null
   creado_en: string
   actualizado_en: string
