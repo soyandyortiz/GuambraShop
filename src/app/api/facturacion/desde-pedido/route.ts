@@ -66,16 +66,27 @@ export async function POST(req: NextRequest) {
       }
 
       const { consultarAutorizacion } = await import('@/lib/sri/soap-sri')
-      let autorizacion: Awaited<ReturnType<typeof consultarAutorizacion>>
-      try {
-        autorizacion = await consultarAutorizacion(claveAcceso, ambiente)
-      } catch (fetchErr: unknown) {
-        const msg = (fetchErr as Error).message ?? 'Error de red'
-        return NextResponse.json({
-          ok: false, estado: 'enviada',
-          error: `No se pudo conectar con el SRI: ${msg}. Reintenta en unos minutos.`,
-          facturaId: facturaExistente.id,
-        }, { status: 503 })
+      // Reintentar hasta 4 veces con 4 s de pausa — el SRI de pruebas puede tardar
+      let autorizacion: Awaited<ReturnType<typeof consultarAutorizacion>> | null = null
+      for (let intento = 0; intento < 4; intento++) {
+        try {
+          autorizacion = await consultarAutorizacion(claveAcceso, ambiente)
+          if (autorizacion.ok || autorizacion.mensajes.length > 0) break
+        } catch (fetchErr: unknown) {
+          if (intento === 3) {
+            const msg = (fetchErr as Error).message ?? 'Error de red'
+            return NextResponse.json({
+              ok: false, estado: 'enviada',
+              error: `No se pudo conectar con el SRI: ${msg}. Reintenta en unos minutos.`,
+              facturaId: facturaExistente.id,
+            }, { status: 503 })
+          }
+        }
+        if (intento < 3) await new Promise(r => setTimeout(r, 4000))
+      }
+
+      if (!autorizacion) {
+        return NextResponse.json({ ok: false, estado: 'enviada', error: 'Sin respuesta del SRI', facturaId: facturaExistente.id })
       }
 
       if (autorizacion.ok) {

@@ -5,7 +5,8 @@ import {
   Search, Truck, Store, ChevronDown, ChevronUp,
   Package, Phone, Mail, MapPin, Download, ShoppingBag,
   Calendar, MessageCircle, X, Clock, CheckCircle2,
-  RotateCcw, XCircle, Send, ArrowUpDown, FileText, Loader2
+  RotateCcw, XCircle, Send, ArrowUpDown, FileText, Loader2,
+  RefreshCw, AlertCircle, BadgeCheck,
 } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
@@ -42,31 +43,55 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
   const [modalPedido, setModalPedido] = useState<Pedido | null>(null)
   const [actualizando, setActualizando] = useState<string | null>(null)
   const [emitiendoFactura, setEmitiendoFactura] = useState<string | null>(null)
-  // pedidoId → { facturaId, estado, numeroFactura, errorSri }
-  const [facturasEmitidas, setFacturasEmitidas] = useState<Record<string, { facturaId: string; estado: string; numeroFactura?: string; errorSri?: string }>>({})
+  // pedidoId → { facturaId, estado, numeroFactura, numeroAutorizacion, errorSri }
+  type InfoFactura = { facturaId: string; estado: string; numeroFactura?: string; numeroAutorizacion?: string; errorSri?: string }
+  const [facturasEmitidas, setFacturasEmitidas] = useState<Record<string, InfoFactura>>({})
 
-  // Cargar facturas existentes para pedidos entregados al montar
-  useEffect(() => {
+  // Carga facturas existentes para pedidos entregados
+  function cargarFacturas(ids: string[]) {
+    if (ids.length === 0) return
     const supabase = crearClienteSupabase()
-    const pedidosEntregados = pedidosInic.filter(p => p.estado === 'entregado').map(p => p.id)
-    if (pedidosEntregados.length === 0) return
-
     supabase
       .from('facturas')
-      .select('id, pedido_id, estado, numero_factura, error_sri')
-      .in('pedido_id', pedidosEntregados)
+      .select('id, pedido_id, estado, numero_factura, numero_autorizacion, error_sri')
+      .in('pedido_id', ids)
       .neq('estado', 'anulada')
       .then(({ data }) => {
         if (!data) return
-        const mapa: Record<string, { facturaId: string; estado: string; numeroFactura?: string; errorSri?: string }> = {}
+        const mapa: Record<string, InfoFactura> = {}
         for (const f of data) {
           if (f.pedido_id) {
-            mapa[f.pedido_id] = { facturaId: f.id, estado: f.estado, numeroFactura: f.numero_factura ?? undefined, errorSri: f.error_sri ?? undefined }
+            mapa[f.pedido_id] = {
+              facturaId:          f.id,
+              estado:             f.estado,
+              numeroFactura:      f.numero_factura ?? undefined,
+              numeroAutorizacion: f.numero_autorizacion ?? undefined,
+              errorSri:           f.error_sri ?? undefined,
+            }
           }
         }
         setFacturasEmitidas(mapa)
       })
+  }
+
+  // Carga inicial
+  useEffect(() => {
+    const ids = pedidosInic.filter(p => p.estado === 'entregado').map(p => p.id)
+    cargarFacturas(ids)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pedidosInic])
+
+  // Auto-polling cada 20 s mientras haya facturas en estado "enviada"
+  useEffect(() => {
+    const hayEnviadas = Object.values(facturasEmitidas).some(f => f.estado === 'enviada')
+    if (!hayEnviadas) return
+    const timer = setInterval(() => {
+      const ids = pedidos.filter(p => p.estado === 'entregado').map(p => p.id)
+      cargarFacturas(ids)
+    }, 20_000)
+    return () => clearInterval(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facturasEmitidas, pedidos])
 
   async function emitirFactura(pedidoId: string) {
     setEmitiendoFactura(pedidoId)
@@ -79,8 +104,22 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
       const data = await res.json()
 
       if (data.ok && data.estado === 'autorizada') {
-        toast.success(`Factura ${data.numeroFactura} autorizada por el SRI ✓`)
-        setFacturasEmitidas(prev => ({ ...prev, [pedidoId]: { facturaId: data.facturaId, estado: 'autorizada', numeroFactura: data.numeroFactura } }))
+        toast.success(`Factura ${data.numeroFactura ?? ''} autorizada por el SRI`)
+        setFacturasEmitidas(prev => ({
+          ...prev,
+          [pedidoId]: {
+            facturaId:          data.facturaId,
+            estado:             'autorizada',
+            numeroFactura:      data.numeroFactura,
+            numeroAutorizacion: data.numeroAutorizacion,
+          },
+        }))
+      } else if (data.estado === 'enviada') {
+        // SRI aún procesando — no es error, mostrar info
+        toast.info('El SRI aún no ha procesado la autorización. Se reintentará automáticamente.', { duration: 8000 })
+        if (data.facturaId) {
+          setFacturasEmitidas(prev => ({ ...prev, [pedidoId]: { ...(prev[pedidoId] ?? {}), facturaId: data.facturaId, estado: 'enviada' } }))
+        }
       } else if (data.facturaId) {
         const msg = data.error ?? 'El SRI rechazó el comprobante'
         toast.error(`SRI: ${msg}`, { duration: 10000 })
@@ -424,81 +463,56 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                       </div>
                     )}
 
-                    {/* Botón Factura — solo cuando está entregado */}
+                    {/* Botones SRI — solo pedidos entregados */}
                     {pedido.estado === 'entregado' && (() => {
                       const emitida = facturasEmitidas[pedido.id]
+                      const cargando = emitiendoFactura === pedido.id
 
-                      // Autorizada → RIDE + XML
                       if (emitida?.estado === 'autorizada') {
                         return (
                           <div className="flex items-center gap-1">
-                            <a
-                              href={`/api/facturacion/ride?id=${emitida.facturaId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <a href={`/api/facturacion/ride?id=${emitida.facturaId}`} target="_blank" rel="noopener noreferrer"
                               title={`Factura ${emitida.numeroFactura} — Descargar RIDE PDF`}
-                              className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-green-100 text-green-700 text-[10px] font-bold border border-green-300 hover:bg-green-200 transition-colors"
-                            >
-                              <FileText className="w-3 h-3" />
-                              RIDE
+                              className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 hover:bg-emerald-100 transition-colors">
+                              <FileText className="w-3 h-3" /> RIDE
                             </a>
-                            <a
-                              href={`/api/facturacion/xml?id=${emitida.facturaId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <a href={`/api/facturacion/xml?id=${emitida.facturaId}`} target="_blank" rel="noopener noreferrer"
                               title="Descargar XML firmado"
-                              className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-blue-100 text-blue-700 text-[10px] font-bold border border-blue-300 hover:bg-blue-200 transition-colors"
-                            >
-                              <Download className="w-3 h-3" />
-                              XML
+                              className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 hover:bg-blue-100 transition-colors">
+                              <Download className="w-3 h-3" /> XML
                             </a>
                           </div>
                         )
                       }
 
-                      // Enviada → consultar autorización
                       if (emitida?.estado === 'enviada') {
                         return (
-                          <button
-                            onClick={() => emitirFactura(pedido.id)}
-                            disabled={emitiendoFactura === pedido.id}
-                            title="Consultar autorización SRI"
-                            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-yellow-100 text-yellow-700 text-[10px] font-bold border border-yellow-300 hover:bg-yellow-200 transition-colors disabled:opacity-50"
-                          >
-                            {emitiendoFactura === pedido.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
-                            {emitiendoFactura === pedido.id ? 'Consultando…' : 'Autorizar'}
+                          <button onClick={() => emitirFactura(pedido.id)} disabled={cargando}
+                            title="El SRI recibió el comprobante y está procesando la autorización. Haz clic para consultar el estado."
+                            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200 hover:bg-amber-100 transition-colors disabled:opacity-50">
+                            {cargando ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                            {cargando ? 'Consultando…' : 'Pendiente SRI'}
                           </button>
                         )
                       }
 
-                      // Rechazada → reintentar
                       if (emitida?.estado === 'rechazada') {
                         return (
-                          <button
-                            onClick={() => emitirFactura(pedido.id)}
-                            disabled={emitiendoFactura === pedido.id}
-                            title={emitida.errorSri ? `Error SRI: ${emitida.errorSri}` : 'Reintentar emisión SRI'}
-                            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-100 text-red-700 text-[10px] font-bold border border-red-300 hover:bg-red-200 transition-colors disabled:opacity-50"
-                          >
-                            {emitiendoFactura === pedido.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
-                            Reintentar
+                          <button onClick={() => emitirFactura(pedido.id)} disabled={cargando}
+                            title={emitida.errorSri ? `Error: ${emitida.errorSri}` : 'Reintentar emisión al SRI'}
+                            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-50 text-red-700 text-[10px] font-bold border border-red-200 hover:bg-red-100 transition-colors disabled:opacity-50">
+                            {cargando ? <Loader2 className="w-3 h-3 animate-spin" /> : <AlertCircle className="w-3 h-3" />}
+                            {cargando ? 'Reintentando…' : 'Reintentar'}
                           </button>
                         )
                       }
 
-                      // Sin factura → emitir
                       return (
-                        <button
-                          onClick={() => emitirFactura(pedido.id)}
-                          disabled={emitiendoFactura === pedido.id}
-                          title="Emitir factura electrónica SRI"
-                          className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-primary/10 text-primary text-[10px] font-bold border border-primary/30 hover:bg-primary/20 transition-colors disabled:opacity-50"
-                        >
-                          {emitiendoFactura === pedido.id
-                            ? <Loader2 className="w-3 h-3 animate-spin" />
-                            : <FileText className="w-3 h-3" />
-                          }
-                          {emitiendoFactura === pedido.id ? 'Enviando…' : 'Factura'}
+                        <button onClick={() => emitirFactura(pedido.id)} disabled={cargando}
+                          title="Generar y emitir factura electrónica al SRI"
+                          className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-primary/10 text-primary text-[10px] font-bold border border-primary/30 hover:bg-primary/20 transition-colors disabled:opacity-50">
+                          {cargando ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+                          {cargando ? 'Enviando…' : 'Factura SRI'}
                         </button>
                       )
                     })()}
@@ -613,6 +627,94 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                         <span className="text-primary">{formatearPrecio(pedido.total, pedido.simbolo_moneda)}</span>
                       </div>
                     </div>
+
+                    {/* Panel Factura SRI */}
+                    {pedido.estado === 'entregado' && (() => {
+                      const emitida = facturasEmitidas[pedido.id]
+                      const cargando = emitiendoFactura === pedido.id
+
+                      if (emitida?.estado === 'autorizada') {
+                        return (
+                          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <BadgeCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                              <span className="text-xs font-bold text-emerald-700">Factura autorizada por el SRI</span>
+                            </div>
+                            {emitida.numeroFactura && (
+                              <p className="text-[11px] text-foreground-muted mb-0.5">
+                                <span className="font-semibold text-foreground">N° Factura:</span> {emitida.numeroFactura}
+                              </p>
+                            )}
+                            {emitida.numeroAutorizacion && (
+                              <p className="text-[10px] text-foreground-muted font-mono break-all mb-2">
+                                <span className="font-semibold not-italic text-foreground">Autorización:</span> {emitida.numeroAutorizacion}
+                              </p>
+                            )}
+                            <div className="flex gap-2">
+                              <a href={`/api/facturacion/ride?id=${emitida.facturaId}`} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 flex-1 justify-center h-8 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors">
+                                <FileText className="w-3.5 h-3.5" /> Descargar RIDE (PDF)
+                              </a>
+                              <a href={`/api/facturacion/xml?id=${emitida.facturaId}`} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 flex-1 justify-center h-8 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors">
+                                <Download className="w-3.5 h-3.5" /> Descargar XML
+                              </a>
+                            </div>
+                          </div>
+                        )
+                      }
+
+                      if (emitida?.estado === 'enviada') {
+                        return (
+                          <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <Loader2 className="w-4 h-4 text-amber-600 animate-spin flex-shrink-0" />
+                                <div>
+                                  <p className="text-xs font-bold text-amber-700">Pendiente de autorización</p>
+                                  <p className="text-[10px] text-amber-600 mt-0.5">El SRI recibió el comprobante y lo está procesando. Se actualiza automáticamente.</p>
+                                </div>
+                              </div>
+                              <button onClick={() => emitirFactura(pedido.id)} disabled={cargando}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-300 hover:bg-amber-200 transition-colors disabled:opacity-50 flex-shrink-0">
+                                {cargando ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                                Consultar
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      }
+
+                      if (emitida?.estado === 'rechazada') {
+                        return (
+                          <div className="rounded-xl border border-red-200 bg-red-50/60 px-3 py-3">
+                            <div className="flex items-start gap-2 mb-2">
+                              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-xs font-bold text-red-700">Rechazado por el SRI</p>
+                                {emitida.errorSri && (
+                                  <p className="text-[10px] text-red-600 mt-0.5 break-words">{emitida.errorSri}</p>
+                                )}
+                              </div>
+                            </div>
+                            <button onClick={() => emitirFactura(pedido.id)} disabled={cargando}
+                              className="flex items-center gap-1.5 w-full justify-center h-8 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors disabled:opacity-50">
+                              {cargando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                              {cargando ? 'Reintentando…' : 'Reintentar emisión SRI'}
+                            </button>
+                          </div>
+                        )
+                      }
+
+                      // Sin factura
+                      return (
+                        <button onClick={() => emitirFactura(pedido.id)} disabled={cargando}
+                          className="flex items-center gap-2 w-full justify-center h-9 rounded-xl bg-primary/10 text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/20 transition-colors disabled:opacity-50">
+                          {cargando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                          {cargando ? 'Generando y enviando al SRI…' : 'Emitir factura electrónica SRI'}
+                        </button>
+                      )
+                    })()}
 
                   </div>
                 )}
