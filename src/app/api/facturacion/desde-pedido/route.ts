@@ -16,6 +16,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
+
+export const maxDuration = 60
 import { generarClaveAcceso, generarXMLFactura } from '@/lib/sri/generar-xml'
 import { firmarXML } from '@/lib/sri/firmar-xades'
 import { emitirAlSRI } from '@/lib/sri/soap-sri'
@@ -64,7 +66,17 @@ export async function POST(req: NextRequest) {
       }
 
       const { consultarAutorizacion } = await import('@/lib/sri/soap-sri')
-      const autorizacion = await consultarAutorizacion(claveAcceso, ambiente)
+      let autorizacion: Awaited<ReturnType<typeof consultarAutorizacion>>
+      try {
+        autorizacion = await consultarAutorizacion(claveAcceso, ambiente)
+      } catch (fetchErr: unknown) {
+        const msg = (fetchErr as Error).message ?? 'Error de red'
+        return NextResponse.json({
+          ok: false, estado: 'enviada',
+          error: `No se pudo conectar con el SRI: ${msg}. Reintenta en unos minutos.`,
+          facturaId: facturaExistente.id,
+        }, { status: 503 })
+      }
 
       if (autorizacion.ok) {
         const numFactura = facturaExistente.numero_factura ?? ''

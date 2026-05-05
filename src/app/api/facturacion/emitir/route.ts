@@ -16,6 +16,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 
+export const maxDuration = 60
+
 function crearClienteAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
