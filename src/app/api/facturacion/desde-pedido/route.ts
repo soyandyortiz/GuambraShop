@@ -48,12 +48,60 @@ export async function POST(req: NextRequest) {
     // 1. Verificar factura existente (excluye anuladas)
     const { data: facturaExistente } = await supabase
       .from('facturas')
-      .select('id, estado, numero_factura')
+      .select('id, estado, numero_factura, clave_acceso')
       .eq('pedido_id', pedidoId)
       .neq('estado', 'anulada')
       .maybeSingle()
 
-    // Si ya existe y NO es rechazada → bloquear
+    // "enviada" → el SRI ya recibió el XML; solo consultar autorización
+    if (facturaExistente?.estado === 'enviada') {
+      const { data: cfg } = await supabase.from('configuracion_facturacion').select('ambiente').single()
+      const ambiente = (cfg?.ambiente ?? 'pruebas') as 'pruebas' | 'produccion'
+      const claveAcceso = facturaExistente.clave_acceso as string | null
+
+      if (!claveAcceso) {
+        return NextResponse.json({ error: 'Factura enviada sin clave de acceso — contacta soporte' }, { status: 422 })
+      }
+
+      const { consultarAutorizacion } = await import('@/lib/sri/soap-sri')
+      const autorizacion = await consultarAutorizacion(claveAcceso, ambiente)
+
+      if (autorizacion.ok) {
+        const numFactura = facturaExistente.numero_factura ?? ''
+        await supabase.from('facturas').update({
+          estado:              'autorizada',
+          numero_autorizacion: autorizacion.numeroAutorizacion,
+          fecha_autorizacion:  autorizacion.fechaAutorizacion
+            ? new Date(autorizacion.fechaAutorizacion).toISOString()
+            : new Date().toISOString(),
+          error_sri: null,
+        }).eq('id', facturaExistente.id)
+
+        return NextResponse.json({
+          ok: true,
+          estado:             'autorizada',
+          numeroFactura:      numFactura,
+          numeroAutorizacion: autorizacion.numeroAutorizacion,
+          facturaId:          facturaExistente.id,
+          rideUrl:            `/api/facturacion/ride?id=${facturaExistente.id}`,
+        })
+      }
+
+      // SRI aún no autoriza — puede que necesite más tiempo o la rechazó
+      const errorMsg = (autorizacion.mensajes ?? [])
+        .map((m: any) => `${m.identificador}: ${m.mensaje}${m.informacionAdicional ? ' — ' + m.informacionAdicional : ''}`)
+        .join(' | ')
+
+      if (errorMsg) {
+        await supabase.from('facturas').update({ estado: 'rechazada', error_sri: errorMsg }).eq('id', facturaExistente.id)
+        return NextResponse.json({ ok: false, estado: 'rechazada', error: errorMsg, facturaId: facturaExistente.id })
+      }
+
+      // Sin respuesta aún → informar sin cambiar estado
+      return NextResponse.json({ ok: false, estado: 'enviada', error: 'El SRI aún no ha procesado la autorización, reintenta en unos segundos', facturaId: facturaExistente.id })
+    }
+
+    // Si ya existe y NO es rechazada ni enviada → bloquear
     if (facturaExistente && facturaExistente.estado !== 'rechazada') {
       return NextResponse.json({
         error: `Este pedido ya tiene una factura (${facturaExistente.numero_factura ?? facturaExistente.id}) en estado "${facturaExistente.estado}"`,

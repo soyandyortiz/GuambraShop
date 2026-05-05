@@ -115,7 +115,7 @@ export async function enviarComprobante(
       'SOAPAction': '',
     },
     body: soapBody,
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(55_000),
   })
 
   const text = await response.text()
@@ -146,7 +146,7 @@ export async function consultarAutorizacion(
       'SOAPAction': '',
     },
     body: soapBody,
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(55_000),
   })
 
   const text = await response.text()
