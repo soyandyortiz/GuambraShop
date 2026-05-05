@@ -2,12 +2,14 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { TablaPedidos } from '@/components/admin/pedidos/tabla-pedidos'
 import type { Pedido } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 export default async function PáginaPedidos() {
   const supabase = await crearClienteServidor()
 
   const { data: pedidos } = await supabase
     .from('pedidos')
-    .select('*')
+    .select('*, datos_facturacion')
     .order('creado_en', { ascending: false })
 
   return (

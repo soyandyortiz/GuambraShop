@@ -4,8 +4,8 @@ import { useState, useTransition, useMemo } from 'react'
 import {
   Search, Truck, Store, ChevronDown, ChevronUp,
   Package, Phone, Mail, MapPin, Download, ShoppingBag,
-  Calendar, MessageCircle, X, Filter, Clock, CheckCircle2,
-  AlertCircle, RotateCcw, XCircle, Send, ArrowUpDown
+  Calendar, MessageCircle, X, Clock, CheckCircle2,
+  RotateCcw, XCircle, Send, ArrowUpDown, FileText, Loader2
 } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
@@ -41,6 +41,36 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
   const [expandido, setExpandido]     = useState<string | null>(null)
   const [modalPedido, setModalPedido] = useState<Pedido | null>(null)
   const [actualizando, setActualizando] = useState<string | null>(null)
+  const [emitiendoFactura, setEmitiendoFactura] = useState<string | null>(null)
+  // pedidoId → { facturaId, estado, numeroFactura }
+  const [facturasEmitidas, setFacturasEmitidas] = useState<Record<string, { facturaId: string; estado: string; numeroFactura?: string }>>({})
+
+  async function emitirFactura(pedidoId: string) {
+    setEmitiendoFactura(pedidoId)
+    try {
+      const res  = await fetch('/api/facturacion/desde-pedido', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ pedidoId }),
+      })
+      const data = await res.json()
+
+      if (data.ok && data.estado === 'autorizada') {
+        toast.success(`Factura ${data.numeroFactura} autorizada por el SRI`)
+        setFacturasEmitidas(prev => ({ ...prev, [pedidoId]: { facturaId: data.facturaId, estado: 'autorizada', numeroFactura: data.numeroFactura } }))
+      } else if (data.facturaId && data.estado === 'rechazada') {
+        const msg = data.error ?? 'El SRI rechazó el comprobante'
+        toast.error(`SRI: ${msg}`, { duration: 8000 })
+        setFacturasEmitidas(prev => ({ ...prev, [pedidoId]: { facturaId: data.facturaId, estado: 'rechazada' } }))
+      } else {
+        toast.error(data.error ?? 'Error al emitir la factura', { duration: 8000 })
+      }
+    } catch {
+      toast.error('Error de conexión al emitir la factura')
+    } finally {
+      setEmitiendoFactura(null)
+    }
+  }
 
   // Filtrado y ordenamiento
   const filtrados = useMemo(() => {
@@ -353,7 +383,7 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                   </div>
 
                   {/* Cambiar estado */}
-                  <div className="flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     {actualizando === pedido.id ? (
                       <div className="w-6 h-6 flex items-center justify-center">
                         <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -370,6 +400,52 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                         <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" />
                       </div>
                     )}
+
+                    {/* Botón Emitir Factura — solo cuando está entregado */}
+                    {pedido.estado === 'entregado' && (() => {
+                      const emitida = facturasEmitidas[pedido.id]
+                      if (emitida?.estado === 'autorizada') {
+                        return (
+                          <a
+                            href={`/api/facturacion/ride?id=${emitida.facturaId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={`Factura ${emitida.numeroFactura} autorizada — Ver RIDE`}
+                            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-green-100 text-green-700 text-[10px] font-bold border border-green-300 hover:bg-green-200 transition-colors"
+                          >
+                            <FileText className="w-3 h-3" />
+                            RIDE
+                          </a>
+                        )
+                      }
+                      if (emitida?.estado === 'rechazada') {
+                        return (
+                          <button
+                            onClick={() => emitirFactura(pedido.id)}
+                            disabled={emitiendoFactura === pedido.id}
+                            title="Reintentar emisión"
+                            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-100 text-red-700 text-[10px] font-bold border border-red-300 hover:bg-red-200 transition-colors disabled:opacity-50"
+                          >
+                            <FileText className="w-3 h-3" />
+                            Reintentar
+                          </button>
+                        )
+                      }
+                      return (
+                        <button
+                          onClick={() => emitirFactura(pedido.id)}
+                          disabled={emitiendoFactura === pedido.id}
+                          title="Emitir factura electrónica SRI"
+                          className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-primary/10 text-primary text-[10px] font-bold border border-primary/30 hover:bg-primary/20 transition-colors disabled:opacity-50"
+                        >
+                          {emitiendoFactura === pedido.id
+                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                            : <FileText className="w-3 h-3" />
+                          }
+                          {emitiendoFactura === pedido.id ? 'Enviando…' : 'Factura'}
+                        </button>
+                      )
+                    })()}
                   </div>
 
                   {/* Expand */}
