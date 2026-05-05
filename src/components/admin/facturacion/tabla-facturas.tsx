@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileText, Download, XCircle, ChevronDown, Search,
-  Send, Loader2, AlertTriangle, ExternalLink, X, BadgeCheck,
+  Send, Loader2, AlertTriangle, ExternalLink, X, BadgeCheck, Mail,
 } from 'lucide-react'
 import { formatearPrecio } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -162,6 +162,69 @@ function BannerAnulacionSRI({ factura, ambiente, onCerrar }: { factura: Factura;
   )
 }
 
+// ─── Modal para ingresar email si el comprador no lo tiene ───────────────────
+function ModalEmail({
+  factura,
+  onEnviar,
+  onCerrar,
+  cargando,
+}: {
+  factura: Factura
+  onEnviar: (email: string) => void
+  onCerrar: () => void
+  cargando: boolean
+}) {
+  const [email, setEmail] = useState('')
+  const valido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-card rounded-2xl border border-border shadow-xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <Mail className="w-4 h-4 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">Enviar RIDE por email</p>
+              <p className="text-[11px] text-foreground-muted">{factura.numero_factura ?? `#${factura.numero_secuencial}`}</p>
+            </div>
+          </div>
+          <button onClick={onCerrar} className="p-1.5 rounded-lg hover:bg-background-subtle text-foreground-muted transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-5 py-4">
+          <p className="text-xs text-foreground-muted mb-3">
+            El comprador no tiene email registrado. Ingresa uno para enviar el RIDE.
+          </p>
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="cliente@ejemplo.com"
+            className="w-full rounded-xl border border-input-border bg-input-bg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            onKeyDown={e => { if (e.key === 'Enter' && valido) onEnviar(email) }}
+          />
+        </div>
+        <div className="px-5 pb-5 flex flex-col gap-2">
+          <button
+            onClick={() => onEnviar(email)}
+            disabled={!valido || cargando}
+            className="flex items-center justify-center gap-2 w-full h-10 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-hover transition-colors disabled:opacity-40"
+          >
+            {cargando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+            {cargando ? 'Enviando…' : 'Enviar RIDE'}
+          </button>
+          <button onClick={onCerrar} className="w-full h-9 rounded-xl border border-border text-sm text-foreground-muted hover:text-foreground hover:border-border-strong transition-colors">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
   const router = useRouter()
@@ -171,6 +234,8 @@ export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
   const [enviando, setEnviando] = useState<string | null>(null)
   const [anulando, setAnulando] = useState<string | null>(null)
   const [modalAnular, setModalAnular] = useState<Factura | null>(null)
+  const [modalEmail, setModalEmail] = useState<Factura | null>(null)
+  const [enviandoEmail, setEnviandoEmail] = useState<string | null>(null)
   // facturaId → { ambiente } para mostrar el banner post-anulación
   const [bannerAnulacion, setBannerAnulacion] = useState<{ factura: Factura; ambiente: string } | null>(null)
 
@@ -234,6 +299,36 @@ export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
     }
   }
 
+  async function sendRide(facturaId: string, emailDestino?: string) {
+    setEnviandoEmail(facturaId)
+    try {
+      const res = await fetch('/api/email/enviar-ride', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ facturaId, emailDestino }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(`RIDE enviado a ${data.enviado_a}`)
+        setModalEmail(null)
+      } else {
+        toast.error(data.error ?? 'No se pudo enviar el email')
+      }
+    } catch {
+      toast.error('Error de conexión al enviar el email')
+    } finally {
+      setEnviandoEmail(null)
+    }
+  }
+
+  function iniciarEnvioEmail(factura: Factura) {
+    if (factura.datos_comprador?.email) {
+      sendRide(factura.id)
+    } else {
+      setModalEmail(factura)
+    }
+  }
+
   const filtradas = facturas.filter(f => {
     const matchEstado = filtroEstado === 'todos' || f.estado === filtroEstado
     const matchBusqueda = !busqueda ||
@@ -267,6 +362,16 @@ export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
           onConfirmar={confirmarAnulacion}
           onCerrar={() => setModalAnular(null)}
           cargando={anulando === modalAnular.id}
+        />
+      )}
+
+      {/* Modal email sin destinatario */}
+      {modalEmail && (
+        <ModalEmail
+          factura={modalEmail}
+          onEnviar={email => sendRide(modalEmail.id, email)}
+          onCerrar={() => setModalEmail(null)}
+          cargando={enviandoEmail === modalEmail.id}
         />
       )}
 
@@ -351,7 +456,9 @@ export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
                       esUltima={i === filtradas.length - 1}
                       onEmitir={emitir}
                       onAnular={() => setModalAnular(factura)}
+                      onEnviarEmail={() => iniciarEnvioEmail(factura)}
                       cargando={enviando === factura.id}
+                      enviandoEmail={enviandoEmail === factura.id}
                     />
                   ))}
                 </tbody>
@@ -372,13 +479,15 @@ export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
 
 // ─── Fila individual ──────────────────────────────────────────────────────────
 function FilaFactura({
-  factura, esUltima, onEmitir, onAnular, cargando,
+  factura, esUltima, onEmitir, onAnular, onEnviarEmail, cargando, enviandoEmail,
 }: {
   factura: Factura
   esUltima: boolean
   onEmitir: (id: string) => Promise<void>
   onAnular: () => void
+  onEnviarEmail: () => void
   cargando?: boolean
+  enviandoEmail?: boolean
 }) {
   const [mostrarDetalle, setMostrarDetalle] = useState(false)
   const anulada = factura.estado === 'anulada'
@@ -436,6 +545,15 @@ function FilaFactura({
                 className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-background-subtle text-foreground-muted hover:text-foreground text-xs font-medium transition-colors">
                 <FileText className="w-3 h-3" /> RIDE
               </a>
+            )}
+
+            {/* Enviar RIDE por email */}
+            {!anulada && factura.estado === 'autorizada' && (
+              <button onClick={onEnviarEmail} disabled={enviandoEmail}
+                title="Enviar RIDE por email"
+                className="p-1.5 rounded-lg hover:bg-blue-50 text-foreground-muted hover:text-blue-600 transition-colors disabled:opacity-50">
+                {enviandoEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+              </button>
             )}
 
             {/* XML firmado */}
