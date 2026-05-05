@@ -424,23 +424,54 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                       </div>
                     )}
 
-                    {/* Botón Emitir Factura — solo cuando está entregado */}
+                    {/* Botón Factura — solo cuando está entregado */}
                     {pedido.estado === 'entregado' && (() => {
                       const emitida = facturasEmitidas[pedido.id]
+
+                      // Autorizada → RIDE + XML
                       if (emitida?.estado === 'autorizada') {
                         return (
-                          <a
-                            href={`/api/facturacion/ride?id=${emitida.facturaId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={`Factura ${emitida.numeroFactura} autorizada — Ver RIDE`}
-                            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-green-100 text-green-700 text-[10px] font-bold border border-green-300 hover:bg-green-200 transition-colors"
-                          >
-                            <FileText className="w-3 h-3" />
-                            RIDE
-                          </a>
+                          <div className="flex items-center gap-1">
+                            <a
+                              href={`/api/facturacion/ride?id=${emitida.facturaId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={`Factura ${emitida.numeroFactura} — Descargar RIDE PDF`}
+                              className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-green-100 text-green-700 text-[10px] font-bold border border-green-300 hover:bg-green-200 transition-colors"
+                            >
+                              <FileText className="w-3 h-3" />
+                              RIDE
+                            </a>
+                            <a
+                              href={`/api/facturacion/xml?id=${emitida.facturaId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Descargar XML firmado"
+                              className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-blue-100 text-blue-700 text-[10px] font-bold border border-blue-300 hover:bg-blue-200 transition-colors"
+                            >
+                              <Download className="w-3 h-3" />
+                              XML
+                            </a>
+                          </div>
                         )
                       }
+
+                      // Enviada → consultar autorización
+                      if (emitida?.estado === 'enviada') {
+                        return (
+                          <button
+                            onClick={() => emitirFactura(pedido.id)}
+                            disabled={emitiendoFactura === pedido.id}
+                            title="Consultar autorización SRI"
+                            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-yellow-100 text-yellow-700 text-[10px] font-bold border border-yellow-300 hover:bg-yellow-200 transition-colors disabled:opacity-50"
+                          >
+                            {emitiendoFactura === pedido.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+                            {emitiendoFactura === pedido.id ? 'Consultando…' : 'Autorizar'}
+                          </button>
+                        )
+                      }
+
+                      // Rechazada → reintentar
                       if (emitida?.estado === 'rechazada') {
                         return (
                           <button
@@ -454,6 +485,8 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                           </button>
                         )
                       }
+
+                      // Sin factura → emitir
                       return (
                         <button
                           onClick={() => emitirFactura(pedido.id)}
