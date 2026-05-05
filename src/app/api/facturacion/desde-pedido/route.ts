@@ -14,11 +14,20 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { generarClaveAcceso, generarXMLFactura } from '@/lib/sri/generar-xml'
 import { firmarXML } from '@/lib/sri/firmar-xades'
 import { emitirAlSRI } from '@/lib/sri/soap-sri'
 import type { ConfiguracionFacturacion, Factura, ItemFactura, CompradorFactura } from '@/types'
+
+/** Cliente con service role para leer Storage sin restricciones RLS */
+function crearClienteAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -212,17 +221,19 @@ export async function POST(req: NextRequest) {
         .eq('id', cfgActual!.id)
     }
 
-    // 5. Descargar .p12 vía Supabase SDK (compatible con buckets privados)
+    // 5. Descargar .p12 con service role (omite RLS de Storage)
     const certPathMatch = cfg.cert_p12_url!.match(/\/storage\/v1\/object\/(?:public\/)?facturacion\/(.+)/)
     const certPath = certPathMatch?.[1]
     if (!certPath) {
       await supabase.from('facturas').update({ estado: 'rechazada', error_sri: 'URL del certificado inválida' }).eq('id', factura.id)
       return NextResponse.json({ error: 'URL del certificado inválida. Vuelve a subir el .p12 en Configuración SRI.', facturaId: factura.id }, { status: 500 })
     }
-    const { data: certBlob, error: certErr } = await supabase.storage.from('facturacion').download(certPath)
+    const admin = crearClienteAdmin()
+    const { data: certBlob, error: certErr } = await admin.storage.from('facturacion').download(certPath)
     if (certErr || !certBlob) {
-      await supabase.from('facturas').update({ estado: 'rechazada', error_sri: 'No se pudo descargar el certificado' }).eq('id', factura.id)
-      return NextResponse.json({ error: 'No se pudo descargar el certificado digital', facturaId: factura.id }, { status: 500 })
+      const detalle = certErr?.message ?? 'blob nulo'
+      await supabase.from('facturas').update({ estado: 'rechazada', error_sri: `Certificado: ${detalle}` }).eq('id', factura.id)
+      return NextResponse.json({ error: `No se pudo descargar el certificado: ${detalle}`, facturaId: factura.id }, { status: 500 })
     }
     const p12Buffer = Buffer.from(await certBlob.arrayBuffer())
 

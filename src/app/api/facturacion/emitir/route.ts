@@ -13,7 +13,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
+
+function crearClienteAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+}
 import { generarClaveAcceso, generarXMLFactura } from '@/lib/sri/generar-xml'
 import { firmarXML } from '@/lib/sri/firmar-xades'
 import { emitirAlSRI } from '@/lib/sri/soap-sri'
@@ -66,15 +74,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Certificado digital (.p12) o PIN no configurados' }, { status: 422 })
     }
 
-    // 3. Descargar el .p12 desde Storage (bucket privado — no usar fetch directo)
+    // 3. Descargar el .p12 con service role (omite RLS de Storage)
     const certPathMatch = config.cert_p12_url.match(/\/storage\/v1\/object\/(?:public\/)?facturacion\/(.+)/)
     const certPath = certPathMatch?.[1]
     if (!certPath) {
       return NextResponse.json({ error: 'URL del certificado inválida. Vuelve a subir el .p12 en Configuración SRI.' }, { status: 500 })
     }
-    const { data: certBlob, error: certErr } = await supabase.storage.from('facturacion').download(certPath)
+    const admin = crearClienteAdmin()
+    const { data: certBlob, error: certErr } = await admin.storage.from('facturacion').download(certPath)
     if (certErr || !certBlob) {
-      return NextResponse.json({ error: 'No se pudo descargar el certificado digital' }, { status: 500 })
+      const detalle = certErr?.message ?? 'blob nulo'
+      return NextResponse.json({ error: `No se pudo descargar el certificado: ${detalle}` }, { status: 500 })
     }
     const p12Buffer = Buffer.from(await certBlob.arrayBuffer())
 
