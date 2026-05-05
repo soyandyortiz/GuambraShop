@@ -88,11 +88,13 @@ export async function POST(req: NextRequest) {
     let factura: Factura
 
     if (facturaExistente) {
-      // Re-emitir factura rechazada — cargar datos completos
+      // Re-emitir factura rechazada — cargar datos completos y actualizar fecha
+      const hoy = new Date().toISOString().slice(0, 10)
       const { data: facturaCompleta, error: errLoad } = await supabase
         .from('facturas')
-        .select('*')
+        .update({ fecha_emision: hoy, estado: 'borrador', error_sri: null })
         .eq('id', facturaExistente.id)
+        .select('*')
         .single()
 
       if (errLoad || !facturaCompleta) {

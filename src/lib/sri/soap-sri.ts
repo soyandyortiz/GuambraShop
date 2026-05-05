@@ -37,22 +37,36 @@ function xmlToBase64(xml: string): string {
   return Buffer.from(xml, 'utf8').toString('base64')
 }
 
+/**
+ * Extrae mensajes de error SRI del XML SOAP.
+ * El SRI usa <mensaje> tanto como contenedor del registro como nombre del campo
+ * interno, causando ambigüedad con regex no-greedy. Se resuelve buscando
+ * directamente por <identificador> y extrayendo los campos hermanos.
+ */
+function extraerMensajesSRI(soapXml: string): { identificador: string; mensaje: string; tipo: string; informacionAdicional?: string }[] {
+  const mensajes: ReturnType<typeof extraerMensajesSRI> = []
+  // Captura cada bloque que empieza con <identificador> (campo distintivo del registro)
+  const registros = soapXml.matchAll(/<identificador>([^<]+)<\/identificador>([\s\S]*?)<tipo>([^<]+)<\/tipo>/g)
+  for (const r of registros) {
+    const id   = r[1].trim()
+    const rest = r[2]
+    const tipo = r[3].trim()
+    // El texto del mensaje puede estar en <mensaje> o <descripcion> dentro del bloque
+    const texto =
+      rest.match(/<mensaje>([^<]*)<\/mensaje>/)?.[1]?.trim() ??
+      rest.match(/<descripcion>([^<]*)<\/descripcion>/)?.[1]?.trim() ??
+      ''
+    const info = rest.match(/<informacionAdicional>([^<]*)<\/informacionAdicional>/)?.[1]?.trim()
+    mensajes.push({ identificador: id, mensaje: texto, tipo, ...(info ? { informacionAdicional: info } : {}) })
+  }
+  return mensajes
+}
+
 /** Parsea la respuesta SOAP de recepción */
 function parsearRespuestaRecepcion(soapXml: string): RespuestaRecepcion {
   const estadoMatch = soapXml.match(/<estado>([^<]+)<\/estado>/)
   const estado = (estadoMatch?.[1] ?? 'DEVUELTA') as 'RECIBIDA' | 'DEVUELTA'
-
-  const mensajes: RespuestaRecepcion['mensajes'] = []
-  const mensajesMatch = soapXml.matchAll(/<mensaje>([\s\S]*?)<\/mensaje>/g)
-  for (const m of mensajesMatch) {
-    const bloque = m[1]
-    mensajes.push({
-      identificador: bloque.match(/<identificador>([^<]+)<\/identificador>/)?.[1] ?? '',
-      mensaje:       bloque.match(/<mensaje>([^<]+)<\/mensaje>/)?.[1] ?? bloque.match(/<descripcion>([^<]+)<\/descripcion>/)?.[1] ?? '',
-      tipo:          bloque.match(/<tipo>([^<]+)<\/tipo>/)?.[1] ?? 'ERROR',
-    })
-  }
-
+  const mensajes = extraerMensajesSRI(soapXml)
   return { ok: estado === 'RECIBIDA', estado, mensajes }
 }
 
@@ -68,20 +82,8 @@ function parsearRespuestaAutorizacion(soapXml: string): RespuestaAutorizacion {
   const numeroAutorizacion = bloque.match(/<numeroAutorizacion>([^<]+)<\/numeroAutorizacion>/)?.[1] ?? null
   const fechaAutorizacion  = bloque.match(/<fechaAutorizacion>([^<]+)<\/fechaAutorizacion>/)?.[1] ?? null
   const ambiente           = bloque.match(/<ambiente>([^<]+)<\/ambiente>/)?.[1] ?? null
+  const mensajes           = extraerMensajesSRI(soapXml)
 
-  const mensajes: RespuestaAutorizacion['mensajes'] = []
-  const mensajesMatch = soapXml.matchAll(/<mensaje>([\s\S]*?)<\/mensaje>/g)
-  for (const m of mensajesMatch) {
-    const mb = m[1]
-    mensajes.push({
-      identificador:      mb.match(/<identificador>([^<]+)<\/identificador>/)?.[1] ?? '',
-      mensaje:            mb.match(/<mensaje>([^<]+)<\/mensaje>/)?.[1] ?? mb.match(/<descripcion>([^<]+)<\/descripcion>/)?.[1] ?? '',
-      tipo:               mb.match(/<tipo>([^<]+)<\/tipo>/)?.[1] ?? 'INFORMATIVO',
-      informacionAdicional: mb.match(/<informacionAdicional>([^<]+)<\/informacionAdicional>/)?.[1],
-    })
-  }
-
-  // Extraer el XML autorizado (comprobante devuelto por el SRI)
   const compMatch = soapXml.match(/<comprobante><!\[CDATA\[([\s\S]*?)\]\]><\/comprobante>/)
   const xmlAutorizado = compMatch?.[1] ?? null
 
