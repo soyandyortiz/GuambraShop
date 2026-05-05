@@ -4,14 +4,13 @@
  *
  * Flujo automático completo:
  *  1. Carga pedido + configuracion_facturacion
- *  2. Construye comprador (desde datos_facturacion o datos de contacto)
- *  3. Construye ítems (prefija "ALQUILER DE TRAJE" para alquileres)
- *  4. Calcula base imponible y totales con IVA
- *  5. Inserta factura como borrador
- *  6. Genera clave de acceso + XML + firma XAdES-BES
- *  7. Envía al SRI (recepción + autorización)
- *  8. Actualiza factura con resultado
- *  9. Retorna estado final
+ *  2. Si existe factura rechazada → re-emite (sin crear nueva)
+ *  3. Si no existe → construye comprador, ítems, totales e inserta borrador
+ *  4. Descarga .p12 vía Supabase SDK (soporta buckets privados)
+ *  5. Genera clave de acceso + XML + firma XAdES-BES
+ *  6. Envía al SRI (recepción + autorización)
+ *  7. Actualiza factura con resultado
+ *  8. Retorna estado final
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -37,7 +36,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
     }
 
-    // 1. Cargar pedido
+    // 1. Verificar factura existente (excluye anuladas)
+    const { data: facturaExistente } = await supabase
+      .from('facturas')
+      .select('id, estado, numero_factura')
+      .eq('pedido_id', pedidoId)
+      .neq('estado', 'anulada')
+      .maybeSingle()
+
+    // Si ya existe y NO es rechazada → bloquear
+    if (facturaExistente && facturaExistente.estado !== 'rechazada') {
+      return NextResponse.json({
+        error: `Este pedido ya tiene una factura (${facturaExistente.numero_factura ?? facturaExistente.id}) en estado "${facturaExistente.estado}"`,
+        facturaId: facturaExistente.id,
+      }, { status: 422 })
+    }
+
+    // 2. Cargar pedido
     const { data: pedido } = await supabase
       .from('pedidos')
       .select('*')
@@ -46,22 +61,7 @@ export async function POST(req: NextRequest) {
 
     if (!pedido) return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 })
 
-    // Verificar que no tenga ya una factura activa
-    const { data: facturaExistente } = await supabase
-      .from('facturas')
-      .select('id, estado, numero_factura')
-      .eq('pedido_id', pedidoId)
-      .neq('estado', 'anulada')
-      .maybeSingle()
-
-    if (facturaExistente) {
-      return NextResponse.json({
-        error: `Este pedido ya tiene una factura (${facturaExistente.numero_factura ?? facturaExistente.id}) en estado "${facturaExistente.estado}"`,
-        facturaId: facturaExistente.id,
-      }, { status: 422 })
-    }
-
-    // 2. Cargar configuración SRI
+    // 3. Cargar configuración SRI
     const { data: config } = await supabase
       .from('configuracion_facturacion')
       .select('*')
@@ -75,142 +75,158 @@ export async function POST(req: NextRequest) {
     const cfg = config as ConfiguracionFacturacion
     const tarifa = cfg.tarifa_iva
 
-    // 3. Construir comprador
-    const df = (pedido as any).datos_facturacion
-    let comprador: CompradorFactura
+    // 4. Obtener o crear factura
+    let factura: Factura
 
-    if (df) {
-      comprador = {
-        tipo_identificacion: df.tipo_identificacion ?? '05',
-        identificacion:      df.identificacion ?? '9999999999999',
-        razon_social:        df.razon_social ?? 'CONSUMIDOR FINAL',
-        email:               df.email ?? pedido.email ?? null,
-        direccion:           df.direccion ?? null,
-        telefono:            df.telefono ?? pedido.whatsapp ?? null,
+    if (facturaExistente) {
+      // Re-emitir factura rechazada — cargar datos completos
+      const { data: facturaCompleta, error: errLoad } = await supabase
+        .from('facturas')
+        .select('*')
+        .eq('id', facturaExistente.id)
+        .single()
+
+      if (errLoad || !facturaCompleta) {
+        return NextResponse.json({ error: 'No se pudo cargar la factura rechazada' }, { status: 500 })
       }
+      factura = facturaCompleta as Factura
     } else {
-      comprador = {
-        tipo_identificacion: '07',
-        identificacion:      '9999999999999',
-        razon_social:        'CONSUMIDOR FINAL',
-        email:               pedido.email ?? null,
-        direccion:           null,
-        telefono:            pedido.whatsapp ?? null,
-      }
-    }
+      // Construir comprador
+      const df = (pedido as any).datos_facturacion
+      let comprador: CompradorFactura
 
-    // 4. Construir ítems con prefijo según tipo
-    const itemsPedido = (pedido.items ?? []) as any[]
-    const items: ItemFactura[] = itemsPedido.map((item: any) => {
-      // Nombre con prefijo
-      let nombreBase = item.nombre as string
-      const esAlquiler = item.tipo_producto === 'alquiler'
-      const esServicio = item.tipo_producto === 'servicio'
-
-      let descripcion: string
-      if (esAlquiler) {
-        const dias = item.alquiler?.dias ?? 1
-        descripcion = `ALQUILER DE TRAJE ${nombreBase.toUpperCase()}`
-        if (item.variante || item.nombre_variante) descripcion += ` - ${(item.variante || item.nombre_variante).toUpperCase()}`
-        if (item.talla) descripcion += ` - TALLA ${item.talla}`
-        descripcion += ` (${dias} DÍA${dias !== 1 ? 'S' : ''})`
-      } else if (esServicio) {
-        descripcion = `SERVICIO: ${nombreBase.toUpperCase()}`
-        if (item.variante || item.nombre_variante) descripcion += ` - ${(item.variante || item.nombre_variante).toUpperCase()}`
-        if (item.cita?.fecha) descripcion += ` (${item.cita.fecha})`
+      if (df) {
+        comprador = {
+          tipo_identificacion: df.tipo_identificacion ?? '05',
+          identificacion:      df.identificacion ?? '9999999999999',
+          razon_social:        df.razon_social ?? 'CONSUMIDOR FINAL',
+          email:               df.email ?? pedido.email ?? null,
+          direccion:           df.direccion ?? null,
+          telefono:            df.telefono ?? pedido.whatsapp ?? null,
+        }
       } else {
-        descripcion = nombreBase.toUpperCase()
-        if (item.variante || item.nombre_variante) descripcion += ` - ${(item.variante || item.nombre_variante).toUpperCase()}`
-        if (item.talla) descripcion += ` - TALLA ${item.talla}`
+        comprador = {
+          tipo_identificacion: '07',
+          identificacion:      '9999999999999',
+          razon_social:        'CONSUMIDOR FINAL',
+          email:               pedido.email ?? null,
+          direccion:           null,
+          telefono:            pedido.whatsapp ?? null,
+        }
       }
 
-      // Precio: el subtotal del pedido es precio * dias * cantidad (IVA incluido)
-      // Separamos la base imponible
-      const subtotalConIVA: number = item.subtotal ?? 0
-      const baseImponible = parseFloat((subtotalConIVA / (1 + tarifa / 100)).toFixed(2))
-      const cantidad = item.cantidad ?? 1
-      const precioUnitario = parseFloat((baseImponible / cantidad).toFixed(6))
+      // Construir ítems
+      const itemsPedido = (pedido.items ?? []) as any[]
+      const items: ItemFactura[] = itemsPedido.map((item: any) => {
+        let nombreBase = item.nombre as string
+        const esAlquiler = item.tipo_producto === 'alquiler'
+        const esServicio = item.tipo_producto === 'servicio'
 
-      return {
-        descripcion,
-        cantidad,
-        precio_unitario: precioUnitario,
-        descuento: 0,
-        subtotal: baseImponible,
-        iva: tarifa,
+        let descripcion: string
+        if (esAlquiler) {
+          const dias = item.alquiler?.dias ?? 1
+          descripcion = `ALQUILER DE TRAJE ${nombreBase.toUpperCase()}`
+          if (item.variante || item.nombre_variante) descripcion += ` - ${(item.variante || item.nombre_variante).toUpperCase()}`
+          if (item.talla) descripcion += ` - TALLA ${item.talla}`
+          descripcion += ` (${dias} DÍA${dias !== 1 ? 'S' : ''})`
+        } else if (esServicio) {
+          descripcion = `SERVICIO: ${nombreBase.toUpperCase()}`
+          if (item.variante || item.nombre_variante) descripcion += ` - ${(item.variante || item.nombre_variante).toUpperCase()}`
+          if (item.cita?.fecha) descripcion += ` (${item.cita.fecha})`
+        } else {
+          descripcion = nombreBase.toUpperCase()
+          if (item.variante || item.nombre_variante) descripcion += ` - ${(item.variante || item.nombre_variante).toUpperCase()}`
+          if (item.talla) descripcion += ` - TALLA ${item.talla}`
+        }
+
+        const subtotalConIVA: number = item.subtotal ?? 0
+        const baseImponible = parseFloat((subtotalConIVA / (1 + tarifa / 100)).toFixed(2))
+        const cantidad = item.cantidad ?? 1
+        const precioUnitario = parseFloat((baseImponible / cantidad).toFixed(6))
+
+        return {
+          descripcion,
+          cantidad,
+          precio_unitario: precioUnitario,
+          descuento: 0,
+          subtotal: baseImponible,
+          iva: tarifa,
+        }
+      })
+
+      if (pedido.costo_envio > 0) {
+        const baseEnvio = parseFloat((pedido.costo_envio / (1 + tarifa / 100)).toFixed(2))
+        items.push({
+          descripcion: 'COSTO DE ENVÍO',
+          cantidad: 1,
+          precio_unitario: baseEnvio,
+          descuento: 0,
+          subtotal: baseEnvio,
+          iva: tarifa,
+        })
       }
-    })
 
-    // Agregar envío como ítem si aplica
-    if (pedido.costo_envio > 0) {
-      const baseEnvio = parseFloat((pedido.costo_envio / (1 + tarifa / 100)).toFixed(2))
-      items.push({
-        descripcion: 'COSTO DE ENVÍO',
-        cantidad: 1,
-        precio_unitario: baseEnvio,
-        descuento: 0,
-        subtotal: baseEnvio,
-        iva: tarifa,
-      })
+      // Calcular totales
+      const subtotal_iva  = parseFloat(items.filter(i => i.iva > 0).reduce((s, i) => s + i.subtotal, 0).toFixed(2))
+      const subtotal_0    = parseFloat(items.filter(i => i.iva === 0).reduce((s, i) => s + i.subtotal, 0).toFixed(2))
+      const total_iva     = parseFloat((subtotal_iva * tarifa / 100).toFixed(2))
+      const descuento     = parseFloat((pedido.descuento_cupon ?? 0).toFixed(2))
+      const total         = parseFloat((subtotal_0 + subtotal_iva + total_iva - descuento).toFixed(2))
+      const totales = { subtotal_0, subtotal_iva, total_iva, descuento, total }
+
+      // Siguiente secuencial
+      const { data: cfgActual } = await supabase
+        .from('configuracion_facturacion')
+        .select('secuencial_actual, id')
+        .single()
+
+      const seq = cfgActual!.secuencial_actual
+      const seqStr = String(seq).padStart(9, '0')
+      const numFactura = `${cfg.codigo_establecimiento.padStart(3,'0')}-${cfg.punto_emision.padStart(3,'0')}-${seqStr}`
+
+      const { data: facturaData, error: errInsert } = await supabase
+        .from('facturas')
+        .insert({
+          pedido_id:         pedidoId,
+          numero_secuencial: seqStr,
+          numero_factura:    numFactura,
+          fecha_emision:     new Date().toISOString().slice(0, 10),
+          estado:            'borrador',
+          datos_comprador:   comprador,
+          items,
+          totales,
+          notas:             `Pedido #${pedido.numero_orden}`,
+        })
+        .select('*')
+        .single()
+
+      if (errInsert || !facturaData) {
+        throw new Error(errInsert?.message ?? 'Error al crear la factura')
+      }
+
+      factura = facturaData as Factura
+
+      await supabase
+        .from('configuracion_facturacion')
+        .update({ secuencial_actual: seq + 1 })
+        .eq('id', cfgActual!.id)
     }
 
-    // 5. Calcular totales
-    const subtotal_iva  = parseFloat(items.filter(i => i.iva > 0).reduce((s, i) => s + i.subtotal, 0).toFixed(2))
-    const subtotal_0    = parseFloat(items.filter(i => i.iva === 0).reduce((s, i) => s + i.subtotal, 0).toFixed(2))
-    const total_iva     = parseFloat((subtotal_iva * tarifa / 100).toFixed(2))
-    const descuento     = parseFloat((pedido.descuento_cupon ?? 0).toFixed(2))
-    const total         = parseFloat((subtotal_0 + subtotal_iva + total_iva - descuento).toFixed(2))
-
-    const totales = { subtotal_0, subtotal_iva, total_iva, descuento, total }
-
-    // 6. Obtener siguiente secuencial
-    const { data: cfgActual } = await supabase
-      .from('configuracion_facturacion')
-      .select('secuencial_actual, id')
-      .single()
-
-    const seq = cfgActual!.secuencial_actual
-    const seqStr = String(seq).padStart(9, '0')
-    const numFactura = `${cfg.codigo_establecimiento.padStart(3,'0')}-${cfg.punto_emision.padStart(3,'0')}-${seqStr}`
-
-    // 7. Insertar factura borrador
-    const { data: facturaData, error: errInsert } = await supabase
-      .from('facturas')
-      .insert({
-        pedido_id:         pedidoId,
-        numero_secuencial: seqStr,
-        numero_factura:    numFactura,
-        fecha_emision:     new Date().toISOString().slice(0, 10),
-        estado:            'borrador',
-        datos_comprador:   comprador,
-        items,
-        totales,
-        notas:             `Pedido #${pedido.numero_orden}`,
-      })
-      .select('*')
-      .single()
-
-    if (errInsert || !facturaData) {
-      throw new Error(errInsert?.message ?? 'Error al crear la factura')
+    // 5. Descargar .p12 vía Supabase SDK (compatible con buckets privados)
+    const certPathMatch = cfg.cert_p12_url!.match(/\/storage\/v1\/object\/(?:public\/)?facturacion\/(.+)/)
+    const certPath = certPathMatch?.[1]
+    if (!certPath) {
+      await supabase.from('facturas').update({ estado: 'rechazada', error_sri: 'URL del certificado inválida' }).eq('id', factura.id)
+      return NextResponse.json({ error: 'URL del certificado inválida. Vuelve a subir el .p12 en Configuración SRI.', facturaId: factura.id }, { status: 500 })
     }
-
-    const factura = facturaData as Factura
-
-    // Incrementar secuencial
-    await supabase
-      .from('configuracion_facturacion')
-      .update({ secuencial_actual: seq + 1 })
-      .eq('id', cfgActual!.id)
-
-    // 8. Descargar .p12
-    const certRes = await fetch(cfg.cert_p12_url!)
-    if (!certRes.ok) {
+    const { data: certBlob, error: certErr } = await supabase.storage.from('facturacion').download(certPath)
+    if (certErr || !certBlob) {
       await supabase.from('facturas').update({ estado: 'rechazada', error_sri: 'No se pudo descargar el certificado' }).eq('id', factura.id)
       return NextResponse.json({ error: 'No se pudo descargar el certificado digital', facturaId: factura.id }, { status: 500 })
     }
-    const p12Buffer = Buffer.from(await certRes.arrayBuffer())
+    const p12Buffer = Buffer.from(await certBlob.arrayBuffer())
 
-    // 9. Generar clave + XML + firma
+    // 6. Generar clave de acceso + XML + firma
     const claveAcceso = generarClaveAcceso(cfg, factura)
     const xmlSinFirma = generarXMLFactura(cfg, factura, claveAcceso)
 
@@ -230,7 +246,7 @@ export async function POST(req: NextRequest) {
       error_sri:    null,
     }).eq('id', factura.id)
 
-    // 10. Enviar al SRI
+    // 7. Enviar al SRI
     const { recepcion, autorizacion } = await emitirAlSRI(xmlFirmado, claveAcceso, cfg.ambiente)
 
     if (!recepcion.ok) {
@@ -238,16 +254,18 @@ export async function POST(req: NextRequest) {
       await supabase.from('facturas').update({ estado: 'rechazada', error_sri: errorMsg }).eq('id', factura.id)
       return NextResponse.json({
         ok: false, estado: 'rechazada',
-        error: errorMsg,
+        error: errorMsg || 'El SRI devolvió el comprobante (DEVUELTA)',
         facturaId: factura.id,
         mensajes: recepcion.mensajes,
       })
     }
 
     if (autorizacion?.ok) {
+      const numFactura = factura.numero_factura ?? `${cfg.codigo_establecimiento.padStart(3,'0')}-${cfg.punto_emision.padStart(3,'0')}-${factura.numero_secuencial.padStart(9,'0')}`
       await supabase.from('facturas').update({
         estado:               'autorizada',
         numero_autorizacion:  autorizacion.numeroAutorizacion,
+        numero_factura:       numFactura,
         fecha_autorizacion:   autorizacion.fechaAutorizacion ? new Date(autorizacion.fechaAutorizacion).toISOString() : new Date().toISOString(),
         error_sri:            null,
       }).eq('id', factura.id)
@@ -262,16 +280,17 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Rechazada
+    // Rechazada por el SRI (NO AUTORIZADO)
     const errorMsg = (autorizacion?.mensajes ?? [])
-      .map((m: any) => `${m.identificador}: ${m.mensaje}`)
+      .map((m: any) => `${m.identificador}: ${m.mensaje}${m.informacionAdicional ? ' — ' + m.informacionAdicional : ''}`)
       .join(' | ')
 
     await supabase.from('facturas').update({ estado: 'rechazada', error_sri: errorMsg }).eq('id', factura.id)
     return NextResponse.json({
       ok: false, estado: 'rechazada',
-      error: errorMsg || 'El SRI rechazó el comprobante',
+      error: errorMsg || 'El SRI no autorizó el comprobante',
       facturaId: factura.id,
+      mensajes: autorizacion?.mensajes ?? [],
     })
 
   } catch (err: unknown) {

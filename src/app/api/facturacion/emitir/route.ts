@@ -66,12 +66,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Certificado digital (.p12) o PIN no configurados' }, { status: 422 })
     }
 
-    // 3. Descargar el .p12 desde Storage
-    const certRes = await fetch(config.cert_p12_url)
-    if (!certRes.ok) {
+    // 3. Descargar el .p12 desde Storage (bucket privado — no usar fetch directo)
+    const certPathMatch = config.cert_p12_url.match(/\/storage\/v1\/object\/(?:public\/)?facturacion\/(.+)/)
+    const certPath = certPathMatch?.[1]
+    if (!certPath) {
+      return NextResponse.json({ error: 'URL del certificado inválida. Vuelve a subir el .p12 en Configuración SRI.' }, { status: 500 })
+    }
+    const { data: certBlob, error: certErr } = await supabase.storage.from('facturacion').download(certPath)
+    if (certErr || !certBlob) {
       return NextResponse.json({ error: 'No se pudo descargar el certificado digital' }, { status: 500 })
     }
-    const p12Buffer = Buffer.from(await certRes.arrayBuffer())
+    const p12Buffer = Buffer.from(await certBlob.arrayBuffer())
 
     // 4. Generar clave de acceso y XML
     const claveAcceso = generarClaveAcceso(config, factura)

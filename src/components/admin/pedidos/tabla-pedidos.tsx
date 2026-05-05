@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useEffect } from 'react'
 import {
   Search, Truck, Store, ChevronDown, ChevronUp,
   Package, Phone, Mail, MapPin, Download, ShoppingBag,
@@ -42,8 +42,31 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
   const [modalPedido, setModalPedido] = useState<Pedido | null>(null)
   const [actualizando, setActualizando] = useState<string | null>(null)
   const [emitiendoFactura, setEmitiendoFactura] = useState<string | null>(null)
-  // pedidoId → { facturaId, estado, numeroFactura }
-  const [facturasEmitidas, setFacturasEmitidas] = useState<Record<string, { facturaId: string; estado: string; numeroFactura?: string }>>({})
+  // pedidoId → { facturaId, estado, numeroFactura, errorSri }
+  const [facturasEmitidas, setFacturasEmitidas] = useState<Record<string, { facturaId: string; estado: string; numeroFactura?: string; errorSri?: string }>>({})
+
+  // Cargar facturas existentes para pedidos entregados al montar
+  useEffect(() => {
+    const supabase = crearClienteSupabase()
+    const pedidosEntregados = pedidosInic.filter(p => p.estado === 'entregado').map(p => p.id)
+    if (pedidosEntregados.length === 0) return
+
+    supabase
+      .from('facturas')
+      .select('id, pedido_id, estado, numero_factura, error_sri')
+      .in('pedido_id', pedidosEntregados)
+      .neq('estado', 'anulada')
+      .then(({ data }) => {
+        if (!data) return
+        const mapa: Record<string, { facturaId: string; estado: string; numeroFactura?: string; errorSri?: string }> = {}
+        for (const f of data) {
+          if (f.pedido_id) {
+            mapa[f.pedido_id] = { facturaId: f.id, estado: f.estado, numeroFactura: f.numero_factura ?? undefined, errorSri: f.error_sri ?? undefined }
+          }
+        }
+        setFacturasEmitidas(mapa)
+      })
+  }, [pedidosInic])
 
   async function emitirFactura(pedidoId: string) {
     setEmitiendoFactura(pedidoId)
@@ -56,12 +79,12 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
       const data = await res.json()
 
       if (data.ok && data.estado === 'autorizada') {
-        toast.success(`Factura ${data.numeroFactura} autorizada por el SRI`)
+        toast.success(`Factura ${data.numeroFactura} autorizada por el SRI ✓`)
         setFacturasEmitidas(prev => ({ ...prev, [pedidoId]: { facturaId: data.facturaId, estado: 'autorizada', numeroFactura: data.numeroFactura } }))
-      } else if (data.facturaId && data.estado === 'rechazada') {
+      } else if (data.facturaId) {
         const msg = data.error ?? 'El SRI rechazó el comprobante'
-        toast.error(`SRI: ${msg}`, { duration: 8000 })
-        setFacturasEmitidas(prev => ({ ...prev, [pedidoId]: { facturaId: data.facturaId, estado: 'rechazada' } }))
+        toast.error(`SRI: ${msg}`, { duration: 10000 })
+        setFacturasEmitidas(prev => ({ ...prev, [pedidoId]: { facturaId: data.facturaId, estado: data.estado ?? 'rechazada', errorSri: msg } }))
       } else {
         toast.error(data.error ?? 'Error al emitir la factura', { duration: 8000 })
       }
@@ -423,10 +446,10 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                           <button
                             onClick={() => emitirFactura(pedido.id)}
                             disabled={emitiendoFactura === pedido.id}
-                            title="Reintentar emisión"
+                            title={emitida.errorSri ? `Error SRI: ${emitida.errorSri}` : 'Reintentar emisión SRI'}
                             className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-100 text-red-700 text-[10px] font-bold border border-red-300 hover:bg-red-200 transition-colors disabled:opacity-50"
                           >
-                            <FileText className="w-3 h-3" />
+                            {emitiendoFactura === pedido.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
                             Reintentar
                           </button>
                         )
