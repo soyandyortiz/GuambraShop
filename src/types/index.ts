@@ -340,3 +340,78 @@ export interface ItemCarrito {
   }
   extras?: { id: string; nombre: string; precio: number }[]
 }
+
+// ============================================================
+// FACTURACIÓN ELECTRÓNICA SRI
+// ============================================================
+
+export type AmbienteSRI = 'pruebas' | 'produccion'
+export type EstadoFactura = 'borrador' | 'enviada' | 'autorizada' | 'rechazada' | 'anulada'
+
+export interface ConfiguracionFacturacion {
+  id: string
+  ruc: string
+  razon_social: string
+  nombre_comercial: string | null
+  direccion_matriz: string
+  codigo_establecimiento: string
+  punto_emision: string
+  ambiente: AmbienteSRI
+  obligado_contabilidad: boolean
+  tarifa_iva: number
+  contribuyente_especial: string | null
+  regimen: string | null
+  cert_p12_url: string | null
+  cert_pin: string | null
+  secuencial_actual: number
+  activo: boolean
+  creado_en: string
+  actualizado_en: string
+}
+
+export interface ItemFactura {
+  descripcion: string
+  cantidad: number
+  precio_unitario: number
+  descuento: number
+  subtotal: number
+  iva: number         // 0 = exento, 15 = 15%
+}
+
+export interface TotalesFactura {
+  subtotal_0: number    // base sin IVA (productos exentos)
+  subtotal_iva: number  // base con IVA
+  total_iva: number     // monto IVA calculado
+  descuento: number
+  total: number
+}
+
+export interface CompradorFactura {
+  tipo_identificacion: '04' | '05' | '06' | '07'  // 04=RUC, 05=Cédula, 06=Pasaporte, 07=Consumidor Final
+  identificacion: string
+  razon_social: string
+  email: string | null
+  direccion: string | null
+  telefono: string | null
+}
+
+export interface Factura {
+  id: string
+  pedido_id: string | null
+  numero_secuencial: string
+  numero_factura: string | null
+  clave_acceso: string | null
+  numero_autorizacion: string | null
+  fecha_emision: string
+  fecha_autorizacion: string | null
+  estado: EstadoFactura
+  datos_comprador: CompradorFactura
+  items: ItemFactura[]
+  totales: TotalesFactura
+  xml_firmado: string | null
+  ride_url: string | null
+  error_sri: string | null
+  notas: string | null
+  creado_en: string
+  actualizado_en: string
+}
