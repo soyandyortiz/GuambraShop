@@ -349,6 +349,24 @@ export interface ItemCarrito {
 export type AmbienteSRI = 'pruebas' | 'produccion'
 export type EstadoFactura = 'borrador' | 'enviada' | 'autorizada' | 'rechazada' | 'anulada'
 
+export type ProveedorEmail = 'gmail' | 'smtp' | 'resend'
+
+export interface ConfiguracionEmail {
+  id: string
+  proveedor: ProveedorEmail
+  smtp_host: string | null
+  smtp_port: number
+  smtp_usuario: string | null
+  smtp_password: string | null
+  resend_api_key: string | null
+  from_email: string
+  from_nombre: string
+  envio_automatico: boolean
+  activo: boolean
+  creado_en: string
+  actualizado_en: string
+}
+
 export interface ConfiguracionFacturacion {
   id: string
   ruc: string
