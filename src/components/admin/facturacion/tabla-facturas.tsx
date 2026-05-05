@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { FileText, Download, RefreshCw, XCircle, ChevronDown, Search } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { FileText, Download, RefreshCw, XCircle, ChevronDown, Search, Send, Loader2 } from 'lucide-react'
 import { formatearPrecio } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import type { Factura, EstadoFactura } from '@/types'
 
 interface Props {
@@ -28,8 +30,36 @@ const LABELS_ESTADO: Record<EstadoFactura, string> = {
 }
 
 export function TablaFacturas({ facturas, configActiva }: Props) {
+  const router = useRouter()
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<EstadoFactura | 'todos'>('todos')
+  const [enviando, setEnviando] = useState<string | null>(null)
+
+  async function emitir(facturaId: string) {
+    setEnviando(facturaId)
+    try {
+      const res = await fetch('/api/facturacion/emitir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ facturaId }),
+      })
+      const data = await res.json()
+
+      if (data.ok && data.estado === 'autorizada') {
+        toast.success(`Factura autorizada por el SRI · N° ${data.numeroAutorizacion?.slice(0, 10)}…`)
+      } else if (data.ok) {
+        toast.info('Factura enviada al SRI, pendiente de autorización')
+      } else {
+        const primer = data.mensajes?.[0]
+        toast.error(`SRI rechazó: ${primer?.mensaje ?? data.error ?? 'Error desconocido'}`)
+      }
+      router.refresh()
+    } catch {
+      toast.error('Error de conexión al enviar al SRI')
+    } finally {
+      setEnviando(null)
+    }
+  }
 
   const filtradas = facturas.filter(f => {
     const matchEstado = filtroEstado === 'todos' || f.estado === filtroEstado
@@ -103,7 +133,13 @@ export function TablaFacturas({ facturas, configActiva }: Props) {
               </thead>
               <tbody>
                 {filtradas.map((factura, i) => (
-                  <FilaFactura key={factura.id} factura={factura} esUltima={i === filtradas.length - 1} />
+                  <FilaFactura
+                    key={factura.id}
+                    factura={factura}
+                    esUltima={i === filtradas.length - 1}
+                    onEmitir={emitir}
+                    cargando={enviando === factura.id}
+                  />
                 ))}
               </tbody>
             </table>
@@ -121,7 +157,7 @@ export function TablaFacturas({ facturas, configActiva }: Props) {
   )
 }
 
-function FilaFactura({ factura, esUltima }: { factura: Factura; esUltima: boolean }) {
+function FilaFactura({ factura, esUltima, onEmitir, cargando }: { factura: Factura; esUltima: boolean; onEmitir: (id: string) => Promise<void>; cargando?: boolean }) {
   const totalStr = factura.totales?.total != null
     ? formatearPrecio(factura.totales.total)
     : '—'
@@ -148,6 +184,23 @@ function FilaFactura({ factura, esUltima }: { factura: Factura; esUltima: boolea
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-1 justify-end">
+          {/* Enviar al SRI (borrador o rechazada) */}
+          {(factura.estado === 'borrador' || factura.estado === 'rechazada') && (
+            <button
+              onClick={() => onEmitir(factura.id)}
+              disabled={cargando}
+              title="Enviar al SRI"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-colors disabled:opacity-50"
+            >
+              {cargando
+                ? <Loader2 className="w-3 h-3 animate-spin" />
+                : <Send className="w-3 h-3" />
+              }
+              {cargando ? 'Enviando…' : 'Enviar SRI'}
+            </button>
+          )}
+
+          {/* Descargar RIDE */}
           {factura.ride_url && (
             <a
               href={factura.ride_url}
@@ -159,21 +212,29 @@ function FilaFactura({ factura, esUltima }: { factura: Factura; esUltima: boolea
               <Download className="w-3.5 h-3.5" />
             </a>
           )}
-          {factura.estado === 'rechazada' && (
+
+          {/* Descargar XML firmado */}
+          {factura.xml_firmado && factura.estado !== 'borrador' && (
             <button
-              title="Reintentar envío"
-              className="p-1.5 rounded-lg hover:bg-amber-100 text-foreground-muted hover:text-amber-700 transition-colors"
+              title="Descargar XML"
+              onClick={() => {
+                const blob = new Blob([factura.xml_firmado!], { type: 'text/xml' })
+                const url  = URL.createObjectURL(blob)
+                const a    = document.createElement('a')
+                a.href = url; a.download = `${factura.clave_acceso ?? factura.numero_secuencial}.xml`
+                a.click(); URL.revokeObjectURL(url)
+              }}
+              className="p-1.5 rounded-lg hover:bg-background-subtle text-foreground-muted hover:text-foreground transition-colors"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
+              <Download className="w-3.5 h-3.5" />
             </button>
           )}
-          {factura.estado === 'autorizada' && (
-            <button
-              title="Anular factura"
-              className="p-1.5 rounded-lg hover:bg-red-100 text-foreground-muted hover:text-red-600 transition-colors"
-            >
+
+          {/* Error SRI */}
+          {factura.error_sri && (
+            <span title={factura.error_sri} className="text-xs text-danger cursor-help">
               <XCircle className="w-3.5 h-3.5" />
-            </button>
+            </span>
           )}
         </div>
       </td>
