@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, Ticket, Megaphone,
-  Settings, MessageSquare, ShoppingBag, LogOut, Star, ClipboardList, CalendarDays, Truck, PartyPopper, TrendingUp, Users, KeyRound, FileText
+  Settings, MessageSquare, ShoppingBag, LogOut, Star, ClipboardList, CalendarDays, Truck, PartyPopper, TrendingUp, Users, KeyRound, FileText, Mail
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { crearClienteSupabase, CLAVE_DEMO } from '@/lib/supabase/cliente'
@@ -55,6 +55,7 @@ export function Sidebar({ rol, nombre, fotoPerfil, faviconUrl }: PropsSidebar) {
     { href: '/admin/dashboard/facturacion', icono: <FileText className="w-4 h-4" />,         etiqueta: 'Facturación SRI', badge: null },
     ...(esSuperadmin ? [
       { href: '/admin/dashboard/mensajes',    icono: <MessageSquare className="w-4 h-4" />,    etiqueta: 'Mensajes',       badge: null },
+      { href: '/admin/dashboard/email',       icono: <Mail className="w-4 h-4" />,              etiqueta: 'Config. Email',  badge: null },
     ] : []),
     { href: '/admin/dashboard/perfil',      icono: <Settings className="w-4 h-4" />,         etiqueta: 'Perfil tienda',  badge: null },
   ]
