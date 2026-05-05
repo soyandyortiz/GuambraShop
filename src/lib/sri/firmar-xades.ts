@@ -100,18 +100,21 @@ export function firmarXML(xmlSinFirma: string, p12Buffer: Buffer, pin: string): 
   const docDigestB64  = sha1Utf8B64(xmlC14n)
 
   // --- 2. SignedProperties y su digest ---
-  const signedPropertiesXml = `<xades:SignedProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Id="${signedPropsId}">
+  // xmlns:ds se declara en el raíz (no en hijos) para que el C14N inclusivo
+  // del SRI produzca los mismos bytes que nuestra versión standalone.
+  // Los namespaces van ordenados alfabéticamente: xmlns:ds antes de xmlns:xades.
+  const signedPropertiesXml = `<xades:SignedProperties xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Id="${signedPropsId}">
   <xades:SignedSignatureProperties>
     <xades:SigningTime>${signingTime}</xades:SigningTime>
     <xades:SigningCertificate>
       <xades:Cert>
         <xades:CertDigest>
-          <ds:DigestMethod xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
-          <ds:DigestValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#">${certDigestB64}</ds:DigestValue>
+          <ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
+          <ds:DigestValue>${certDigestB64}</ds:DigestValue>
         </xades:CertDigest>
         <xades:IssuerSerial>
-          <ds:X509IssuerName xmlns:ds="http://www.w3.org/2000/09/xmldsig#">${issuerName}</ds:X509IssuerName>
-          <ds:X509SerialNumber xmlns:ds="http://www.w3.org/2000/09/xmldsig#">${serialNumberDecimal}</ds:X509SerialNumber>
+          <ds:X509IssuerName>${issuerName}</ds:X509IssuerName>
+          <ds:X509SerialNumber>${serialNumberDecimal}</ds:X509SerialNumber>
         </xades:IssuerSerial>
       </xades:Cert>
     </xades:SigningCertificate>
@@ -131,7 +134,7 @@ export function firmarXML(xmlSinFirma: string, p12Buffer: Buffer, pin: string): 
     <ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
     <ds:DigestValue>${docDigestB64}</ds:DigestValue>
   </ds:Reference>
-  <ds:Reference Id="Reference-${ts}-SignedProperties" URI="#${signedPropsId}" Type="http://uri.etsi.org/01903#SignedProperties">
+  <ds:Reference Id="Reference-${ts}-SignedProperties" Type="http://uri.etsi.org/01903#SignedProperties" URI="#${signedPropsId}">
     <ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
     <ds:DigestValue>${signedPropsDigestB64}</ds:DigestValue>
   </ds:Reference>
