@@ -143,13 +143,27 @@ export function FormularioConfigEmail({ config }: Props) {
         {/* Gmail */}
         {form.proveedor === 'gmail' && (
           <div className="space-y-3">
-            <div className="rounded-xl bg-blue-50 border border-blue-200 px-3 py-2.5 text-xs text-blue-700 leading-relaxed">
-              <p className="font-bold mb-1">Cómo obtener la contraseña de aplicación Gmail:</p>
-              <ol className="list-decimal list-inside space-y-0.5">
-                <li>Activa la verificación en 2 pasos en tu cuenta Gmail</li>
-                <li>Ve a <span className="font-mono">Cuenta Google → Seguridad → Contraseñas de aplicación</span></li>
-                <li>Genera una para &quot;Correo&quot; y copia el código de 16 caracteres</li>
+            <div className="rounded-xl bg-blue-50 border border-blue-200 px-3 py-3 text-xs text-blue-700 leading-relaxed">
+              <p className="font-bold mb-2">Cómo obtener la contraseña de aplicación Gmail:</p>
+              <ol className="list-decimal list-inside space-y-1.5">
+                <li>Entra a tu cuenta Gmail y activa la <span className="font-semibold">Verificación en 2 pasos</span> si no la tienes</li>
+                <li>
+                  Ve directamente a{' '}
+                  <a
+                    href="https://myaccount.google.com/apppasswords"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold underline underline-offset-2 hover:text-blue-900"
+                  >
+                    myaccount.google.com/apppasswords
+                  </a>
+                </li>
+                <li>En <span className="font-semibold">Nombre de la app</span> escribe <span className="font-mono bg-blue-100 px-1 rounded">GuambraShop</span> y haz clic en <span className="font-semibold">Crear</span></li>
+                <li>Google muestra un código de <span className="font-semibold">16 caracteres separados en grupos de 4</span> — cópialo <span className="font-semibold">sin espacios</span> y pégalo abajo</li>
               </ol>
+              <p className="mt-2 text-[11px] bg-blue-100 rounded-lg px-2 py-1.5 text-blue-800">
+                ⚠️ Si el enlace no abre la opción, ve a <span className="font-mono">myaccount.google.com → Seguridad → Llaves de acceso</span>, elimina las llaves temporalmente, genera la contraseña y luego las vuelves a activar.
+              </p>
             </div>
             <div>
               <label className="text-xs font-medium text-foreground-muted block mb-1">Cuenta Gmail</label>
