@@ -158,6 +158,8 @@ export function TablaFacturas({ facturas, configActiva }: Props) {
 }
 
 function FilaFactura({ factura, esUltima, onEmitir, cargando }: { factura: Factura; esUltima: boolean; onEmitir: (id: string) => Promise<void>; cargando?: boolean }) {
+  const [mostrarError, setMostrarError] = useState(false)
+
   const totalStr = factura.totales?.total != null
     ? formatearPrecio(factura.totales.total)
     : '—'
@@ -167,7 +169,8 @@ function FilaFactura({ factura, esUltima, onEmitir, cargando }: { factura: Factu
     : '—'
 
   return (
-    <tr className={cn('hover:bg-background-subtle/50 transition-colors', !esUltima && 'border-b border-border')}>
+    <>
+    <tr className={cn('hover:bg-background-subtle/50 transition-colors', !esUltima && !mostrarError && 'border-b border-border')}>
       <td className="px-4 py-3">
         <span className="font-mono text-xs text-foreground">{factura.numero_factura ?? `#${factura.numero_secuencial}`}</span>
       </td>
@@ -200,44 +203,54 @@ function FilaFactura({ factura, esUltima, onEmitir, cargando }: { factura: Factu
             </button>
           )}
 
-          {/* Descargar RIDE */}
-          {factura.ride_url && (
+          {/* RIDE PDF — disponible si está autorizada o tiene xml_firmado */}
+          {(factura.estado === 'autorizada' || factura.xml_firmado) && (
             <a
-              href={factura.ride_url}
+              href={`/api/facturacion/ride?id=${factura.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              title="Descargar RIDE"
-              className="p-1.5 rounded-lg hover:bg-primary/10 text-foreground-muted hover:text-primary transition-colors"
+              title="Ver / Descargar RIDE (PDF)"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-background-subtle text-foreground-muted hover:text-foreground text-xs font-medium transition-colors"
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-3 h-3" />
+              RIDE
             </a>
           )}
 
           {/* Descargar XML firmado */}
           {factura.xml_firmado && factura.estado !== 'borrador' && (
-            <button
-              title="Descargar XML"
-              onClick={() => {
-                const blob = new Blob([factura.xml_firmado!], { type: 'text/xml' })
-                const url  = URL.createObjectURL(blob)
-                const a    = document.createElement('a')
-                a.href = url; a.download = `${factura.clave_acceso ?? factura.numero_secuencial}.xml`
-                a.click(); URL.revokeObjectURL(url)
-              }}
+            <a
+              href={`/api/facturacion/xml?id=${factura.id}`}
+              download
+              title="Descargar XML firmado"
               className="p-1.5 rounded-lg hover:bg-background-subtle text-foreground-muted hover:text-foreground transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
-            </button>
+            </a>
           )}
 
-          {/* Error SRI */}
+          {/* Error SRI — expandible */}
           {factura.error_sri && (
-            <span title={factura.error_sri} className="text-xs text-danger cursor-help">
+            <button
+              onClick={() => setMostrarError(v => !v)}
+              title="Ver error del SRI"
+              className="p-1.5 rounded-lg hover:bg-red-100 text-danger transition-colors"
+            >
               <XCircle className="w-3.5 h-3.5" />
-            </span>
+            </button>
           )}
         </div>
       </td>
     </tr>
+    {/* Fila de error expandible */}
+    {factura.error_sri && mostrarError && (
+      <tr className={cn('bg-red-50', !esUltima && 'border-b border-border')}>
+        <td colSpan={6} className="px-4 py-2">
+          <p className="text-xs text-red-700 font-medium">Error SRI:</p>
+          <p className="text-xs text-red-600 mt-0.5 font-mono">{factura.error_sri}</p>
+        </td>
+      </tr>
+    )}
+    </>
   )
 }
