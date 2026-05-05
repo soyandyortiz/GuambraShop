@@ -14,11 +14,10 @@ export default async function PáginaNuevaFactura() {
     supabase.from('configuracion_facturacion').select('*').maybeSingle(),
     supabase
       .from('pedidos')
-      .select('id, numero_orden, nombre_cliente, email, telefono, total, creado_en')
-      .in('estado', ['confirmado', 'entregado'])
-      .not('id', 'in', `(SELECT pedido_id FROM facturas WHERE pedido_id IS NOT NULL AND estado != 'anulada')`)
+      .select('id, numero_orden, nombres, email, whatsapp, total, datos_facturacion, creado_en')
+      .in('estado', ['pendiente', 'confirmado', 'entregado'])
       .order('creado_en', { ascending: false })
-      .limit(50),
+      .limit(100),
   ])
 
   if (!config) redirect('/admin/dashboard/facturacion/configuracion')

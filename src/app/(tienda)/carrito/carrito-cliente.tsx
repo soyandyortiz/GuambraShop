@@ -5,7 +5,8 @@ import Link from 'next/link'
 import {
   ShoppingCart, Trash2, Plus, Minus, Tag, Truck,
   Store, ChevronRight, Loader2, MessageCircle, Package,
-  CheckCircle2, User, Mail, Phone, MapPin, ChevronDown, Calendar, Landmark
+  CheckCircle2, User, Mail, Phone, MapPin, ChevronDown, Calendar, Landmark,
+  FileText, ChevronUp, Copy
 } from 'lucide-react'
 import { usarCarrito } from '@/hooks/usar-carrito'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
@@ -72,6 +73,15 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
   const [email, setEmail] = useState('')
   const [codigoPais, setCodigoPais] = useState('+593')
   const [telefono, setTelefono] = useState('')
+  // Datos de facturación SRI (opcionales)
+  const [quiereFactura, setQuiereFactura] = useState(false)
+  const [tipoIdFactura, setTipoIdFactura]     = useState<'04' | '05' | '06' | '07'>('05')
+  const [idFactura, setIdFactura]             = useState('')
+  const [razonSocialFactura, setRazonSocialFactura] = useState('')
+  const [emailFactura, setEmailFactura]       = useState('')
+  const [direccionFactura, setDireccionFactura] = useState('')
+  const [telefonoFactura, setTelefonoFactura] = useState('')
+
   // Solo delivery
   const [provincia, setProvincia] = useState('')
   const [ciudad, setCiudad] = useState('')
@@ -154,7 +164,24 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
       if (!ciudad) { toast.error('Selecciona la ciudad'); return false }
       if (!direccion.trim()) { toast.error('Ingresa la dirección de domicilio'); return false }
     }
+    if (quiereFactura && tipoIdFactura !== '07') {
+      if (!idFactura.trim()) { toast.error('Ingresa tu número de identificación para la factura'); return false }
+      if (!razonSocialFactura.trim()) { toast.error('Ingresa el nombre o razón social para la factura'); return false }
+      if (tipoIdFactura === '05' && idFactura.replace(/\D/g,'').length !== 10) {
+        toast.error('La cédula debe tener 10 dígitos'); return false
+      }
+      if (tipoIdFactura === '04' && idFactura.replace(/\D/g,'').length !== 13) {
+        toast.error('El RUC debe tener 13 dígitos'); return false
+      }
+    }
     return true
+  }
+
+  function copiarDatosContacto() {
+    setRazonSocialFactura(nombres.trim().toUpperCase())
+    setEmailFactura(email.trim())
+    setTelefonoFactura(telefono.trim())
+    toast.success('Datos de contacto copiados')
   }
 
   // --- Crear pedido ---
@@ -329,6 +356,14 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
         cupon_codigo: cupon?.codigo ?? null,
         costo_envio: tipoEnvio === 'envio' && costoEnvio !== null ? +costoEnvio.toFixed(2) : 0,
         total: +total.toFixed(2),
+        datos_facturacion: quiereFactura ? {
+          tipo_identificacion: tipoIdFactura,
+          identificacion:      tipoIdFactura === '07' ? '9999999999999' : idFactura.replace(/\D/g,''),
+          razon_social:        tipoIdFactura === '07' ? 'CONSUMIDOR FINAL' : razonSocialFactura.trim().toUpperCase(),
+          email:               emailFactura.trim() || null,
+          direccion:           direccionFactura.trim() || null,
+          telefono:            telefonoFactura.trim() || null,
+        } : null,
       })
       .select('id, numero_orden')
       .single()
@@ -964,6 +999,149 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                 />
               </div>
             </div>
+          </div>
+
+          {/* ── Datos de facturación (opcionales) ── */}
+          <div className="bg-card border border-card-border rounded-2xl overflow-hidden">
+            {/* Toggle */}
+            <button
+              type="button"
+              onClick={() => setQuiereFactura(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3.5 text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className={cn(
+                  'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
+                  quiereFactura ? 'bg-primary text-white' : 'bg-background-subtle text-foreground-muted'
+                )}>
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">¿Necesitas factura electrónica?</p>
+                  <p className="text-xs text-foreground-muted">Opcional · Datos para el SRI</p>
+                </div>
+              </div>
+              <div className={cn(
+                'w-11 h-6 rounded-full transition-colors flex-shrink-0 relative',
+                quiereFactura ? 'bg-primary' : 'bg-border'
+              )}>
+                <span className={cn(
+                  'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all',
+                  quiereFactura ? 'left-[22px]' : 'left-0.5'
+                )} />
+              </div>
+            </button>
+
+            {/* Formulario expandible */}
+            {quiereFactura && (
+              <div className="border-t border-border px-4 pb-4 pt-3 flex flex-col gap-3">
+                {/* Tipo de identificación */}
+                <div>
+                  <p className="text-xs font-medium text-foreground-muted mb-2">Tipo de identificación</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { valor: '05', label: 'Cédula', sub: '10 dígitos' },
+                      { valor: '04', label: 'RUC', sub: '13 dígitos' },
+                      { valor: '06', label: 'Pasaporte', sub: 'Extranjero' },
+                      { valor: '07', label: 'Consumidor final', sub: 'Sin datos' },
+                    ].map(t => (
+                      <button
+                        key={t.valor}
+                        type="button"
+                        onClick={() => setTipoIdFactura(t.valor as typeof tipoIdFactura)}
+                        className={cn(
+                          'px-3 py-2 rounded-xl border text-left transition-all',
+                          tipoIdFactura === t.valor
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:bg-background-subtle'
+                        )}
+                      >
+                        <p className={cn('text-xs font-semibold', tipoIdFactura === t.valor ? 'text-primary' : 'text-foreground')}>{t.label}</p>
+                        <p className="text-[10px] text-foreground-muted">{t.sub}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {tipoIdFactura !== '07' && (
+                  <>
+                    {/* Botón copiar mis datos */}
+                    <button
+                      type="button"
+                      onClick={copiarDatosContacto}
+                      disabled={!nombres.trim()}
+                      className="flex items-center gap-2 text-xs text-primary hover:underline disabled:opacity-40 disabled:no-underline"
+                    >
+                      <Copy className="w-3 h-3" />
+                      Usar mis datos de contacto
+                    </button>
+
+                    {/* Número de identificación */}
+                    <div>
+                      <label className="block text-xs font-medium text-foreground-muted mb-1">
+                        {tipoIdFactura === '04' ? 'RUC *' : tipoIdFactura === '05' ? 'Cédula *' : 'Número de pasaporte *'}
+                      </label>
+                      <input
+                        type="text"
+                        value={idFactura}
+                        onChange={e => setIdFactura(e.target.value)}
+                        placeholder={tipoIdFactura === '04' ? '0602153520001' : tipoIdFactura === '05' ? '0604511089' : 'AB123456'}
+                        className={cn(INPUT_BASE, 'font-mono')}
+                        maxLength={tipoIdFactura === '04' ? 13 : tipoIdFactura === '05' ? 10 : 20}
+                      />
+                    </div>
+
+                    {/* Razón social */}
+                    <div>
+                      <label className="block text-xs font-medium text-foreground-muted mb-1">
+                        {tipoIdFactura === '04' ? 'Razón social *' : 'Nombres y apellidos *'}
+                      </label>
+                      <input
+                        type="text"
+                        value={razonSocialFactura}
+                        onChange={e => setRazonSocialFactura(e.target.value.toUpperCase())}
+                        placeholder="EN MAYÚSCULAS COMO APARECE EN EL SRI"
+                        className={cn(INPUT_BASE, 'uppercase')}
+                      />
+                    </div>
+
+                    {/* Email factura */}
+                    <div>
+                      <label className="block text-xs font-medium text-foreground-muted mb-1">
+                        Email <span className="text-foreground-muted/60">(para recibir el RIDE)</span>
+                      </label>
+                      <input
+                        type="email"
+                        value={emailFactura}
+                        onChange={e => setEmailFactura(e.target.value)}
+                        placeholder="tuemail@correo.com"
+                        className={INPUT_BASE}
+                      />
+                    </div>
+
+                    {/* Dirección factura */}
+                    <div>
+                      <label className="block text-xs font-medium text-foreground-muted mb-1">
+                        Dirección <span className="text-foreground-muted/60">(opcional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={direccionFactura}
+                        onChange={e => setDireccionFactura(e.target.value)}
+                        placeholder="Av. Principal 123, Ciudad"
+                        className={INPUT_BASE}
+                      />
+                    </div>
+                  </>
+                )}
+
+                {tipoIdFactura === '07' && (
+                  <p className="text-xs text-foreground-muted bg-background-subtle rounded-xl px-3 py-2">
+                    La factura se emitirá a nombre de <strong>Consumidor Final</strong> sin datos de identificación.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Resumen rápido */}

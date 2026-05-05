@@ -77,15 +77,29 @@ export function FormularioNuevaFactura({ config, pedidos }: Props) {
     const pedido = pedidos.find(p => p.id === pedidoId)
     if (!pedido) return
 
-    setComprador(prev => ({
-      ...prev,
-      razon_social: (pedido as any).nombre_cliente ?? '',
-      email: (pedido as any).email ?? null,
-      telefono: (pedido as any).telefono ?? null,
-    }))
+    // Preferir datos_facturacion si el cliente los proporcionó
+    const df = (pedido as any).datos_facturacion
+    if (df) {
+      setComprador({
+        tipo_identificacion: df.tipo_identificacion ?? '05',
+        identificacion:      df.identificacion ?? '',
+        razon_social:        df.razon_social ?? '',
+        email:               df.email ?? null,
+        direccion:           df.direccion ?? null,
+        telefono:            df.telefono ?? null,
+      })
+    } else {
+      setComprador(prev => ({
+        ...prev,
+        razon_social: ((pedido as any).nombres ?? '').toUpperCase(),
+        email:        (pedido as any).email ?? null,
+        telefono:     (pedido as any).whatsapp ?? null,
+      }))
+    }
 
     if (typeof (pedido as any).total === 'number') {
-      const base = (pedido as any).total / (1 + config.tarifa_iva / 100)
+      const totalPedido = (pedido as any).total as number
+      const base = totalPedido / (1 + config.tarifa_iva / 100)
       setItems([{
         descripcion: `Pedido #${(pedido as any).numero_orden}`,
         cantidad: 1,
@@ -168,13 +182,22 @@ export function FormularioNuevaFactura({ config, pedidos }: Props) {
             className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           >
             <option value="">— Sin vincular —</option>
-            {pedidos.map(p => (
-              <option key={p.id} value={p.id}>
-                #{(p as any).numero_orden} · {(p as any).nombre_cliente} · {formatearPrecio((p as any).total ?? 0)}
-              </option>
-            ))}
+            {pedidos.map(p => {
+              const pd = p as any
+              const tieneDF = !!pd.datos_facturacion
+              return (
+                <option key={p.id} value={p.id}>
+                  #{pd.numero_orden} · {pd.nombres} · {formatearPrecio(pd.total ?? 0)}{tieneDF ? ' ✓ datos factura' : ''}
+                </option>
+              )
+            })}
           </select>
-          {pedidoSeleccionado && <p className="text-xs text-green-700">Datos del pedido cargados. Puedes editarlos.</p>}
+          {pedidoSeleccionado && (() => {
+            const pd = pedidos.find(p => p.id === pedidoSeleccionado) as any
+            return pd?.datos_facturacion
+              ? <p className="text-xs text-green-700 font-medium">✓ El cliente proporcionó sus datos de facturación. Cargados automáticamente.</p>
+              : <p className="text-xs text-foreground-muted">Datos de contacto del pedido cargados. Puedes editarlos.</p>
+          })()}
         </section>
       )}
 
