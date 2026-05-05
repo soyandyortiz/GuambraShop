@@ -153,7 +153,8 @@ export async function POST(req: NextRequest) {
     }
 
     const cfg = config as ConfiguracionFacturacion
-    const tarifa = cfg.tarifa_iva
+    // Tarifa global: artesanos → 0% por defecto; demás → tarifa configurada
+    const tarifaGlobal = cfg.tipo_contribuyente === 'artesano' ? 0 : cfg.tarifa_iva
 
     // 4. Obtener o crear factura
     let factura: Factura
@@ -199,6 +200,20 @@ export async function POST(req: NextRequest) {
 
       // Construir ítems
       const itemsPedido = (pedido.items ?? []) as any[]
+
+      // Obtener tarifa IVA por producto (si está configurada individualmente)
+      const productoIds = itemsPedido.map((i: any) => i.producto_id).filter(Boolean) as string[]
+      const ivaMap: Record<string, number> = {}
+      if (productoIds.length > 0) {
+        const { data: prods } = await supabase
+          .from('productos')
+          .select('id, tarifa_iva')
+          .in('id', productoIds)
+        for (const p of prods ?? []) {
+          if (p.tarifa_iva != null) ivaMap[p.id] = p.tarifa_iva
+        }
+      }
+
       const items: ItemFactura[] = itemsPedido.map((item: any) => {
         let nombreBase = item.nombre as string
         const esAlquiler = item.tipo_producto === 'alquiler'
@@ -221,8 +236,15 @@ export async function POST(req: NextRequest) {
           if (item.talla) descripcion += ` - TALLA ${item.talla}`
         }
 
+        // Prioridad: item.tarifa_iva (carrito) → producto BD → global/artesano
+        const tarifaItem: number =
+          item.tarifa_iva != null ? item.tarifa_iva
+          : ivaMap[item.producto_id] != null ? ivaMap[item.producto_id]
+          : tarifaGlobal
+
         const subtotalConIVA: number = item.subtotal ?? 0
-        const baseImponible = parseFloat((subtotalConIVA / (1 + tarifa / 100)).toFixed(2))
+        const divisor = tarifaItem > 0 ? 1 + tarifaItem / 100 : 1
+        const baseImponible = parseFloat((subtotalConIVA / divisor).toFixed(2))
         const cantidad = item.cantidad ?? 1
         const precioUnitario = parseFloat((baseImponible / cantidad).toFixed(6))
 
@@ -232,26 +254,27 @@ export async function POST(req: NextRequest) {
           precio_unitario: precioUnitario,
           descuento: 0,
           subtotal: baseImponible,
-          iva: tarifa,
+          iva: tarifaItem,
         }
       })
 
       if (pedido.costo_envio > 0) {
-        const baseEnvio = parseFloat((pedido.costo_envio / (1 + tarifa / 100)).toFixed(2))
+        const divisorEnvio = tarifaGlobal > 0 ? 1 + tarifaGlobal / 100 : 1
+        const baseEnvio = parseFloat((pedido.costo_envio / divisorEnvio).toFixed(2))
         items.push({
           descripcion: 'COSTO DE ENVÍO',
           cantidad: 1,
           precio_unitario: baseEnvio,
           descuento: 0,
           subtotal: baseEnvio,
-          iva: tarifa,
+          iva: tarifaGlobal,
         })
       }
 
-      // Calcular totales
+      // Calcular totales (soporta múltiples tarifas)
       const subtotal_iva  = parseFloat(items.filter(i => i.iva > 0).reduce((s, i) => s + i.subtotal, 0).toFixed(2))
       const subtotal_0    = parseFloat(items.filter(i => i.iva === 0).reduce((s, i) => s + i.subtotal, 0).toFixed(2))
-      const total_iva     = parseFloat((subtotal_iva * tarifa / 100).toFixed(2))
+      const total_iva     = parseFloat(items.filter(i => i.iva > 0).reduce((s, i) => s + (i.subtotal * i.iva / 100), 0).toFixed(2))
       const descuento     = parseFloat((pedido.descuento_cupon ?? 0).toFixed(2))
       const total         = parseFloat((subtotal_0 + subtotal_iva + total_iva - descuento).toFixed(2))
       const totales = { subtotal_0, subtotal_iva, total_iva, descuento, total }

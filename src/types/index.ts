@@ -199,6 +199,7 @@ export interface Producto {
   precio_deposito?: number | null      // Solo alquiler: depósito de garantía (legado)
   max_dias_alquiler?: number | null    // Solo alquiler: máximo de días
   garantia_descripcion?: string | null // Solo alquiler: texto de garantía (cédula, laptop, etc.)
+  tarifa_iva?: number | null           // null = usar tarifa global de configuracion_facturacion
   creado_en: string
   actualizado_en: string
   // Relaciones (joins)
@@ -358,6 +359,7 @@ export interface ConfiguracionFacturacion {
   punto_emision: string
   ambiente: AmbienteSRI
   obligado_contabilidad: boolean
+  tipo_contribuyente: 'ruc' | 'rimpe_emprendedor' | 'artesano'
   tarifa_iva: number
   contribuyente_especial: string | null
   regimen: string | null

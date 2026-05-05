@@ -30,6 +30,7 @@ export interface ItemCarrito {
   }
   // Add-ons seleccionados (variantes con tipo_precio = 'suma')
   extras?: { id: string; nombre: string; precio: number }[]
+  tarifa_iva?: number | null  // null = usar global de config SRI
 }
 
 interface CarritoContextType {

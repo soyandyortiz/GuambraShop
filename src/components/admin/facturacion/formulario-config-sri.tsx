@@ -29,9 +29,9 @@ export function FormularioConfigSRI({ config }: Props) {
     punto_emision:          config?.punto_emision ?? '001',
     ambiente:               (config?.ambiente ?? 'pruebas') as AmbienteSRI,
     obligado_contabilidad:  config?.obligado_contabilidad ?? false,
+    tipo_contribuyente:     (config?.tipo_contribuyente ?? 'ruc') as 'ruc' | 'rimpe_emprendedor' | 'artesano',
     tarifa_iva:             config?.tarifa_iva ?? 15,
     contribuyente_especial: config?.contribuyente_especial ?? '',
-    regimen:                config?.regimen ?? '',
     cert_p12_url:           config?.cert_p12_url ?? '',
     cert_pin:               config?.cert_pin ?? '',
   })
@@ -73,6 +73,11 @@ export function FormularioConfigSRI({ config }: Props) {
       const certUrl = await subirCertificado()
       if (archivoP12 && !certUrl) { setGuardando(false); return }
 
+      const regimenLabel: Record<string, string> = {
+        ruc:               'GENERAL',
+        rimpe_emprendedor: 'RIMPE EMPRENDEDOR',
+        artesano:          'ARTESANO CALIFICADO',
+      }
       const payload = {
         ruc:                    form.ruc,
         razon_social:           form.razon_social,
@@ -82,9 +87,10 @@ export function FormularioConfigSRI({ config }: Props) {
         punto_emision:          form.punto_emision.padStart(3, '0'),
         ambiente:               form.ambiente,
         obligado_contabilidad:  form.obligado_contabilidad,
+        tipo_contribuyente:     form.tipo_contribuyente,
         tarifa_iva:             Number(form.tarifa_iva),
         contribuyente_especial: form.contribuyente_especial || null,
-        regimen:                form.regimen || null,
+        regimen:                regimenLabel[form.tipo_contribuyente] ?? null,
         cert_p12_url:           certUrl,
         cert_pin:               form.cert_pin || null,
       }
@@ -234,6 +240,37 @@ export function FormularioConfigSRI({ config }: Props) {
           )}
         </div>
 
+        {/* Tipo de contribuyente */}
+        <div>
+          <label className="text-xs font-medium text-foreground-muted block mb-2">Tipo de contribuyente</label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {([
+              { val: 'ruc',               label: 'RUC General',              desc: 'Persona natural o sociedad — régimen general o especial' },
+              { val: 'rimpe_emprendedor', label: 'RIMPE Emprendedor',         desc: 'Hasta $300.000 de ingresos — emite facturas con IVA' },
+              { val: 'artesano',          label: 'Artesano calificado (JNDA)', desc: 'Certificado JNDA — IVA 0% en productos artesanales' },
+            ] as { val: string; label: string; desc: string }[]).map(op => (
+              <button
+                key={op.val}
+                type="button"
+                onClick={() => cambiar('tipo_contribuyente', op.val)}
+                className={`text-left px-3 py-3 rounded-xl border-2 transition-all ${
+                  form.tipo_contribuyente === op.val
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-border text-foreground-muted hover:border-primary/40 bg-background'
+                }`}
+              >
+                <p className="text-xs font-bold">{op.label}</p>
+                <p className="text-[10px] opacity-70 mt-0.5 leading-tight">{op.desc}</p>
+              </button>
+            ))}
+          </div>
+          {form.tipo_contribuyente === 'artesano' && (
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mt-2">
+              Los productos marcados con IVA &quot;Global&quot; usarán automáticamente 0% al ser un artesano calificado.
+            </p>
+          )}
+        </div>
+
         {/* Checkboxes */}
         <div className="flex flex-col gap-3">
           <label className="flex items-center gap-3 cursor-pointer">
@@ -247,32 +284,18 @@ export function FormularioConfigSRI({ config }: Props) {
           </label>
         </div>
 
-        {/* Campos opcionales */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs font-medium text-foreground-muted block mb-1">
-              N° Contribuyente especial <span className="text-foreground-muted/60">(opcional)</span>
-            </label>
-            <input
-              type="text"
-              value={form.contribuyente_especial}
-              onChange={e => cambiar('contribuyente_especial', e.target.value)}
-              placeholder="Dejar vacío si no aplica"
-              className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-foreground-muted block mb-1">
-              Régimen <span className="text-foreground-muted/60">(RIMPE, General…)</span>
-            </label>
-            <input
-              type="text"
-              value={form.regimen}
-              onChange={e => cambiar('regimen', e.target.value)}
-              placeholder="Ej: RIMPE EMPRENDEDOR"
-              className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
+        {/* N° Contribuyente especial */}
+        <div>
+          <label className="text-xs font-medium text-foreground-muted block mb-1">
+            N° Contribuyente especial <span className="text-foreground-muted/60">(opcional)</span>
+          </label>
+          <input
+            type="text"
+            value={form.contribuyente_especial}
+            onChange={e => cambiar('contribuyente_especial', e.target.value)}
+            placeholder="Dejar vacío si no aplica"
+            className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
         </div>
       </section>
 

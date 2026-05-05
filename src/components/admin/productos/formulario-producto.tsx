@@ -80,6 +80,9 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
   const [paquetes, setPaquetes] = useState<PaqueteEvento[]>(
     (producto as any)?.paquetes_evento ?? []
   )
+  const [tarifaIva, setTarifaIva] = useState<number | null>(
+    (producto as any)?.tarifa_iva ?? null
+  )
 
   // Selector de categoría en 2 pasos
   const categoriasParent = categorias.filter(c => !c.parent_id)
@@ -184,6 +187,9 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
     } else {
       payload.paquetes_evento = []
     }
+
+    // IVA por producto
+    payload.tarifa_iva = tarifaIva
 
     // Campos de alquiler
     if (datos.tipo_producto === 'alquiler') {
@@ -454,6 +460,34 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
               {...register('precio_descuento')}
             />
           )}
+
+          {/* IVA por producto */}
+          <div className="col-span-2">
+            <label className="text-xs font-semibold text-foreground block mb-1.5">Tarifa IVA</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {([
+                { val: null, label: 'Global (config SRI)', sub: 'Usa la tarifa configurada en Facturación' },
+                { val: 15,   label: '15% — Estándar',      sub: 'Ropa, servicios, alquiler, eventos' },
+                { val: 5,    label: '5% — Reducida',        sub: 'Canasta básica ampliada, agropecuario' },
+                { val: 0,    label: '0% / Exento',          sub: 'Alimentos básicos, medicina, artesanos' },
+              ] as { val: number | null; label: string; sub: string }[]).map(op => (
+                <button
+                  key={String(op.val)}
+                  type="button"
+                  onClick={() => setTarifaIva(op.val)}
+                  className={cn(
+                    'text-left px-3 py-2.5 rounded-xl border-2 transition-all',
+                    tarifaIva === op.val
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-border bg-card text-foreground-muted hover:border-primary/40'
+                  )}
+                >
+                  <p className="text-xs font-bold leading-tight">{op.label}</p>
+                  <p className="text-[10px] opacity-70 mt-0.5 leading-tight">{op.sub}</p>
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Campos específicos de alquiler */}
           {tipoProducto === 'alquiler' && (
