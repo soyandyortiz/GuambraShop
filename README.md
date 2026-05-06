@@ -37,6 +37,7 @@ Estas migraciones se crearon después de la última versión del `schema.sql` y 
 | 11 | `20260505000038_tarifa_iva_producto.sql` | Campo `tarifa_iva` en `productos` (IVA individual por producto: 0, 5 o 15%) |
 | 12 | `20260505000039_email_historial_factura.sql` | Campos `email_enviado_en` y `email_enviado_a` en `facturas` (historial de envío de RIDE) |
 | 13 | `20260505000040_email_lectura_admin.sql` | Política RLS: admin puede leer `configuracion_email` (para contador de uso en dashboard y facturación) |
+| 14 | `20260505000041_notas_credito.sql` | Notas de Crédito Electrónicas: campo `tipo` y `factura_origen_id` en `facturas`; campo `secuencial_nc_actual` en `configuracion_facturacion` |
 
 Para cada una: abrir el archivo → copiar contenido → pegar en SQL Editor → **Run**.
 

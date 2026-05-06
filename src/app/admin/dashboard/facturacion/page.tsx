@@ -112,7 +112,12 @@ export default async function PáginaFacturacion() {
       )}
 
       {/* Tabla */}
-      <TablaFacturas facturas={(facturas ?? []) as Factura[]} configActiva={!!configActiva} />
+      <TablaFacturas
+        facturas={(facturas ?? []) as Factura[]}
+        configActiva={!!configActiva}
+        ruc={configActiva?.ruc}
+        ambiente={configActiva?.ambiente}
+      />
     </div>
   )
 }

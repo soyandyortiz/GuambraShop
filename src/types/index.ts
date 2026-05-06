@@ -386,6 +386,7 @@ export interface ConfiguracionFacturacion {
   cert_p12_url: string | null
   cert_pin: string | null
   secuencial_actual: number
+  secuencial_nc_actual: number
   activo: boolean
   creado_en: string
   actualizado_en: string
@@ -420,6 +421,8 @@ export interface CompradorFactura {
 export interface Factura {
   id: string
   pedido_id: string | null
+  tipo: 'factura' | 'nota_credito'
+  factura_origen_id: string | null
   numero_secuencial: string
   numero_factura: string | null
   clave_acceso: string | null

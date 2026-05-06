@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   FileText, Download, XCircle, ChevronDown, Search,
   Send, Loader2, AlertTriangle, ExternalLink, X, BadgeCheck, Mail,
+  RefreshCw, ReceiptText, Clock,
 } from 'lucide-react'
 import { formatearPrecio } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -14,6 +15,8 @@ import type { Factura, EstadoFactura } from '@/types'
 interface Props {
   facturas: Factura[]
   configActiva: boolean
+  ruc?: string
+  ambiente?: 'pruebas' | 'produccion'
 }
 
 const COLORES_ESTADO: Record<EstadoFactura, string> = {
@@ -225,19 +228,152 @@ function ModalEmail({
   )
 }
 
+// ─── Cálculo del plazo para Nota de Crédito ──────────────────────────────────
+// El SRI exige emitir la NC antes de la declaración mensual del IVA.
+// El día de vencimiento depende del último dígito del RUC del emisor.
+function calcularPlazoNC(fechaEmision: string, ruc: string): { fechaLimite: Date; diasRestantes: number } {
+  const ultimo = parseInt(ruc.slice(-1))
+  // último dígito 0→28, 1→10, 2→12, …, 9→26
+  const dia = ultimo === 0 ? 28 : ultimo * 2 + 8
+
+  const f = new Date(fechaEmision + 'T12:00:00')
+  const mes = f.getMonth() + 1          // mes siguiente
+  const anio = mes === 12 ? f.getFullYear() + 1 : f.getFullYear()
+  const mesReal = mes % 12              // 0..11
+
+  const fechaLimite = new Date(anio, mesReal, dia)
+  const hoy = new Date()
+  const diasRestantes = Math.ceil((fechaLimite.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24))
+  return { fechaLimite, diasRestantes }
+}
+
+// ─── Modal para emitir Nota de Crédito ───────────────────────────────────────
+function ModalNotaCredito({
+  factura, ruc, onConfirmar, onCerrar, cargando,
+}: {
+  factura: Factura
+  ruc: string
+  onConfirmar: (motivo: string) => void
+  onCerrar: () => void
+  cargando: boolean
+}) {
+  const [motivo, setMotivo] = useState('')
+  const { fechaLimite, diasRestantes } = calcularPlazoNC(factura.fecha_emision, ruc)
+  const vencido   = diasRestantes < 0
+  const urgente   = diasRestantes >= 0 && diasRestantes <= 3
+  const mesNombre = fechaLimite.toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-card rounded-2xl border border-border shadow-xl w-full max-w-lg">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <ReceiptText className="w-4 h-4 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">Nota de Crédito Electrónica</p>
+              <p className="text-[11px] text-foreground-muted">{factura.numero_factura ?? `#${factura.numero_secuencial}`} · ${factura.totales?.total?.toFixed(2)}</p>
+            </div>
+          </div>
+          <button onClick={onCerrar} className="p-1.5 rounded-lg hover:bg-background-subtle text-foreground-muted">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 flex flex-col gap-4">
+          {/* Plazo */}
+          <div className={cn(
+            'rounded-xl border px-3 py-3',
+            vencido  ? 'bg-red-50 border-red-200' :
+            urgente  ? 'bg-amber-50 border-amber-200' :
+                       'bg-blue-50 border-blue-200'
+          )}>
+            <div className="flex items-center gap-2 mb-1">
+              <Clock className={cn('w-3.5 h-3.5 flex-shrink-0', vencido ? 'text-red-600' : urgente ? 'text-amber-600' : 'text-blue-600')} />
+              <p className={cn('text-xs font-bold', vencido ? 'text-red-800' : urgente ? 'text-amber-800' : 'text-blue-800')}>
+                {vencido
+                  ? `Plazo vencido hace ${Math.abs(diasRestantes)} días`
+                  : diasRestantes === 0
+                  ? 'Vence hoy'
+                  : `${diasRestantes} día${diasRestantes !== 1 ? 's' : ''} restantes`}
+              </p>
+            </div>
+            <p className={cn('text-[11px] leading-relaxed', vencido ? 'text-red-700' : urgente ? 'text-amber-700' : 'text-blue-700')}>
+              {vencido
+                ? `El plazo venció el ${mesNombre}. Consulta con tu contador si aún es posible emitirla.`
+                : `Emite antes del ${mesNombre} (declaración mensual IVA según tu RUC).`}
+            </p>
+          </div>
+
+          {/* Info de qué hace la NC */}
+          <div className="rounded-xl bg-background-subtle border border-border px-3 py-3 flex flex-col gap-1">
+            <p className="text-xs font-semibold text-foreground">¿Qué hace la Nota de Crédito?</p>
+            <p className="text-[11px] text-foreground-muted leading-relaxed">
+              Cancela contablemente la factura original ante el SRI. La factura sigue autorizada en los registros del SRI, pero la NC la anula para efectos tributarios. El monto a reversar es <span className="font-semibold text-foreground">{formatearPrecio(factura.totales?.total ?? 0)}</span>.
+            </p>
+          </div>
+
+          {/* Motivo */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
+              Motivo de la Nota de Crédito <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={motivo}
+              onChange={e => setMotivo(e.target.value)}
+              placeholder="Ej: Error en datos del comprador, devolución del producto, factura duplicada…"
+              rows={3}
+              className="w-full rounded-xl border border-input-border bg-input-bg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+            />
+            <p className="text-[10px] text-foreground-muted mt-1">
+              Este texto aparece en el comprobante electrónico enviado al SRI.
+            </p>
+          </div>
+        </div>
+
+        <div className="px-5 pb-5 flex flex-col gap-2">
+          <button
+            onClick={() => onConfirmar(motivo)}
+            disabled={!motivo.trim() || cargando}
+            className="flex items-center justify-center gap-2 w-full h-10 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-40"
+          >
+            {cargando ? <Loader2 className="w-4 h-4 animate-spin" /> : <ReceiptText className="w-4 h-4" />}
+            {cargando ? 'Emitiendo al SRI…' : 'Emitir Nota de Crédito'}
+          </button>
+          <button onClick={onCerrar}
+            className="w-full h-9 rounded-xl border border-border text-sm text-foreground-muted hover:text-foreground hover:border-border-strong transition-colors">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
-export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
+export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', ambiente = 'produccion' }: Props) {
   const router = useRouter()
   const [facturas, setFacturas] = useState<Factura[]>(facturasInic)
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<EstadoFactura | 'todos'>('todos')
   const [enviando, setEnviando] = useState<string | null>(null)
   const [anulando, setAnulando] = useState<string | null>(null)
+  const [consultando, setConsultando] = useState<string | null>(null)
+  const [emitiendoNC, setEmitiendoNC] = useState<string | null>(null)
   const [modalAnular, setModalAnular] = useState<Factura | null>(null)
+  const [modalNC, setModalNC] = useState<Factura | null>(null)
   const [modalEmail, setModalEmail] = useState<Factura | null>(null)
   const [enviandoEmail, setEnviandoEmail] = useState<string | null>(null)
-  // facturaId → { ambiente } para mostrar el banner post-anulación
   const [bannerAnulacion, setBannerAnulacion] = useState<{ factura: Factura; ambiente: string } | null>(null)
+
+  // Mapa facturaId → ncId para detectar cuáles tienen NC emitida
+  const ncPorFactura = Object.fromEntries(
+    facturas
+      .filter(f => f.tipo === 'nota_credito' && f.factura_origen_id && f.estado !== 'rechazada')
+      .map(f => [f.factura_origen_id!, f.id])
+  )
 
   async function emitir(facturaId: string) {
     setEnviando(facturaId)
@@ -261,6 +397,63 @@ export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
       toast.error('Error de conexión al enviar al SRI')
     } finally {
       setEnviando(null)
+    }
+  }
+
+  async function consultarSRI(facturaId: string) {
+    setConsultando(facturaId)
+    try {
+      const res = await fetch('/api/facturacion/consultar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ facturaId }),
+      })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error ?? 'Error al consultar el SRI'); return }
+
+      if (data.estado === 'autorizada') {
+        toast.success(`¡Autorizada por el SRI! N° ${data.numeroAutorizacion?.slice(0,10)}…`)
+        router.refresh()
+      } else if (data.estado === 'rechazada') {
+        toast.error(`SRI rechazó: ${data.mensajes?.[0]?.mensaje ?? 'Error desconocido'}`)
+        router.refresh()
+      } else {
+        toast.info('El SRI aún no ha procesado el comprobante. Intenta más tarde.')
+      }
+    } catch {
+      toast.error('Error de conexión al consultar el SRI')
+    } finally {
+      setConsultando(null)
+    }
+  }
+
+  async function confirmarNC(motivo: string) {
+    if (!modalNC) return
+    const facturaOrigenId = modalNC.id
+    setEmitiendoNC(facturaOrigenId)
+    try {
+      const res = await fetch('/api/facturacion/nota-credito', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ facturaOrigenId, motivo }),
+      })
+      const data = await res.json()
+      setModalNC(null)
+      if (data.ok && data.estado === 'autorizada') {
+        toast.success(`Nota de Crédito autorizada por el SRI · ${data.numeroNC}`)
+        router.refresh()
+      } else if (data.ok) {
+        toast.info('Nota de Crédito enviada al SRI, pendiente de autorización')
+        router.refresh()
+      } else {
+        const primer = data.mensajes?.[0]
+        toast.error(`SRI rechazó la NC: ${primer?.mensaje ?? data.error ?? 'Error desconocido'}`)
+        router.refresh()
+      }
+    } catch {
+      toast.error('Error de conexión al emitir la Nota de Crédito')
+    } finally {
+      setEmitiendoNC(null)
     }
   }
 
@@ -290,7 +483,7 @@ export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
 
       // Mostrar banner solo si estaba autorizada (necesita acción en SRI)
       if (data.eraAutorizada) {
-        setBannerAnulacion({ factura: facturaParaBanner, ambiente: 'produccion' })
+        setBannerAnulacion({ factura: facturaParaBanner, ambiente })
       }
     } catch {
       toast.error('Error de conexión al anular')
@@ -412,6 +605,17 @@ export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
         />
       )}
 
+      {/* Modal Nota de Crédito */}
+      {modalNC && (
+        <ModalNotaCredito
+          factura={modalNC}
+          ruc={ruc}
+          onConfirmar={confirmarNC}
+          onCerrar={() => setModalNC(null)}
+          cargando={emitiendoNC === modalNC.id}
+        />
+      )}
+
       {/* Modal email sin destinatario */}
       {modalEmail && (
         <ModalEmail
@@ -512,9 +716,14 @@ export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
                       esUltima={i === filtradas.length - 1}
                       onEmitir={emitir}
                       onAnular={() => setModalAnular(factura)}
+                      onConsultar={consultarSRI}
+                      onNotaCredito={() => setModalNC(factura)}
                       onEnviarEmail={() => iniciarEnvioEmail(factura)}
                       cargando={enviando === factura.id}
+                      consultando={consultando === factura.id}
                       enviandoEmail={enviandoEmail === factura.id}
+                      tieneNC={!!ncPorFactura[factura.id]}
+                      sinRuc={!ruc}
                     />
                   ))}
                 </tbody>
@@ -535,15 +744,21 @@ export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
 
 // ─── Fila individual ──────────────────────────────────────────────────────────
 function FilaFactura({
-  factura, esUltima, onEmitir, onAnular, onEnviarEmail, cargando, enviandoEmail,
+  factura, esUltima, onEmitir, onAnular, onConsultar, onNotaCredito, onEnviarEmail,
+  cargando, consultando, enviandoEmail, tieneNC, sinRuc,
 }: {
   factura: Factura
   esUltima: boolean
   onEmitir: (id: string) => Promise<void>
   onAnular: () => void
+  onConsultar: (id: string) => Promise<void>
+  onNotaCredito: () => void
   onEnviarEmail: () => void
   cargando?: boolean
+  consultando?: boolean
   enviandoEmail?: boolean
+  tieneNC?: boolean
+  sinRuc?: boolean
 }) {
   const [mostrarDetalle, setMostrarDetalle] = useState(false)
   const anulada = factura.estado === 'anulada'
@@ -561,9 +776,14 @@ function FilaFactura({
         anulada && 'opacity-60',
       )}>
         <td className="px-4 py-3">
-          <span className={cn('font-mono text-xs text-foreground', anulada && 'line-through text-foreground-muted')}>
-            {factura.numero_factura ?? `#${factura.numero_secuencial}`}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {factura.tipo === 'nota_credito' && (
+              <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-blue-100 text-blue-700 flex-shrink-0">NC</span>
+            )}
+            <span className={cn('font-mono text-xs text-foreground', anulada && 'line-through text-foreground-muted')}>
+              {factura.numero_factura ?? `#${factura.numero_secuencial}`}
+            </span>
+          </div>
         </td>
         <td className="px-4 py-3">
           <p className="font-medium text-foreground truncate max-w-[180px]">
@@ -584,14 +804,42 @@ function FilaFactura({
         </td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-1 justify-end">
-            {/* Enviar al SRI */}
-            {(factura.estado === 'borrador' || factura.estado === 'rechazada') && (
+            {/* Enviar al SRI (solo facturas, no NC que ya se emiten directamente) */}
+            {factura.tipo !== 'nota_credito' && (factura.estado === 'borrador' || factura.estado === 'rechazada') && (
               <button onClick={() => onEmitir(factura.id)} disabled={cargando}
                 title="Enviar al SRI"
                 className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-colors disabled:opacity-50">
                 {cargando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
                 {cargando ? 'Enviando…' : 'Enviar SRI'}
               </button>
+            )}
+
+            {/* Consultar autorización SRI para facturas en estado "enviada" */}
+            {factura.estado === 'enviada' && (
+              <button onClick={() => onConsultar(factura.id)} disabled={consultando}
+                title="Consultar estado en el SRI"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-medium transition-colors disabled:opacity-50">
+                {consultando ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                {consultando ? 'Consultando…' : 'Consultar SRI'}
+              </button>
+            )}
+
+            {/* Nota de Crédito — solo para facturas autorizadas sin NC previa */}
+            {!anulada && factura.tipo !== 'nota_credito' && factura.estado === 'autorizada' && !tieneNC && !sinRuc && (
+              <button onClick={onNotaCredito}
+                title="Emitir Nota de Crédito"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium transition-colors">
+                <ReceiptText className="w-3 h-3" />
+                <span className="hidden sm:inline">NC</span>
+              </button>
+            )}
+
+            {/* Badge NC emitida */}
+            {tieneNC && (
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold">
+                <ReceiptText className="w-2.5 h-2.5" />
+                NC emitida
+              </span>
             )}
 
             {/* RIDE PDF */}
@@ -603,8 +851,8 @@ function FilaFactura({
               </a>
             )}
 
-            {/* Enviar RIDE por email */}
-            {!anulada && factura.estado === 'autorizada' && (
+            {/* Enviar RIDE por email — solo facturas autorizadas (no NC) */}
+            {!anulada && factura.tipo !== 'nota_credito' && factura.estado === 'autorizada' && (
               <button onClick={onEnviarEmail} disabled={enviandoEmail}
                 title="Enviar RIDE por email"
                 className="p-1.5 rounded-lg hover:bg-blue-50 text-foreground-muted hover:text-blue-600 transition-colors disabled:opacity-50">
@@ -621,16 +869,16 @@ function FilaFactura({
               </a>
             )}
 
-            {/* Anular — disponible si no está ya anulada */}
-            {!anulada && (
+            {/* Anular — solo si no está anulada y no tiene NC activa */}
+            {!anulada && !tieneNC && (
               <button onClick={onAnular}
-                title="Anular factura"
+                title={factura.estado === 'autorizada' ? 'Para facturas autorizadas usa Nota de Crédito (NC)' : 'Anular'}
                 className="p-1.5 rounded-lg hover:bg-red-50 text-foreground-muted hover:text-red-600 transition-colors">
                 <XCircle className="w-3.5 h-3.5" />
               </button>
             )}
 
-            {/* Ver detalle (error / motivo anulación / historial email) */}
+            {/* Ver detalle */}
             {(factura.error_sri || factura.motivo_anulacion || factura.numero_autorizacion || factura.email_enviado_en) && (
               <button onClick={() => setMostrarDetalle(v => !v)}
                 title="Ver detalle"

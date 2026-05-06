@@ -28,14 +28,18 @@ function digitoVerificador(serie: string): string {
 }
 
 /** Genera la clave de acceso de 49 dígitos */
-export function generarClaveAcceso(config: ConfiguracionFacturacion, factura: Factura): string {
+export function generarClaveAcceso(
+  config: ConfiguracionFacturacion,
+  factura: Factura,
+  tipoComprobante = '01',   // '01'=factura, '04'=nota de crédito
+): string {
   const fecha = new Date(factura.fecha_emision + 'T12:00:00')
   const dd   = String(fecha.getDate()).padStart(2, '0')
   const mm   = String(fecha.getMonth() + 1).padStart(2, '0')
   const yyyy = String(fecha.getFullYear())
 
   const fechaStr = `${dd}${mm}${yyyy}`                      // 8
-  const tipoComp = '01'                                      // 2 - factura
+  const tipoComp = tipoComprobante                           // 2
   const ruc      = config.ruc                               // 13
   const ambiente = TIPO_AMBIENTE[config.ambiente] ?? '1'    // 1
   const serie    = `${config.codigo_establecimiento.padStart(3,'0')}${config.punto_emision.padStart(3,'0')}` // 6
@@ -189,4 +193,117 @@ ${detallesXML}
 </factura>`
 
   return xml
+}
+
+/**
+ * Genera el XML sin firma de una Nota de Crédito Electrónica (código 04).
+ * La NC revierte totalmente la factura original referenciada.
+ */
+export function generarXMLNotaCredito(
+  config: ConfiguracionFacturacion,
+  nc: Factura,           // la nota de crédito (fila nueva en BD)
+  original: Factura,     // la factura autorizada que se revierte
+  claveAcceso: string,
+): string {
+  const comprador = nc.datos_comprador
+  const items     = nc.items
+  const totales   = nc.totales
+  const ambiente  = TIPO_AMBIENTE[config.ambiente] ?? '1'
+  const obligado  = config.obligado_contabilidad ? 'SI' : 'NO'
+
+  const totalSinImpuestos = n2(totales.subtotal_0 + totales.subtotal_iva)
+  const valorModificacion = n2(totales.total)
+  const totalIVA          = n2(totales.total_iva)
+
+  const numDocOriginal = original.numero_factura
+    ?? `${config.codigo_establecimiento.padStart(3,'0')}-${config.punto_emision.padStart(3,'0')}-${original.numero_secuencial.padStart(9,'0')}`
+
+  const detallesXML = items.map((item, i) => {
+    const precioTotalSinImp = n2(item.subtotal)
+    const descItem = n2(item.descuento)
+    const valorIVA = n2(item.subtotal * (item.iva / 100))
+    const codigoIVA = item.iva === 0 ? '0' : '2'
+    const tarifaIVA = item.iva === 0 ? '0' : String(item.iva)
+    return `    <detalle>
+      <codigoPrincipal>${String(i + 1).padStart(3, '0')}</codigoPrincipal>
+      <descripcion>${esc(item.descripcion)}</descripcion>
+      <cantidad>${item.cantidad.toFixed(6)}</cantidad>
+      <precioUnitario>${item.precio_unitario.toFixed(6)}</precioUnitario>
+      <descuento>${descItem}</descuento>
+      <precioTotalSinImpuesto>${precioTotalSinImp}</precioTotalSinImpuesto>
+      <impuestos>
+        <impuesto>
+          <codigo>2</codigo>
+          <codigoPorcentaje>${codigoIVA}</codigoPorcentaje>
+          <tarifa>${tarifaIVA}</tarifa>
+          <baseImponible>${precioTotalSinImp}</baseImponible>
+          <valor>${valorIVA}</valor>
+        </impuesto>
+      </impuestos>
+    </detalle>`
+  }).join('\n')
+
+  let impuestosTotales = ''
+  if (totales.subtotal_0 > 0) {
+    impuestosTotales += `
+        <totalImpuesto>
+          <codigo>2</codigo>
+          <codigoPorcentaje>0</codigoPorcentaje>
+          <baseImponible>${n2(totales.subtotal_0)}</baseImponible>
+          <valor>0.00</valor>
+        </totalImpuesto>`
+  }
+  if (totales.subtotal_iva > 0) {
+    impuestosTotales += `
+        <totalImpuesto>
+          <codigo>2</codigo>
+          <codigoPorcentaje>2</codigoPorcentaje>
+          <baseImponible>${n2(totales.subtotal_iva)}</baseImponible>
+          <valor>${totalIVA}</valor>
+        </totalImpuesto>`
+  }
+
+  const nombreComercial = config.nombre_comercial
+    ? `<nombreComercial>${esc(config.nombre_comercial)}</nombreComercial>\n    `
+    : ''
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<notaCredito id="comprobante" version="1.1.0">
+  <infoTributaria>
+    <ambiente>${ambiente}</ambiente>
+    <tipoEmision>1</tipoEmision>
+    <razonSocial>${esc(config.razon_social)}</razonSocial>
+    ${nombreComercial}<ruc>${config.ruc}</ruc>
+    <claveAcceso>${claveAcceso}</claveAcceso>
+    <codDoc>04</codDoc>
+    <estab>${config.codigo_establecimiento.padStart(3,'0')}</estab>
+    <ptoEmi>${config.punto_emision.padStart(3,'0')}</ptoEmi>
+    <secuencial>${nc.numero_secuencial.padStart(9,'0')}</secuencial>
+    <dirMatriz>${esc(config.direccion_matriz)}</dirMatriz>
+  </infoTributaria>
+  <infoNotaCredito>
+    <fechaEmision>${formatFechaXML(nc.fecha_emision)}</fechaEmision>
+    <dirEstablecimiento>${esc(config.direccion_matriz)}</dirEstablecimiento>
+    <tipoIdentificacionComprador>${CODIGO_TIPO_ID[comprador.tipo_identificacion] ?? '05'}</tipoIdentificacionComprador>
+    <razonSocialComprador>${esc(comprador.tipo_identificacion === '07' ? 'CONSUMIDOR FINAL' : comprador.razon_social)}</razonSocialComprador>
+    <identificacionComprador>${comprador.tipo_identificacion === '07' ? '9999999999999' : comprador.identificacion}</identificacionComprador>
+    <obligadoContabilidad>${obligado}</obligadoContabilidad>
+    <codDocModificado>01</codDocModificado>
+    <numDocModificado>${esc(numDocOriginal)}</numDocModificado>
+    <fechaEmisionDocSustento>${formatFechaXML(original.fecha_emision)}</fechaEmisionDocSustento>
+    <totalSinImpuestos>${totalSinImpuestos}</totalSinImpuestos>
+    <valorModificacion>${valorModificacion}</valorModificacion>
+    <moneda>DOLAR</moneda>
+    <totalConImpuestos>${impuestosTotales}
+    </totalConImpuestos>
+    <motivo>${esc(nc.notas ?? 'Anulación de comprobante')}</motivo>
+  </infoNotaCredito>
+  <detalles>
+${detallesXML}
+  </detalles>
+  <infoAdicional>
+    ${comprador.email ? `<campoAdicional nombre="email">${esc(comprador.email)}</campoAdicional>` : ''}
+    ${comprador.telefono ? `<campoAdicional nombre="telefono">${esc(comprador.telefono)}</campoAdicional>` : ''}
+  </infoAdicional>
+</notaCredito>`
 }
