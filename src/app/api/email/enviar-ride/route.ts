@@ -11,6 +11,7 @@ import { createClient } from '@supabase/supabase-js'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { generarRIDEBuffer } from '@/lib/sri/ride-pdf'
 import { enviarEmail } from '@/lib/email/enviar'
+import { verificarLimiteEmail } from '@/lib/email/verificar-limite'
 import type { Factura, ConfiguracionFacturacion, ConfiguracionEmail } from '@/types'
 
 function crearClienteAdmin() {
@@ -52,6 +53,9 @@ export async function POST(req: NextRequest) {
     if (!configEmail?.activo) {
       return NextResponse.json({ error: 'El envío de emails no está activado. Configúralo en Config. Email.' }, { status: 422 })
     }
+
+    const { permitido, motivo } = await verificarLimiteEmail()
+    if (!permitido) return NextResponse.json({ error: motivo }, { status: 429 })
 
     const factura = facturaData as Factura
     const config  = configSRI as ConfiguracionFacturacion

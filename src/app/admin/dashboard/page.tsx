@@ -11,7 +11,9 @@ import Link from 'next/link'
 import type { MensajeAdmin, ItemPedido } from '@/types'
 import { PanelSuperadmin } from '@/components/admin/superadmin/panel-superadmin'
 import { ContadorPago } from '@/components/admin/superadmin/contador-pago'
+import { ContadorEmails } from '@/components/admin/email/contador-emails'
 import { formatearPrecio } from '@/lib/utils'
+import type { ProveedorEmail } from '@/types'
 
 const COLORES_ESTADO: Record<string, string> = {
   pendiente:   'bg-warning/10 text-warning',
@@ -45,9 +47,10 @@ export default async function PáginaDashboard() {
   const esSuperadmin = perfil?.rol === 'superadmin'
 
   // Rangos de tiempo
-  const ahora = new Date()
-  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString()
+  const ahora      = new Date()
+  const inicioMes  = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString()
   const hace28Dias = new Date(ahora.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString()
+  const hoy        = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).toISOString()
 
   // Todas las queries en paralelo
   const [
@@ -64,6 +67,9 @@ export default async function PáginaDashboard() {
     { data: pedidosSemanas },
     { data: pedidosItems },
     { data: productosStockBajo },
+    { data: cfgEmail },
+    { count: countEmailHoy },
+    { count: countEmailMes },
   ] = await Promise.all([
     supabase.from('productos').select('*', { count: 'exact', head: true }),
     supabase.from('productos').select('*', { count: 'exact', head: true }).eq('esta_activo', true),
@@ -104,9 +110,16 @@ export default async function PáginaDashboard() {
       .lte('stock', 5)
       .order('stock', { ascending: true })
       .limit(8),
+    // Email: config y conteos
+    supabase.from('configuracion_email').select('proveedor, activo').maybeSingle(),
+    supabase.from('facturas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', hoy),
+    supabase.from('facturas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', inicioMes),
   ])
 
-  const mensajesNoLeidos = (mensajes as MensajeAdmin[] | null)?.filter(m => !m.leido).length ?? 0
+  const mensajesNoLeidos  = (mensajes as MensajeAdmin[] | null)?.filter(m => !m.leido).length ?? 0
+  const emailActivo       = cfgEmail?.activo && cfgEmail?.proveedor
+  const enviosEmailHoy    = countEmailHoy ?? 0
+  const enviosEmailMes    = countEmailMes ?? 0
   const tiendaActiva = config?.esta_activa ?? true
 
   // Métricas del mes
@@ -472,6 +485,16 @@ export default async function PáginaDashboard() {
         </div>
       </div>
 
+
+      {/* Contador de uso de email — visible para admin y superadmin */}
+      {emailActivo && (
+        <ContadorEmails
+          proveedor={cfgEmail!.proveedor as ProveedorEmail}
+          enviosHoy={enviosEmailHoy}
+          enviosMes={enviosEmailMes}
+          compacto
+        />
+      )}
 
       {/* Contador de pago — solo admin (no superadmin) */}
       {!esSuperadmin && config?.cobro_activo && config?.fecha_inicio_sistema && (

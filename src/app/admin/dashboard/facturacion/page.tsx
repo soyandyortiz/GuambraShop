@@ -1,6 +1,7 @@
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { redirect } from 'next/navigation'
 import { TablaFacturas } from '@/components/admin/facturacion/tabla-facturas'
+import { ContadorEmails } from '@/components/admin/email/contador-emails'
 import Link from 'next/link'
 import { Plus, Settings } from 'lucide-react'
 import type { Factura, ConfiguracionFacturacion } from '@/types'
@@ -15,17 +16,26 @@ export default async function PáginaFacturacion() {
   const { data: perfil } = await supabase.from('perfiles').select('rol').eq('id', user.id).single()
   const esSuperadmin = perfil?.rol === 'superadmin'
 
-  const [{ data: facturas }, { data: config }] = await Promise.all([
-    supabase
-      .from('facturas')
-      .select('*')
-      .order('creado_en', { ascending: false })
-      .limit(100),
-    supabase
-      .from('configuracion_facturacion')
-      .select('*')
-      .maybeSingle(),
+  const ahora     = new Date()
+  const hoy       = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).toISOString()
+  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString()
+
+  const [
+    { data: facturas },
+    { data: config },
+    { data: cfgEmail },
+    { count: countHoy },
+    { count: countMes },
+  ] = await Promise.all([
+    supabase.from('facturas').select('*').order('creado_en', { ascending: false }).limit(100),
+    supabase.from('configuracion_facturacion').select('*').maybeSingle(),
+    supabase.from('configuracion_email').select('proveedor, activo').maybeSingle(),
+    supabase.from('facturas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', hoy),
+    supabase.from('facturas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', inicioMes),
   ])
+
+  const enviosHoy = countHoy ?? 0
+  const enviosMes = countMes ?? 0
 
   const configActiva = config as ConfiguracionFacturacion | null
 
@@ -89,6 +99,16 @@ export default async function PáginaFacturacion() {
           {' · '}RUC: {configActiva.ruc}
           {' · '}Sec. #{String(configActiva.secuencial_actual).padStart(9, '0')}
         </div>
+      )}
+
+      {/* Contador de uso de email */}
+      {cfgEmail?.activo && cfgEmail?.proveedor && (
+        <ContadorEmails
+          proveedor={cfgEmail.proveedor as import('@/types').ProveedorEmail}
+          enviosHoy={enviosHoy}
+          enviosMes={enviosMes}
+          compacto
+        />
       )}
 
       {/* Tabla */}

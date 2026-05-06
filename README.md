@@ -36,6 +36,7 @@ Estas migraciones se crearon después de la última versión del `schema.sql` y 
 | 10 | `20260505000037_tipo_contribuyente.sql` | Campo `tipo_contribuyente` en `configuracion_facturacion` (RUC / RIMPE / Artesano) |
 | 11 | `20260505000038_tarifa_iva_producto.sql` | Campo `tarifa_iva` en `productos` (IVA individual por producto: 0, 5 o 15%) |
 | 12 | `20260505000039_email_historial_factura.sql` | Campos `email_enviado_en` y `email_enviado_a` en `facturas` (historial de envío de RIDE) |
+| 13 | `20260505000040_email_lectura_admin.sql` | Política RLS: admin puede leer `configuracion_email` (para contador de uso en dashboard y facturación) |
 
 Para cada una: abrir el archivo → copiar contenido → pegar en SQL Editor → **Run**.
 

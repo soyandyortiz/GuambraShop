@@ -6,6 +6,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { generarRIDEBuffer } from '@/lib/sri/ride-pdf'
 import { enviarEmail } from '@/lib/email/enviar'
+import { verificarLimiteEmail } from '@/lib/email/verificar-limite'
 import type { Factura, ConfiguracionFacturacion, ConfiguracionEmail } from '@/types'
 
 function crearAdmin() {
@@ -31,6 +32,9 @@ export async function enviarRideAuto(facturaId: string): Promise<void> {
 
     if (!cfgEmail?.activo || !cfgEmail?.envio_automatico) return
     if (!facturaData || !configSRI) return
+
+    const { permitido } = await verificarLimiteEmail()
+    if (!permitido) { console.warn('[enviarRideAuto] límite de envíos alcanzado — email omitido'); return }
 
     const factura = facturaData as Factura
     const config  = configSRI as ConfiguracionFacturacion
