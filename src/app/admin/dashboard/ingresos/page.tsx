@@ -23,7 +23,7 @@ export default async function PáginaIngresos({ searchParams }: Props) {
 
   const { data: pedidos } = await supabase
     .from('pedidos')
-    .select('id, numero_orden, nombres, total, estado, creado_en, tipo, simbolo_moneda')
+    .select('id, numero_orden, nombres, total, estado, creado_en, tipo, simbolo_moneda, forma_pago, es_venta_manual')
     .in('estado', ESTADOS_INGRESO)
     .gte('creado_en', `${desde}T00:00:00`)
     .lte('creado_en', `${hasta}T23:59:59`)

@@ -6,12 +6,13 @@ import {
   Package, Phone, Mail, MapPin, Download, ShoppingBag,
   Calendar, MessageCircle, X, Clock, CheckCircle2,
   RotateCcw, XCircle, Send, ArrowUpDown, FileText, Loader2,
-  RefreshCw, AlertCircle, BadgeCheck, ExternalLink, Receipt,
+  RefreshCw, AlertCircle, BadgeCheck, ExternalLink, Receipt, Printer, Users,
 } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn, formatearPrecio } from '@/lib/utils'
+import { imprimirTicket, type ConfigTicket } from '@/lib/ticket'
 import type { Pedido, EstadoPedido, ItemPedido } from '@/types'
 
 const ESTADOS: Record<EstadoPedido, { etiqueta: string; color: string; icono: React.ReactNode }> = {
@@ -28,9 +29,12 @@ type FiltroEstado = EstadoPedido | 'todos'
 type FiltroFecha  = 'todos' | 'hoy' | 'semana' | 'mes'
 type OrdenSort    = 'reciente' | 'antiguo' | 'mayor' | 'menor'
 
-interface Props { pedidos: Pedido[] }
+interface Props {
+  pedidos: Pedido[]
+  configTicket: ConfigTicket
+}
 
-export function TablaPedidos({ pedidos: pedidosInic }: Props) {
+export function TablaPedidos({ pedidos: pedidosInic, configTicket }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [pedidos, setPedidos]         = useState<Pedido[]>(pedidosInic)
@@ -43,6 +47,11 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
   const [modalPedido, setModalPedido] = useState<Pedido | null>(null)
   const [actualizando, setActualizando] = useState<string | null>(null)
   const [emitiendoFactura, setEmitiendoFactura] = useState<string | null>(null)
+  // Vincular cliente
+  const [vinculandoPedidoId, setVinculandoPedidoId]   = useState<string | null>(null)
+  const [busqVincular, setBusqVincular]               = useState('')
+  const [clientesVincular, setClientesVincular]       = useState<{ id: string; razon_social: string; identificacion: string }[]>([])
+  const [pedidoClienteId, setPedidoClienteId]         = useState<Record<string, string | null>>({})
   // pedidoId → { facturaId, estado, numeroFactura, numeroAutorizacion, errorSri }
   type InfoFactura = { facturaId: string; estado: string; numeroFactura?: string; numeroAutorizacion?: string; errorSri?: string }
   const [facturasEmitidas, setFacturasEmitidas] = useState<Record<string, InfoFactura>>({})
@@ -276,6 +285,45 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
 
   function limpiarFiltros() {
     setBusqueda(''); setFiltroTipo('todos'); setFiltroEstado('todos'); setFiltroFecha('todos')
+  }
+
+  async function buscarClientesVincular(texto: string) {
+    setBusqVincular(texto)
+    if (texto.trim().length < 2) { setClientesVincular([]); return }
+    const supabase = crearClienteSupabase()
+    const { data } = await supabase
+      .from('clientes')
+      .select('id, razon_social, identificacion')
+      .or(`razon_social.ilike.%${texto}%,identificacion.ilike.%${texto}%`)
+      .limit(6)
+    setClientesVincular(data ?? [])
+  }
+
+  async function vincularCliente(pedidoId: string, clienteId: string) {
+    const supabase = crearClienteSupabase()
+    const { error } = await supabase
+      .from('pedidos')
+      .update({ cliente_id: clienteId })
+      .eq('id', pedidoId)
+    if (error) { toast.error('Error al vincular'); return }
+    setPedidoClienteId(prev => ({ ...prev, [pedidoId]: clienteId }))
+    setPedidos(ps => ps.map(p => p.id === pedidoId ? { ...p, cliente_id: clienteId } : p))
+    setVinculandoPedidoId(null)
+    setBusqVincular('')
+    setClientesVincular([])
+    toast.success('Cliente vinculado al pedido')
+  }
+
+  async function desvincularCliente(pedidoId: string) {
+    const supabase = crearClienteSupabase()
+    const { error } = await supabase
+      .from('pedidos')
+      .update({ cliente_id: null })
+      .eq('id', pedidoId)
+    if (error) { toast.error('Error al desvincular'); return }
+    setPedidoClienteId(prev => ({ ...prev, [pedidoId]: null }))
+    setPedidos(ps => ps.map(p => p.id === pedidoId ? { ...p, cliente_id: null } : p))
+    toast.success('Cliente desvinculado')
   }
 
   return (
@@ -642,6 +690,99 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                       </div>
                     </div>
 
+                    {/* Vincular a cliente */}
+                    <div className="flex flex-col gap-2">
+                      {pedido.cliente_id ? (
+                        <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
+                          <Users className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                          <span className="text-xs font-semibold text-foreground flex-1 truncate">Cliente vinculado</span>
+                          <button
+                            onClick={() => desvincularCliente(pedido.id)}
+                            className="text-[11px] text-danger hover:opacity-80 transition-opacity flex-shrink-0"
+                          >
+                            Desvincular
+                          </button>
+                        </div>
+                      ) : vinculandoPedidoId === pedido.id ? (
+                        <div className="flex flex-col gap-1.5">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground-muted pointer-events-none" />
+                            <input
+                              autoFocus
+                              type="text"
+                              placeholder="Buscar cliente por nombre o identificación…"
+                              value={busqVincular}
+                              onChange={e => buscarClientesVincular(e.target.value)}
+                              className="w-full h-9 pl-9 pr-3 rounded-xl border border-primary/40 bg-input-bg text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+                          {clientesVincular.length > 0 && (
+                            <div className="flex flex-col gap-1 border border-border rounded-xl bg-card p-1">
+                              {clientesVincular.map(c => (
+                                <button
+                                  key={c.id}
+                                  onClick={() => vincularCliente(pedido.id, c.id)}
+                                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-background-subtle text-left transition-colors"
+                                >
+                                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-[10px] font-bold text-primary">{c.razon_social.charAt(0).toUpperCase()}</span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-foreground truncate">{c.razon_social}</p>
+                                    <p className="text-[10px] font-mono text-foreground-muted">{c.identificacion}</p>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {busqVincular.length >= 2 && clientesVincular.length === 0 && (
+                            <p className="text-xs text-foreground-muted text-center py-1">Sin resultados</p>
+                          )}
+                          <button
+                            onClick={() => { setVinculandoPedidoId(null); setBusqVincular(''); setClientesVincular([]) }}
+                            className="text-xs text-foreground-muted hover:text-foreground text-center transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setVinculandoPedidoId(pedido.id); setBusqVincular(''); setClientesVincular([]) }}
+                          className="flex items-center justify-center gap-2 w-full h-9 rounded-xl border border-dashed border-border text-foreground-muted text-xs font-medium hover:border-primary/50 hover:text-primary transition-all"
+                        >
+                          <Users className="w-3.5 h-3.5" /> Vincular a cliente registrado
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Imprimir ticket térmica */}
+                    <button
+                      onClick={() => imprimirTicket({
+                        numero_orden:    pedido.numero_orden,
+                        creado_en:       pedido.creado_en,
+                        nombres:         pedido.nombres,
+                        tipo:            pedido.tipo,
+                        forma_pago:      pedido.forma_pago ?? null,
+                        items:           (pedido.items as any[]).map(i => ({
+                          nombre:    i.nombre,
+                          cantidad:  i.cantidad,
+                          precio:    Number(i.precio),
+                          subtotal:  Number(i.subtotal),
+                        })),
+                        subtotal:        pedido.subtotal,
+                        descuento_cupon: pedido.descuento_cupon,
+                        cupon_codigo:    pedido.cupon_codigo,
+                        costo_envio:     pedido.costo_envio,
+                        total:           pedido.total,
+                        ciudad:          pedido.ciudad,
+                        provincia:       pedido.provincia,
+                      }, configTicket)}
+                      className="flex items-center justify-center gap-2 w-full h-9 rounded-xl border border-border text-foreground-muted text-xs font-semibold hover:border-primary/50 hover:text-primary transition-all"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      Imprimir ticket 80mm
+                    </button>
+
                     {/* Datos de facturación que el cliente ingresó en checkout */}
                     {pedido.datos_facturacion && (
                       <div className="rounded-xl border border-blue-100 bg-blue-50/50 px-3 py-2.5">
@@ -660,7 +801,8 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                     {(() => {
                       const emitida = facturasEmitidas[pedido.id]
                       const cargando = emitiendoFactura === pedido.id
-                      const esEntregado = pedido.estado === 'entregado'
+                      // Ventas manuales del POS se pueden facturar en cualquier estado
+                      const esEntregado = pedido.estado === 'entregado' || pedido.es_venta_manual
 
                       if (emitida?.estado === 'autorizada') {
                         return (

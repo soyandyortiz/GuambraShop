@@ -1,0 +1,241 @@
+// Generador de tickets 80mm para impresoras térmicas
+// Abre una nueva ventana con el HTML del ticket y lanza el diálogo de impresión
+
+export interface ConfigTicket {
+  nombreTienda: string
+  whatsapp?: string | null
+  ruc?: string | null
+  direccion?: string | null
+  simboloMoneda: string
+}
+
+export interface ItemTicket {
+  nombre: string
+  cantidad: number
+  precio: number
+  subtotal: number
+}
+
+export interface DatosTicket {
+  numero_orden: string
+  creado_en: string
+  nombres: string
+  tipo: string
+  forma_pago?: string | null
+  items: ItemTicket[]
+  subtotal: number
+  descuento_cupon: number
+  cupon_codigo?: string | null
+  costo_envio: number
+  total: number
+  ciudad?: string | null
+  provincia?: string | null
+}
+
+const FORMA_PAGO: Record<string, string> = {
+  efectivo:      'Efectivo',
+  transferencia: 'Transferencia',
+  tarjeta:       'Tarjeta',
+  otro:          'Otro',
+}
+
+function linea(char = '-', largo = 32) {
+  return char.repeat(largo)
+}
+
+function centrar(texto: string, largo = 32) {
+  const pad = Math.max(0, Math.floor((largo - texto.length) / 2))
+  return ' '.repeat(pad) + texto
+}
+
+function fila(izq: string, der: string, largo = 32) {
+  const espacio = Math.max(1, largo - izq.length - der.length)
+  return izq + ' '.repeat(espacio) + der
+}
+
+export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
+  const fecha = new Date(datos.creado_en)
+  const fechaStr = fecha.toLocaleDateString('es-EC', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  })
+  const horaStr = fecha.toLocaleTimeString('es-EC', {
+    hour: '2-digit', minute: '2-digit',
+  })
+  const sm = config.simboloMoneda
+
+  const fmt = (n: number) => `${sm}${n.toFixed(2)}`
+
+  const itemsHtml = datos.items.map(item => `
+    <tr>
+      <td colspan="3" class="item-nombre">${item.nombre}</td>
+    </tr>
+    <tr>
+      <td class="item-cant">${item.cantidad}x</td>
+      <td class="item-pu">${fmt(item.precio)}</td>
+      <td class="item-sub">${fmt(item.subtotal)}</td>
+    </tr>
+  `).join('')
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Ticket ${datos.numero_orden}</title>
+  <style>
+    @page {
+      size: 80mm auto;
+      margin: 4mm 3mm;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 9pt;
+      width: 74mm;
+      color: #000;
+      background: #fff;
+    }
+    .center { text-align: center; }
+    .bold   { font-weight: bold; }
+    .right  { text-align: right; }
+    .hr {
+      border: none;
+      border-top: 1px dashed #333;
+      margin: 5px 0;
+    }
+    .nombre-tienda {
+      font-size: 14pt;
+      font-weight: bold;
+      text-align: center;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+    }
+    .sub-tienda {
+      font-size: 7.5pt;
+      text-align: center;
+      color: #333;
+      margin-bottom: 2px;
+    }
+    .orden {
+      font-size: 13pt;
+      font-weight: bold;
+      text-align: center;
+      margin: 4px 0 2px;
+    }
+    .meta {
+      font-size: 8pt;
+      margin-bottom: 1px;
+    }
+    table.items {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 3px 0;
+    }
+    table.items .item-nombre {
+      font-size: 8.5pt;
+      padding-top: 3px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    table.items .item-cant { font-size: 8pt; width: 20px; }
+    table.items .item-pu   { font-size: 8pt; text-align: right; }
+    table.items .item-sub  { font-size: 8pt; text-align: right; font-weight: bold; width: 55px; }
+    .totales {
+      width: 100%;
+      margin: 3px 0;
+      font-size: 9pt;
+    }
+    .totales td:last-child { text-align: right; font-weight: bold; }
+    .fila-total td {
+      font-size: 13pt;
+      font-weight: bold;
+      padding-top: 3px;
+    }
+    .pie {
+      font-size: 8pt;
+      text-align: center;
+      margin-top: 6px;
+      color: #333;
+    }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="nombre-tienda">${config.nombreTienda.toUpperCase()}</div>
+  ${config.ruc        ? `<div class="sub-tienda">RUC: ${config.ruc}</div>` : ''}
+  ${config.direccion  ? `<div class="sub-tienda">${config.direccion}</div>` : ''}
+  ${config.whatsapp   ? `<div class="sub-tienda">Tel: ${config.whatsapp}</div>` : ''}
+
+  <hr class="hr">
+
+  <div class="orden"># ${datos.numero_orden}</div>
+  <div class="meta">Fecha : ${fechaStr}  ${horaStr}</div>
+  <div class="meta">Cliente: ${datos.nombres}</div>
+  ${datos.forma_pago ? `<div class="meta">Pago  : ${FORMA_PAGO[datos.forma_pago] ?? datos.forma_pago}</div>` : ''}
+  ${datos.tipo === 'delivery' && datos.ciudad
+    ? `<div class="meta">Envío : ${datos.ciudad}${datos.provincia ? ', ' + datos.provincia : ''}</div>`
+    : ''}
+
+  <hr class="hr">
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th colspan="3" style="font-size:7pt; text-align:left; padding-bottom:2px;">
+          CANT  PRODUCTO              TOTAL
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemsHtml}
+    </tbody>
+  </table>
+
+  <hr class="hr">
+
+  <table class="totales">
+    ${datos.descuento_cupon > 0 ? `
+    <tr>
+      <td>Subtotal</td>
+      <td>${fmt(datos.subtotal)}</td>
+    </tr>
+    <tr>
+      <td>Desc. cupón${datos.cupon_codigo ? ' (' + datos.cupon_codigo + ')' : ''}</td>
+      <td>-${fmt(datos.descuento_cupon)}</td>
+    </tr>
+    ` : ''}
+    ${datos.costo_envio > 0 ? `
+    <tr>
+      <td>Envío</td>
+      <td>${fmt(datos.costo_envio)}</td>
+    </tr>
+    ` : ''}
+    <tr class="fila-total">
+      <td>TOTAL</td>
+      <td>${fmt(datos.total)}</td>
+    </tr>
+  </table>
+
+  <hr class="hr">
+
+  <div class="pie">¡Gracias por su compra!</div>
+  <div class="pie" style="margin-top:2px;">${config.nombreTienda}</div>
+
+</body>
+</html>`
+
+  const ventana = window.open('', '_blank', 'width=420,height=600,scrollbars=yes')
+  if (!ventana) {
+    alert('Permite las ventanas emergentes para imprimir el ticket.')
+    return
+  }
+  ventana.document.write(html)
+  ventana.document.close()
+  ventana.focus()
+  // Pequeño delay para que el navegador renderice antes de imprimir
+  setTimeout(() => {
+    ventana.print()
+  }, 400)
+}

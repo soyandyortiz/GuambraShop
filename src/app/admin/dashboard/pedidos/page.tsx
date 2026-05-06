@@ -1,16 +1,31 @@
+export const dynamic = 'force-dynamic'
+
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { TablaPedidos } from '@/components/admin/pedidos/tabla-pedidos'
 import type { Pedido } from '@/types'
 
-export const dynamic = 'force-dynamic'
-
 export default async function PáginaPedidos() {
   const supabase = await crearClienteServidor()
 
-  const { data: pedidos } = await supabase
-    .from('pedidos')
-    .select('*, datos_facturacion')
-    .order('creado_en', { ascending: false })
+  const [{ data: pedidos }, { data: config }, { data: facturacion }, { data: direcciones }] = await Promise.all([
+    supabase
+      .from('pedidos')
+      .select('*, datos_facturacion')
+      .order('creado_en', { ascending: false }),
+    supabase
+      .from('configuracion_tienda')
+      .select('nombre_tienda, whatsapp, simbolo_moneda')
+      .single(),
+    supabase
+      .from('configuracion_facturacion')
+      .select('ruc')
+      .maybeSingle(),
+    supabase
+      .from('direcciones_negocio')
+      .select('direccion_completa')
+      .limit(1)
+      .maybeSingle(),
+  ])
 
   return (
     <div className="flex flex-col gap-4">
@@ -21,7 +36,16 @@ export default async function PáginaPedidos() {
         </p>
       </div>
 
-      <TablaPedidos pedidos={(pedidos as Pedido[]) ?? []} />
+      <TablaPedidos
+        pedidos={(pedidos as Pedido[]) ?? []}
+        configTicket={{
+          nombreTienda:  config?.nombre_tienda  ?? 'Mi Tienda',
+          whatsapp:      config?.whatsapp       ?? null,
+          ruc:           facturacion?.ruc        ?? null,
+          direccion:     (direcciones as any)?.direccion_completa ?? null,
+          simboloMoneda: config?.simbolo_moneda ?? '$',
+        }}
+      />
     </div>
   )
 }

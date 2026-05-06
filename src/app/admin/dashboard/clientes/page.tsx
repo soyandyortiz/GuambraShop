@@ -1,93 +1,109 @@
 export const dynamic = 'force-dynamic'
 
 import { crearClienteServidor } from '@/lib/supabase/servidor'
-import { TablaClientes, type ClienteAgregado, type PedidoResumen } from '@/components/admin/clientes/tabla-clientes'
+import { TablaClientes, type ClienteConPedidos, type PedidoResumen } from '@/components/admin/clientes/tabla-clientes'
 import type { EstadoPedido } from '@/types'
+import { Users, UserCheck, TrendingUp } from 'lucide-react'
 
 export default async function PáginaClientes() {
   const supabase = await crearClienteServidor()
 
-  const [{ data: pedidos }, { data: config }] = await Promise.all([
+  const [
+    { data: clientes },
+    { data: pedidos },
+    { data: config },
+  ] = await Promise.all([
     supabase
-      .from('pedidos')
-      .select('numero_orden, nombres, email, whatsapp, ciudad, provincia, total, estado, creado_en, tipo')
+      .from('clientes')
+      .select('*')
       .order('creado_en', { ascending: false }),
     supabase
+      .from('pedidos')
+      .select('cliente_id, numero_orden, total, estado, creado_en, tipo')
+      .not('cliente_id', 'is', null),
+    supabase
       .from('configuracion_tienda')
-      .select('simbolo_moneda')
+      .select('simbolo_moneda, pais')
       .single(),
   ])
 
-  // Agregar clientes por email
-  const mapa = new Map<string, ClienteAgregado>()
-
+  // Agrupar pedidos por cliente_id
+  const pedidosPorCliente = new Map<string, PedidoResumen[]>()
   for (const p of pedidos ?? []) {
-    const pedidoResumen: PedidoResumen = {
+    if (!p.cliente_id) continue
+    const lista = pedidosPorCliente.get(p.cliente_id) ?? []
+    lista.push({
       numero_orden: p.numero_orden,
       total:        Number(p.total),
       estado:       p.estado as EstadoPedido,
       creado_en:    p.creado_en,
       tipo:         p.tipo,
-    }
-
-    if (!mapa.has(p.email)) {
-      mapa.set(p.email, {
-        nombre:        p.nombres,
-        email:         p.email,
-        whatsapp:      p.whatsapp,
-        ciudad:        p.ciudad ?? null,
-        provincia:     p.provincia ?? null,
-        total_pedidos: 0,
-        total_gastado: 0,
-        ultimo_pedido: p.creado_en,
-        pedidos:       [],
-      })
-    }
-
-    const cliente = mapa.get(p.email)!
-    cliente.total_pedidos++
-    cliente.total_gastado = +(cliente.total_gastado + Number(p.total)).toFixed(2)
-    cliente.pedidos.push(pedidoResumen)
-
-    // Actualizar ciudad/provincia con el dato más reciente si no tenía
-    if (!cliente.ciudad && p.ciudad) cliente.ciudad = p.ciudad
-    if (!cliente.provincia && p.provincia) cliente.provincia = p.provincia
+    })
+    pedidosPorCliente.set(p.cliente_id, lista)
   }
 
-  const clientes = Array.from(mapa.values())
+  const clientesConPedidos: ClienteConPedidos[] = (clientes ?? []).map(c => {
+    const listaPedidos = pedidosPorCliente.get(c.id) ?? []
+    const totalGastado = listaPedidos.reduce((s, p) => s + p.total, 0)
+    const ultimoPedido = listaPedidos.length > 0
+      ? listaPedidos.reduce((a, b) => a.creado_en > b.creado_en ? a : b).creado_en
+      : null
+
+    return {
+      ...c,
+      pedidos:          listaPedidos,
+      total_pedidos:    listaPedidos.length,
+      total_gastado:    +totalGastado.toFixed(2),
+      ultimo_pedido_en: ultimoPedido,
+    }
+  })
+
+  const conPedidos    = clientesConPedidos.filter(c => c.total_pedidos > 0).length
+  const totalFacturado = clientesConPedidos.reduce((s, c) => s + c.total_gastado, 0)
+  const simbolo       = config?.simbolo_moneda ?? '$'
+  const pais          = config?.pais ?? 'EC'
 
   return (
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-xl font-bold text-foreground">Clientes</h1>
         <p className="text-xs text-foreground-muted mt-0.5">
-          Registros automáticos generados a partir de los pedidos recibidos
+          Base de datos de clientes — datos listos para facturación electrónica
         </p>
       </div>
 
-      {/* Resumen rápido */}
+      {/* Resumen */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-2xl bg-card border border-card-border p-4">
-          <p className="text-2xl font-bold text-foreground">{clientes.length}</p>
-          <p className="text-xs text-foreground-muted mt-0.5">Clientes únicos</p>
+          <div className="flex items-center gap-2 mb-1">
+            <Users className="w-4 h-4 text-foreground-muted" />
+          </div>
+          <p className="text-2xl font-bold text-foreground">{clientesConPedidos.length}</p>
+          <p className="text-xs text-foreground-muted mt-0.5">Clientes registrados</p>
         </div>
         <div className="rounded-2xl bg-card border border-card-border p-4">
-          <p className="text-2xl font-bold text-foreground">
-            {clientes.length > 0
-              ? (clientes.reduce((s, c) => s + c.total_pedidos, 0) / clientes.length).toFixed(1)
-              : '0'}
-          </p>
-          <p className="text-xs text-foreground-muted mt-0.5">Pedidos promedio</p>
+          <div className="flex items-center gap-2 mb-1">
+            <UserCheck className="w-4 h-4 text-foreground-muted" />
+          </div>
+          <p className="text-2xl font-bold text-foreground">{conPedidos}</p>
+          <p className="text-xs text-foreground-muted mt-0.5">Con pedidos</p>
         </div>
         <div className="rounded-2xl bg-card border border-card-border p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp className="w-4 h-4 text-foreground-muted" />
+          </div>
           <p className="text-2xl font-bold text-primary">
-            {clientes.filter(c => c.total_pedidos > 1).length}
+            {simbolo}{totalFacturado.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <p className="text-xs text-foreground-muted mt-0.5">Recurrentes</p>
+          <p className="text-xs text-foreground-muted mt-0.5">Total facturado</p>
         </div>
       </div>
 
-      <TablaClientes clientes={clientes} simboloMoneda={config?.simbolo_moneda ?? '$'} />
+      <TablaClientes
+        clientes={clientesConPedidos}
+        simboloMoneda={simbolo}
+        pais={pais}
+      />
     </div>
   )
 }

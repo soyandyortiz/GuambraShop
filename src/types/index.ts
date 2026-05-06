@@ -291,10 +291,13 @@ export interface ItemPedido {
   }
 }
 
+export type FormaPago = 'efectivo' | 'transferencia' | 'tarjeta' | 'otro'
+
 export interface Pedido {
   id: string
   numero_orden: string
   tipo: TipoPedido
+  cliente_id: string | null
   nombres: string
   email: string
   whatsapp: string
@@ -310,6 +313,8 @@ export interface Pedido {
   costo_envio: number
   total: number
   estado: EstadoPedido
+  forma_pago: FormaPago | null
+  es_venta_manual: boolean
   datos_facturacion: {
     tipo_identificacion: string
     identificacion: string
@@ -416,6 +421,27 @@ export interface CompradorFactura {
   email: string | null
   direccion: string | null
   telefono: string | null
+}
+
+// ============================================================
+// CLIENTES
+// ============================================================
+
+export type TipoIdentificacionCliente = 'ruc' | 'cedula' | 'pasaporte' | 'consumidor_final'
+
+export interface Cliente {
+  id: string
+  tipo_identificacion: TipoIdentificacionCliente
+  identificacion: string
+  razon_social: string
+  email: string | null
+  telefono: string | null
+  direccion: string | null
+  provincia: string | null
+  ciudad: string | null
+  notas: string | null
+  creado_en: string
+  actualizado_en: string
 }
 
 export interface Factura {

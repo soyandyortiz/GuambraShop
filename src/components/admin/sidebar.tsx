@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, Ticket, Megaphone,
-  Settings, MessageSquare, ShoppingBag, LogOut, Star, ClipboardList, CalendarDays, Truck, PartyPopper, TrendingUp, Users, KeyRound, FileText, Mail
+  Settings, MessageSquare, ShoppingBag, LogOut, Star, ClipboardList, CalendarDays, Truck, PartyPopper, TrendingUp, Users, KeyRound, FileText, Mail, Receipt
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { crearClienteSupabase, CLAVE_DEMO } from '@/lib/supabase/cliente'
@@ -46,6 +46,7 @@ export function Sidebar({ rol, nombre, fotoPerfil, faviconUrl }: PropsSidebar) {
     { href: '/admin/dashboard/promociones', icono: <Megaphone className="w-4 h-4" />,        etiqueta: 'Promociones',    badge: null },
     { href: '/admin/dashboard/pedidos',      icono: <ClipboardList className="w-4 h-4" />,   etiqueta: 'Pedidos',        badge: 'pedidos' },
     { href: '/admin/dashboard/clientes',    icono: <Users className="w-4 h-4" />,              etiqueta: 'Clientes',       badge: null },
+    { href: '/admin/dashboard/venta-nueva', icono: <Receipt className="w-4 h-4" />,             etiqueta: 'Nueva Venta',    badge: null },
     { href: '/admin/dashboard/ingresos',    icono: <TrendingUp className="w-4 h-4" />,        etiqueta: 'Ingresos',       badge: null },
     { href: '/admin/dashboard/solicitudes', icono: <PartyPopper className="w-4 h-4" />,      etiqueta: 'Eventos',        badge: 'solicitudes' },
     { href: '/admin/dashboard/envios',      icono: <Truck className="w-4 h-4" />,             etiqueta: 'Envíos',         badge: null },
