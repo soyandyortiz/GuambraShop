@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { Pencil, Trash2, Eye, EyeOff, FolderOpen, ChevronRight, Plus } from 'lucide-react'
+import { Pencil, Trash2, Eye, EyeOff, FolderOpen, ChevronDown, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
@@ -29,9 +29,8 @@ export function ListaCategoriasAdmin({ categorias: categoriasServidor }: Props) 
   const [, startTransition] = useTransition()
   const [expandidas, setExpandidas] = useState<Set<string>>(new Set())
 
-  // Separar padres e hijos
   const padres = categorias.filter(c => !c.parent_id).sort((a, b) => a.orden - b.orden)
-  const hijos = categorias.filter(c => c.parent_id)
+  const hijos  = categorias.filter(c => c.parent_id)
 
   function subcatsDe(padreId: string) {
     return hijos.filter(c => c.parent_id === padreId).sort((a, b) => a.orden - b.orden)
@@ -74,164 +73,197 @@ export function ListaCategoriasAdmin({ categorias: categoriasServidor }: Props) 
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      {padres.map(padre => {
-        const subcats = subcatsDe(padre.id)
-        const expandida = expandidas.has(padre.id)
+    <div className="flex flex-col gap-6">
 
-        return (
-          <div key={padre.id} className="rounded-2xl border border-card-border bg-card overflow-hidden">
-            {/* Fila padre */}
-            <FilaCategoria
-              categoria={padre}
-              onToggleActiva={toggleActiva}
-              onEliminar={eliminar}
-              tieneHijos={subcats.length > 0}
-              expandida={expandida}
-              onToggleExpandir={() => toggleExpandida(padre.id)}
-            />
+      {/* Grid de categorías padre */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        {padres.map(padre => {
+          const subcats   = subcatsDe(padre.id)
+          const expandida = expandidas.has(padre.id)
 
-            {/* Subcategorías */}
-            {expandida && subcats.length > 0 && (
-              <div className="border-t border-border">
-                {subcats.map((sub, i) => (
-                  <div key={sub.id} className={cn('bg-background-subtle', i > 0 && 'border-t border-border')}>
-                    <FilaCategoria
-                      categoria={sub}
-                      onToggleActiva={toggleActiva}
-                      onEliminar={eliminar}
-                      esSubcategoria
+          return (
+            <div key={padre.id} className="flex flex-col gap-2">
+              {/* Card categoría padre */}
+              <div className={cn(
+                'rounded-xl border bg-card overflow-hidden flex flex-col',
+                padre.esta_activa ? 'border-card-border' : 'border-border opacity-60'
+              )}>
+                {/* Imagen */}
+                <div className="aspect-square bg-background-subtle w-full overflow-hidden">
+                  {padre.imagen_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={padre.imagen_url}
+                      alt={padre.nombre}
+                      className="w-full h-full object-cover"
                     />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <FolderOpen className="w-8 h-8 text-foreground-muted/30" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Info + acciones */}
+                <div className="p-2 flex flex-col gap-1.5">
+                  <p className="text-xs font-semibold text-foreground leading-tight line-clamp-2">
+                    {padre.nombre}
+                  </p>
+
+                  <div className="flex items-center justify-between gap-1">
+                    <span className={cn(
+                      'text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none',
+                      padre.esta_activa
+                        ? 'bg-success/10 text-success'
+                        : 'bg-foreground-muted/10 text-foreground-muted'
+                    )}>
+                      {padre.esta_activa ? 'Activa' : 'Inactiva'}
+                    </span>
+                    {subcats.length > 0 && (
+                      <span className="text-[9px] text-foreground-muted font-medium">
+                        {subcats.length} sub
+                      </span>
+                    )}
                   </div>
-                ))}
-                {/* Botón agregar subcategoría */}
-                <div className="px-4 py-2 bg-background-subtle border-t border-border">
-                  <Link
-                    href={`/admin/dashboard/categorias/nueva?parent=${padre.id}`}
-                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Agregar subcategoría
-                  </Link>
+
+                  {/* Acciones */}
+                  <div className="flex items-center gap-1 pt-0.5 border-t border-border">
+                    <button
+                      onClick={() => toggleActiva(padre.id, padre.esta_activa)}
+                      title={padre.esta_activa ? 'Desactivar' : 'Activar'}
+                      className={cn(
+                        'flex-1 h-6 rounded-md flex items-center justify-center transition-colors',
+                        padre.esta_activa
+                          ? 'text-success hover:bg-success/10'
+                          : 'text-foreground-muted hover:bg-background-subtle'
+                      )}
+                    >
+                      {padre.esta_activa
+                        ? <Eye className="w-3 h-3" />
+                        : <EyeOff className="w-3 h-3" />}
+                    </button>
+                    <Link
+                      href={`/admin/dashboard/categorias/${padre.id}`}
+                      className="flex-1 h-6 rounded-md flex items-center justify-center text-foreground-muted hover:text-primary hover:bg-background-subtle transition-colors"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </Link>
+                    <button
+                      onClick={() => eliminar(padre.id, padre.nombre)}
+                      className="flex-1 h-6 rounded-md flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            )}
 
-            {/* Si está colapsada y tiene subcats, mostrar botón */}
-            {!expandida && subcats.length > 0 && (
-              <button
-                onClick={() => toggleExpandida(padre.id)}
-                className="w-full px-4 py-2 text-left text-xs text-foreground-muted hover:text-foreground bg-background-subtle border-t border-border transition-colors"
-              >
-                Ver {subcats.length} subcategoría{subcats.length > 1 ? 's' : ''}
-              </button>
-            )}
-
-            {/* Si no tiene subcats, botón agregar */}
-            {subcats.length === 0 && (
-              <div className="px-4 py-2 bg-background-subtle border-t border-border">
+              {/* Botón expandir subcategorías */}
+              {subcats.length > 0 && (
+                <button
+                  onClick={() => toggleExpandida(padre.id)}
+                  className="flex items-center justify-center gap-1 text-[10px] text-foreground-muted hover:text-primary transition-colors py-0.5"
+                >
+                  <ChevronDown className={cn('w-3 h-3 transition-transform', expandida && 'rotate-180')} />
+                  {expandida ? 'Ocultar' : `${subcats.length} subcategorías`}
+                </button>
+              )}
+              {subcats.length === 0 && (
                 <Link
                   href={`/admin/dashboard/categorias/nueva?parent=${padre.id}`}
-                  className="inline-flex items-center gap-1.5 text-xs text-foreground-muted hover:text-primary font-medium transition-colors"
+                  className="flex items-center justify-center gap-1 text-[10px] text-foreground-muted hover:text-primary transition-colors py-0.5"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  Agregar subcategoría
+                  <Plus className="w-3 h-3" /> Agregar sub
                 </Link>
-              </div>
-            )}
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Subcategorías expandidas — debajo del grid */}
+      {padres.map(padre => {
+        const subcats   = subcatsDe(padre.id)
+        const expandida = expandidas.has(padre.id)
+        if (!expandida || subcats.length === 0) return null
+
+        return (
+          <div key={`sub-${padre.id}`} className="rounded-2xl border border-border bg-background-subtle p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-foreground-muted uppercase tracking-wide">
+                Subcategorías de &ldquo;{padre.nombre}&rdquo;
+              </p>
+              <Link
+                href={`/admin/dashboard/categorias/nueva?parent=${padre.id}`}
+                className="flex items-center gap-1 text-xs text-primary hover:opacity-80 font-medium"
+              >
+                <Plus className="w-3.5 h-3.5" /> Agregar
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {subcats.map(sub => (
+                <div
+                  key={sub.id}
+                  className={cn(
+                    'rounded-xl border bg-card overflow-hidden flex flex-col',
+                    sub.esta_activa ? 'border-card-border' : 'border-border opacity-60'
+                  )}
+                >
+                  <div className="aspect-square bg-background-subtle w-full overflow-hidden">
+                    {sub.imagen_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={sub.imagen_url} alt={sub.nombre} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <FolderOpen className="w-6 h-6 text-foreground-muted/30" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-2 flex flex-col gap-1.5">
+                    <p className="text-xs font-semibold text-foreground leading-tight line-clamp-2">{sub.nombre}</p>
+                    <span className={cn(
+                      'text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none w-fit',
+                      sub.esta_activa
+                        ? 'bg-success/10 text-success'
+                        : 'bg-foreground-muted/10 text-foreground-muted'
+                    )}>
+                      {sub.esta_activa ? 'Activa' : 'Inactiva'}
+                    </span>
+                    <div className="flex items-center gap-1 pt-0.5 border-t border-border">
+                      <button
+                        onClick={() => toggleActiva(sub.id, sub.esta_activa)}
+                        className={cn(
+                          'flex-1 h-6 rounded-md flex items-center justify-center transition-colors',
+                          sub.esta_activa ? 'text-success hover:bg-success/10' : 'text-foreground-muted hover:bg-background-subtle'
+                        )}
+                      >
+                        {sub.esta_activa ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                      </button>
+                      <Link
+                        href={`/admin/dashboard/categorias/${sub.id}`}
+                        className="flex-1 h-6 rounded-md flex items-center justify-center text-foreground-muted hover:text-primary hover:bg-background-subtle transition-colors"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </Link>
+                      <button
+                        onClick={() => eliminar(sub.id, sub.nombre)}
+                        className="flex-1 h-6 rounded-md flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )
       })}
 
-      <p className="text-xs text-foreground-muted text-center mt-1">
-        {padres.length} categoría{padres.length > 1 ? 's' : ''} · {hijos.length} subcategoría{hijos.length !== 1 ? 's' : ''}
+      <p className="text-xs text-foreground-muted text-center">
+        {padres.length} categoría{padres.length !== 1 ? 's' : ''} · {hijos.length} subcategoría{hijos.length !== 1 ? 's' : ''}
       </p>
-    </div>
-  )
-}
-
-function FilaCategoria({
-  categoria,
-  onToggleActiva,
-  onEliminar,
-  tieneHijos = false,
-  expandida = false,
-  onToggleExpandir,
-  esSubcategoria = false,
-}: {
-  categoria: CategoriaFila
-  onToggleActiva: (id: string, activa: boolean) => void
-  onEliminar: (id: string, nombre: string) => void
-  tieneHijos?: boolean
-  expandida?: boolean
-  onToggleExpandir?: () => void
-  esSubcategoria?: boolean
-}) {
-  return (
-    <div className={cn('flex items-center gap-3 p-3', esSubcategoria && 'pl-8')}>
-      {/* Imagen */}
-      <div className="w-10 h-10 rounded-xl overflow-hidden bg-background-subtle flex-shrink-0 border border-border">
-        {categoria.imagen_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={categoria.imagen_url} alt={categoria.nombre} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <FolderOpen className="w-4 h-4 text-foreground-muted/40" />
-          </div>
-        )}
-      </div>
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          {esSubcategoria && <ChevronRight className="w-3 h-3 text-foreground-muted/50 flex-shrink-0" />}
-          <p className="text-sm font-semibold text-foreground truncate">{categoria.nombre}</p>
-        </div>
-        <p className="text-xs text-foreground-muted truncate">/{categoria.slug}</p>
-      </div>
-
-      {/* Estado */}
-      <span className={cn(
-        'hidden sm:inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0',
-        categoria.esta_activa ? 'bg-success/10 text-success' : 'bg-foreground-muted/10 text-foreground-muted'
-      )}>
-        {categoria.esta_activa ? 'Activa' : 'Inactiva'}
-      </span>
-
-      {/* Acciones */}
-      <div className="flex items-center gap-1 flex-shrink-0">
-        {tieneHijos && onToggleExpandir && (
-          <button
-            onClick={onToggleExpandir}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-foreground-muted hover:bg-background-subtle transition-all"
-            title={expandida ? 'Colapsar' : 'Expandir'}
-          >
-            <ChevronRight className={cn('w-4 h-4 transition-transform', expandida && 'rotate-90')} />
-          </button>
-        )}
-        <button
-          onClick={() => onToggleActiva(categoria.id, categoria.esta_activa)}
-          title={categoria.esta_activa ? 'Desactivar' : 'Activar'}
-          className={cn(
-            'w-8 h-8 rounded-lg flex items-center justify-center transition-all',
-            categoria.esta_activa ? 'text-success hover:bg-success/10' : 'text-foreground-muted hover:bg-background-subtle'
-          )}
-        >
-          {categoria.esta_activa ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-        </button>
-        <Link
-          href={`/admin/dashboard/categorias/${categoria.id}`}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-background-subtle transition-all"
-        >
-          <Pencil className="w-4 h-4" />
-        </Link>
-        <button
-          onClick={() => onEliminar(categoria.id, categoria.nombre)}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-foreground-muted hover:text-danger hover:bg-danger/10 transition-all"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </div>
     </div>
   )
 }
