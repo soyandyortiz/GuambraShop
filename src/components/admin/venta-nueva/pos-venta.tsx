@@ -16,7 +16,7 @@ import { toast } from 'sonner'
 import type { Cliente, TipoIdentificacionCliente } from '@/types'
 
 // Convierte una URL de Supabase Storage a miniatura 300px para carga rápida
-function thumbUrl(url: string | null, w = 300): string | null {
+function thumbUrl(url: string | null, w = 200): string | null {
   if (!url) return null
   try {
     // Supabase Storage: .../object/public/bucket/path → .../render/image/public/bucket/path
@@ -24,7 +24,7 @@ function thumbUrl(url: string | null, w = 300): string | null {
     if (u.pathname.includes('/object/public/')) {
       u.pathname = u.pathname.replace('/object/public/', '/render/image/public/')
       u.searchParams.set('width', String(w))
-      u.searchParams.set('quality', '70')
+      u.searchParams.set('quality', '60')
       return u.toString()
     }
   } catch { /* URL externa — usar tal cual */ }
@@ -569,7 +569,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                     onClick={() => !sinStock && clickProducto(producto)}
                     disabled={sinStock}
                     className={cn(
-                      'relative aspect-square rounded-xl overflow-hidden ring-2',
+                      'relative aspect-[3/4] rounded-xl overflow-hidden ring-2',
                       sinStock
                         ? 'opacity-50 cursor-not-allowed ring-transparent'
                         : 'ring-transparent hover:ring-primary cursor-pointer'
@@ -583,7 +583,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                         alt={producto.nombre}
                         loading="lazy"
                         decoding="async"
-                        className="absolute inset-0 w-full h-full object-contain p-1"
+                        className="absolute inset-0 w-full h-full object-contain"
                       />
                     ) : (
                       <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
