@@ -178,12 +178,12 @@ export async function POST(req: NextRequest) {
       factura = facturaCompleta as Factura
     } else {
       // Construir comprador
-      const df = (pedido as any).datos_facturacion
+      const df = pedido.datos_facturacion as Record<string, string> | null
       let comprador: CompradorFactura
 
       if (df) {
         comprador = {
-          tipo_identificacion: df.tipo_identificacion ?? '05',
+          tipo_identificacion: (df.tipo_identificacion ?? '05') as CompradorFactura['tipo_identificacion'],
           identificacion:      df.identificacion ?? '9999999999999',
           razon_social:        df.razon_social ?? 'CONSUMIDOR FINAL',
           email:               df.email ?? pedido.email ?? null,

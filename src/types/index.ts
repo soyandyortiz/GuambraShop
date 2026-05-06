@@ -262,12 +262,6 @@ export interface TallaProducto {
   stock?: number | null
 }
 
-export interface Lead {
-  id: string
-  telefono: string
-  creado_en: string
-}
-
 export type EstadoPedido = 'pendiente' | 'confirmado' | 'en_proceso' | 'enviado' | 'entregado' | 'cancelado'
 export type TipoPedido = 'delivery' | 'local'
 
@@ -316,6 +310,14 @@ export interface Pedido {
   costo_envio: number
   total: number
   estado: EstadoPedido
+  datos_facturacion: {
+    tipo_identificacion: string
+    identificacion: string
+    razon_social: string
+    email?: string | null
+    direccion?: string | null
+    telefono?: string | null
+  } | null
   creado_en: string
   actualizado_en: string
 }
