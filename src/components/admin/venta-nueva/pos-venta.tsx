@@ -110,11 +110,9 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
   // Cliente
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null)
+  const [esConsumidorFinal, setEsConsumidorFinal] = useState(false)
   const [mostrarListaClientes, setMostrarListaClientes] = useState(false)
   const [modalNuevoCliente, setModalNuevoCliente] = useState(false)
-  // Datos manuales (si no hay cliente seleccionado)
-  const [nombreManual, setNombreManual] = useState('')
-  const [telManual, setTelManual] = useState('')
   // Pago y notas
   const [formaPago, setFormaPago] = useState<FormaPago>('efectivo')
   // Estado de creación
@@ -262,13 +260,14 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
 
   async function crearVenta() {
     if (carrito.length === 0) { toast.error('Agrega al menos un producto'); return }
+    if (!clienteSeleccionado && !esConsumidorFinal) {
+      toast.error('Selecciona un cliente o elige Consumidor Final')
+      return
+    }
 
-    const nombres  = clienteSeleccionado?.razon_social ?? nombreManual.trim()
-    const telefono = clienteSeleccionado?.telefono     ?? telManual.trim()
-    if (!nombres) { toast.error('Ingresa el nombre del cliente'); return }
-
-    const emailFinal = clienteSeleccionado?.email
-      ?? `manual-${Date.now()}@venta.local`
+    const nombres  = esConsumidorFinal ? 'Consumidor Final' : (clienteSeleccionado?.razon_social ?? '')
+    const telefono = clienteSeleccionado?.telefono ?? ''
+    const emailFinal = clienteSeleccionado?.email ?? `consumidor-${Date.now()}@venta.local`
 
     const items = carrito.map(i => ({
       producto_id:   i.producto_id,
@@ -285,7 +284,9 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
       dias_alquiler: i.dias_alquiler,
     }))
 
-    const datos_facturacion = clienteSeleccionado
+    const datos_facturacion = esConsumidorFinal
+      ? { tipo_identificacion: '07', identificacion: '9999999999999', razon_social: 'Consumidor Final', email: null, direccion: null, telefono: null }
+      : clienteSeleccionado
       ? {
           tipo_identificacion: MAPA_TIPO_SRI[clienteSeleccionado.tipo_identificacion],
           identificacion:      clienteSeleccionado.identificacion,
@@ -377,9 +378,8 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
   function nuevaVenta() {
     setCarrito([])
     setClienteSeleccionado(null)
+    setEsConsumidorFinal(false)
     setBusquedaCliente('')
-    setNombreManual('')
-    setTelManual('')
     setFormaPago('efectivo')
     setDescValor('')
     setDescTipo('pct')
@@ -396,7 +396,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
     const datosTicket = {
       numero_orden:    ventaCreada.numero_orden,
       creado_en:       new Date().toISOString(),
-      nombres:         clienteSeleccionado?.razon_social ?? nombreManual,
+      nombres:         esConsumidorFinal ? 'Consumidor Final' : (clienteSeleccionado?.razon_social ?? ''),
       tipo:            'local' as const,
       forma_pago:      formaPago,
       items:           carrito.map(i => ({
@@ -679,18 +679,11 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
 
           {/* ── Cliente ─────────────────────────────────────── */}
           <div className="rounded-2xl bg-card border border-card-border p-3 flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-foreground-muted uppercase tracking-wide flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5" /> Cliente
-              </p>
-              <button
-                onClick={() => setModalNuevoCliente(true)}
-                className="text-[11px] text-primary font-semibold hover:opacity-80 transition-opacity flex items-center gap-1"
-              >
-                <Plus className="w-3 h-3" /> Nuevo
-              </button>
-            </div>
+            <p className="text-xs font-bold text-foreground-muted uppercase tracking-wide flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5" /> Cliente
+            </p>
 
+            {/* Cliente seleccionado */}
             {clienteSeleccionado ? (
               <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -706,14 +699,31 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                   <X className="w-4 h-4" />
                 </button>
               </div>
+
+            ) : esConsumidorFinal ? (
+              /* Consumidor Final activo */
+              <div className="flex items-center gap-2 bg-foreground/5 border border-border rounded-xl px-3 py-2">
+                <div className="w-8 h-8 rounded-full bg-foreground/10 flex items-center justify-center flex-shrink-0">
+                  <User className="w-4 h-4 text-foreground-muted" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Consumidor Final</p>
+                  <p className="text-[11px] text-foreground-muted font-mono">9999999999999</p>
+                </div>
+                <button onClick={() => setEsConsumidorFinal(false)} className="text-foreground-muted hover:text-danger transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
             ) : (
+              /* Búsqueda + acciones */
               <div className="flex flex-col gap-2">
-                {/* Buscador de clientes */}
+                {/* Buscador */}
                 <div className="relative">
                   <UserSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground-muted pointer-events-none" />
                   <input
                     type="text"
-                    placeholder="Nombre, apellido, cédula o RUC…"
+                    placeholder="Buscar por nombre, cédula o RUC…"
                     value={busquedaCliente}
                     onChange={e => { setBusquedaCliente(e.target.value); setMostrarListaClientes(true) }}
                     onFocus={() => setMostrarListaClientes(true)}
@@ -722,7 +732,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                   />
                 </div>
 
-                {/* Lista desplegable de clientes — solo con 2+ caracteres */}
+                {/* Lista desplegable — solo con 2+ caracteres */}
                 {mostrarListaClientes && busquedaCliente.trim().length >= 2 && (
                   <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto border border-border rounded-xl bg-card p-1">
                     {clientesFiltrados.length === 0 ? (
@@ -751,22 +761,20 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                   </div>
                 )}
 
-                {/* Datos manuales si no hay cliente */}
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    placeholder="Nombre del cliente"
-                    value={nombreManual}
-                    onChange={e => setNombreManual(e.target.value)}
-                    className="h-9 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Teléfono (opcional)"
-                    value={telManual}
-                    onChange={e => setTelManual(e.target.value)}
-                    className="h-9 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
+                {/* Acciones rápidas */}
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    onClick={() => setEsConsumidorFinal(true)}
+                    className="h-9 rounded-xl border border-border bg-input-bg text-foreground-muted text-xs font-semibold hover:border-foreground/40 hover:text-foreground transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <User className="w-3.5 h-3.5" /> Consumidor Final
+                  </button>
+                  <button
+                    onClick={() => setModalNuevoCliente(true)}
+                    className="h-9 rounded-xl border border-primary/30 bg-primary/5 text-primary text-xs font-semibold hover:bg-primary/10 transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Nuevo cliente
+                  </button>
                 </div>
               </div>
             )}
