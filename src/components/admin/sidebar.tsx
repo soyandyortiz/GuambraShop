@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, Ticket, Megaphone,
-  Settings, MessageSquare, ShoppingBag, LogOut, Star,
+  Settings, MessageSquare, LogOut, Star,
   ClipboardList, CalendarDays, Truck, PartyPopper, TrendingUp,
   Users, KeyRound, FileText, Mail, Receipt
 } from 'lucide-react'
@@ -115,27 +115,6 @@ export function Sidebar({ rol, nombre, fotoPerfil, faviconUrl }: PropsSidebar) {
 
   return (
     <aside className="hidden lg:flex flex-col w-56 min-h-screen bg-card border-r border-border fixed left-0 top-0 bottom-0 z-40">
-
-      {/* Logo */}
-      <div className="h-12 flex items-center gap-2 px-3 border-b border-border flex-shrink-0">
-        <div className={cn(
-          'w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0',
-          faviconUrl ? 'bg-transparent' : 'bg-primary'
-        )}>
-          {faviconUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={faviconUrl} alt="" className="w-full h-full object-contain" />
-          ) : (
-            <ShoppingBag className="w-3.5 h-3.5 text-white" />
-          )}
-        </div>
-        <span className="font-bold text-sm text-foreground truncate">Panel Admin</span>
-        {esSuperadmin && (
-          <span className="ml-auto text-[9px] font-bold text-primary bg-primary/10 px-1 py-0.5 rounded-full flex-shrink-0">
-            SUPER
-          </span>
-        )}
-      </div>
 
       {/* Inicio */}
       <div className="px-2 pt-2">
