@@ -583,7 +583,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                         alt={producto.nombre}
                         loading="lazy"
                         decoding="async"
-                        className="absolute inset-0 w-full h-full object-cover"
+                        className="absolute inset-0 w-full h-full object-contain p-1"
                       />
                     ) : (
                       <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
