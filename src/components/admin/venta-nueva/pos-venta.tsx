@@ -106,25 +106,31 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
   // Pestaña móvil
   const [pestaña, setPestaña] = useState<'productos' | 'carrito'>('productos')
 
-  // ─── Productos filtrados ──────────────────────────────────
+  // ─── Productos filtrados (tiempo real) ───────────────────
 
   const productosFiltrados = useMemo(() => {
     const texto = busquedaProducto.toLowerCase().trim()
-    if (!texto) return productos.slice(0, 40)
-    return productos.filter(p => p.nombre.toLowerCase().includes(texto))
+    if (!texto) return productos
+    return productos.filter(p =>
+      p.nombre.toLowerCase().includes(texto)
+    )
   }, [productos, busquedaProducto])
 
   // ─── Clientes filtrados ───────────────────────────────────
 
   const clientesFiltrados = useMemo(() => {
     const texto = busquedaCliente.toLowerCase().trim()
-    if (!texto) return clientes.slice(0, 8)
-    return clientes.filter(c =>
-      c.razon_social.toLowerCase().includes(texto) ||
-      c.identificacion.includes(texto) ||
-      (c.email ?? '').toLowerCase().includes(texto) ||
-      (c.telefono ?? '').includes(texto)
-    ).slice(0, 8)
+    if (!texto) return clientes.slice(0, 10)
+    const palabras = texto.split(/\s+/)
+    return clientes.filter(c => {
+      const haystack = [
+        c.razon_social,
+        c.identificacion,
+        c.email ?? '',
+        c.telefono ?? '',
+      ].join(' ').toLowerCase()
+      return palabras.every(p => haystack.includes(p))
+    }).slice(0, 10)
   }, [clientes, busquedaCliente])
 
   // ─── Descuento manual ────────────────────────────────────
@@ -528,7 +534,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
           </div>
 
           {/* Grid de productos */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 overflow-y-auto pr-1" style={{ maxHeight: 'calc(100vh - 240px)', minHeight: '200px' }}>
             {productosFiltrados.map(producto => {
               const precio = producto.precio_descuento ?? producto.precio
               const sinStock = producto.stock !== null && producto.stock <= 0 && producto.tipo_producto === 'producto'
@@ -626,26 +632,31 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                   <UserSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground-muted pointer-events-none" />
                   <input
                     type="text"
-                    placeholder="Buscar cliente registrado…"
+                    placeholder="Nombre, apellido, cédula o RUC…"
                     value={busquedaCliente}
                     onChange={e => { setBusquedaCliente(e.target.value); setMostrarListaClientes(true) }}
                     onFocus={() => setMostrarListaClientes(true)}
+                    onBlur={() => setTimeout(() => setMostrarListaClientes(false), 150)}
                     className="w-full h-9 pl-8 pr-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
 
                 {/* Lista desplegable de clientes */}
-                {mostrarListaClientes && clientesFiltrados.length > 0 && (
-                  <div className="flex flex-col gap-1 max-h-40 overflow-y-auto border border-border rounded-xl bg-card p-1">
-                    {clientesFiltrados.map(c => (
+                {mostrarListaClientes && (
+                  <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto border border-border rounded-xl bg-card p-1">
+                    {clientesFiltrados.length === 0 ? (
+                      <p className="text-xs text-foreground-muted text-center py-3">
+                        {busquedaCliente ? `Sin resultados para "${busquedaCliente}"` : 'Sin clientes registrados'}
+                      </p>
+                    ) : clientesFiltrados.map(c => (
                       <button
                         key={c.id}
-                        onClick={() => {
+                        onMouseDown={() => {
                           setClienteSeleccionado(c)
                           setBusquedaCliente('')
                           setMostrarListaClientes(false)
                         }}
-                        className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-background-subtle text-left transition-colors"
+                        className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-background-subtle text-left transition-colors"
                       >
                         <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                           <span className="text-[10px] font-bold text-primary">{c.razon_social.charAt(0).toUpperCase()}</span>
