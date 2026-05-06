@@ -432,6 +432,8 @@ export interface Factura {
   ride_url: string | null
   error_sri: string | null
   motivo_anulacion: string | null
+  email_enviado_en: string | null
+  email_enviado_a: string | null
   notas: string | null
   creado_en: string
   actualizado_en: string

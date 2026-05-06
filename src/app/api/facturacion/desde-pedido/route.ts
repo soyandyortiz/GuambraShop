@@ -21,6 +21,7 @@ export const maxDuration = 60
 import { generarClaveAcceso, generarXMLFactura } from '@/lib/sri/generar-xml'
 import { firmarXML } from '@/lib/sri/firmar-xades'
 import { emitirAlSRI } from '@/lib/sri/soap-sri'
+import { enviarRideAuto } from '@/lib/email/enviar-ride-auto'
 import type { ConfiguracionFacturacion, Factura, ItemFactura, CompradorFactura } from '@/types'
 
 /** Cliente con service role para leer Storage sin restricciones RLS */
@@ -99,6 +100,8 @@ export async function POST(req: NextRequest) {
             : new Date().toISOString(),
           error_sri: null,
         }).eq('id', facturaExistente.id)
+
+        await enviarRideAuto(facturaExistente.id)
 
         return NextResponse.json({
           ok: true,
@@ -376,6 +379,8 @@ export async function POST(req: NextRequest) {
         fecha_autorizacion:   autorizacion.fechaAutorizacion ? new Date(autorizacion.fechaAutorizacion).toISOString() : new Date().toISOString(),
         error_sri:            null,
       }).eq('id', factura.id)
+
+      await enviarRideAuto(factura.id)
 
       return NextResponse.json({
         ok: true,

@@ -27,6 +27,7 @@ function crearClienteAdmin() {
 import { generarClaveAcceso, generarXMLFactura } from '@/lib/sri/generar-xml'
 import { firmarXML } from '@/lib/sri/firmar-xades'
 import { emitirAlSRI } from '@/lib/sri/soap-sri'
+import { enviarRideAuto } from '@/lib/email/enviar-ride-auto'
 import type { Factura, ConfiguracionFacturacion } from '@/types'
 
 export async function POST(req: NextRequest) {
@@ -142,6 +143,8 @@ export async function POST(req: NextRequest) {
           : new Date().toISOString(),
         error_sri: null,
       }).eq('id', facturaId)
+
+      await enviarRideAuto(facturaId)
 
       return NextResponse.json({
         ok: true,
