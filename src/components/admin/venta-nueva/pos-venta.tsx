@@ -62,9 +62,10 @@ interface ItemCarritoPOS {
   tipo_producto: string
   variante_id?: string
   nombre_variante?: string
-  precio_final: number
-  cantidad: number
+  precio_final: number   // Para alquiler: precio_dia × dias (por traje)
+  cantidad: number       // Para alquiler: número de trajes
   subtotal: number
+  dias_alquiler?: number // Solo alquiler
 }
 
 type FormaPago = 'efectivo' | 'transferencia' | 'tarjeta' | 'otro'
@@ -102,6 +103,10 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
   const [carrito, setCarrito] = useState<ItemCarritoPOS[]>([])
   // Variante a seleccionar
   const [productoVariante, setProductoVariante] = useState<ProductoPOS | null>(null)
+  // Alquiler
+  const [productoAlquiler, setProductoAlquiler] = useState<ProductoPOS | null>(null)
+  const [cantidadAlquiler, setCantidadAlquiler] = useState(1)
+  const [diasAlquiler, setDiasAlquiler] = useState(1)
   // Cliente
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null)
@@ -136,7 +141,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
 
   const clientesFiltrados = useMemo(() => {
     const texto = busquedaCliente.toLowerCase().trim()
-    if (!texto) return clientes.slice(0, 10)
+    if (texto.length < 2) return []
     const palabras = texto.split(/\s+/)
     return clientes.filter(c => {
       const haystack = [
@@ -219,11 +224,38 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
   }
 
   function clickProducto(producto: ProductoPOS) {
+    if (producto.tipo_producto === 'alquiler') {
+      setCantidadAlquiler(1)
+      setDiasAlquiler(1)
+      setProductoAlquiler(producto)
+      return
+    }
     if (producto.variantes.length > 0) {
       setProductoVariante(producto)
     } else {
       agregarProducto(producto)
     }
+  }
+
+  function agregarAlquiler() {
+    if (!productoAlquiler) return
+    const precioDia = productoAlquiler.precio_descuento ?? productoAlquiler.precio
+    const precioFinal = +(precioDia * diasAlquiler).toFixed(2)
+    const key = `${productoAlquiler.id}-alq-${diasAlquiler}d-${Date.now()}`
+    setCarrito(prev => [...prev, {
+      key,
+      producto_id:   productoAlquiler.id,
+      nombre:        productoAlquiler.nombre,
+      imagen_url:    productoAlquiler.imagen_url,
+      slug:          productoAlquiler.slug,
+      tipo_producto: productoAlquiler.tipo_producto,
+      precio_final:  precioFinal,
+      cantidad:      cantidadAlquiler,
+      subtotal:      +(precioFinal * cantidadAlquiler).toFixed(2),
+      dias_alquiler: diasAlquiler,
+    }])
+    setProductoAlquiler(null)
+    if (window.innerWidth < 1024) setPestaña('carrito')
   }
 
   // ─── Crear venta ──────────────────────────────────────────
@@ -240,7 +272,9 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
 
     const items = carrito.map(i => ({
       producto_id:   i.producto_id,
-      nombre:        i.nombre_variante ? `${i.nombre} — ${i.nombre_variante}` : i.nombre,
+      nombre:        i.dias_alquiler
+        ? `${i.nombre} — ${i.cantidad} traje${i.cantidad !== 1 ? 's' : ''} × ${i.dias_alquiler} día${i.dias_alquiler !== 1 ? 's' : ''}`
+        : i.nombre_variante ? `${i.nombre} — ${i.nombre_variante}` : i.nombre,
       slug:          i.slug,
       tipo_producto: i.tipo_producto,
       imagen_url:    i.imagen_url,
@@ -248,6 +282,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
       variante:      i.nombre_variante,
       cantidad:      i.cantidad,
       subtotal:      i.subtotal,
+      dias_alquiler: i.dias_alquiler,
     }))
 
     const datos_facturacion = clienteSeleccionado
@@ -687,12 +722,12 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                   />
                 </div>
 
-                {/* Lista desplegable de clientes */}
-                {mostrarListaClientes && (
+                {/* Lista desplegable de clientes — solo con 2+ caracteres */}
+                {mostrarListaClientes && busquedaCliente.trim().length >= 2 && (
                   <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto border border-border rounded-xl bg-card p-1">
                     {clientesFiltrados.length === 0 ? (
                       <p className="text-xs text-foreground-muted text-center py-3">
-                        {busquedaCliente ? `Sin resultados para "${busquedaCliente}"` : 'Sin clientes registrados'}
+                        Sin resultados para &quot;{busquedaCliente}&quot;
                       </p>
                     ) : clientesFiltrados.map(c => (
                       <button
@@ -773,8 +808,14 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-foreground truncate">
-                        {item.nombre}{item.nombre_variante && <span className="text-foreground-muted"> — {item.nombre_variante}</span>}
+                        {item.nombre}
+                        {item.nombre_variante && <span className="text-foreground-muted"> — {item.nombre_variante}</span>}
                       </p>
+                      {item.dias_alquiler && (
+                        <p className="text-[10px] text-foreground-muted">
+                          {item.cantidad} traje{item.cantidad !== 1 ? 's' : ''} × {item.dias_alquiler} día{item.dias_alquiler !== 1 ? 's' : ''}
+                        </p>
+                      )}
                       <p className="text-[11px] text-primary font-bold">{formatearPrecio(item.subtotal, simboloMoneda)}</p>
                     </div>
                     {/* Controles cantidad */}
@@ -922,10 +963,116 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
         }}
       />
 
+      {/* ── Modal alquiler: cantidad de trajes + días ─────── */}
+      {productoAlquiler && (
+        <div
+          className="fixed inset-0 bg-black/55 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setProductoAlquiler(null)}
+        >
+          <div
+            className="bg-card rounded-2xl border border-card-border p-5 w-full max-w-sm"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-sm font-bold text-foreground">{productoAlquiler.nombre}</p>
+                <p className="text-xs text-foreground-muted mt-0.5">
+                  {formatearPrecio(productoAlquiler.precio_descuento ?? productoAlquiler.precio, simboloMoneda)} / día por traje
+                </p>
+              </div>
+              <button onClick={() => setProductoAlquiler(null)} className="text-foreground-muted hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {/* Cantidad de trajes */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-foreground-muted uppercase tracking-wide">
+                  Cantidad de trajes
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setCantidadAlquiler(v => Math.max(1, v - 1))}
+                    className="w-9 h-9 rounded-xl border border-border flex items-center justify-center hover:bg-background-subtle transition-colors"
+                  >
+                    <Minus className="w-4 h-4 text-foreground-muted" />
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    value={cantidadAlquiler}
+                    onChange={e => setCantidadAlquiler(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="flex-1 h-9 text-center rounded-xl border border-input-border bg-input-bg text-foreground text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <button
+                    onClick={() => setCantidadAlquiler(v => v + 1)}
+                    className="w-9 h-9 rounded-xl border border-border flex items-center justify-center hover:bg-background-subtle transition-colors"
+                  >
+                    <Plus className="w-4 h-4 text-foreground-muted" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Días de alquiler */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-foreground-muted uppercase tracking-wide">
+                  Días de alquiler
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setDiasAlquiler(v => Math.max(1, v - 1))}
+                    className="w-9 h-9 rounded-xl border border-border flex items-center justify-center hover:bg-background-subtle transition-colors"
+                  >
+                    <Minus className="w-4 h-4 text-foreground-muted" />
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    value={diasAlquiler}
+                    onChange={e => setDiasAlquiler(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="flex-1 h-9 text-center rounded-xl border border-input-border bg-input-bg text-foreground text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <button
+                    onClick={() => setDiasAlquiler(v => v + 1)}
+                    className="w-9 h-9 rounded-xl border border-border flex items-center justify-center hover:bg-background-subtle transition-colors"
+                  >
+                    <Plus className="w-4 h-4 text-foreground-muted" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Resumen */}
+              <div className="rounded-xl bg-primary/5 border border-primary/20 px-4 py-3 flex items-center justify-between">
+                <div className="text-xs text-foreground-muted leading-snug">
+                  <p>{cantidadAlquiler} traje{cantidadAlquiler !== 1 ? 's' : ''} × {diasAlquiler} día{diasAlquiler !== 1 ? 's' : ''}</p>
+                  <p className="text-[10px]">
+                    {formatearPrecio(productoAlquiler.precio_descuento ?? productoAlquiler.precio, simboloMoneda)}/día × {cantidadAlquiler} × {diasAlquiler}
+                  </p>
+                </div>
+                <p className="text-lg font-black text-primary">
+                  {formatearPrecio(
+                    +((productoAlquiler.precio_descuento ?? productoAlquiler.precio) * cantidadAlquiler * diasAlquiler).toFixed(2),
+                    simboloMoneda
+                  )}
+                </p>
+              </div>
+
+              <button
+                onClick={agregarAlquiler}
+                className="w-full h-11 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+              >
+                <ShoppingCart className="w-4 h-4" /> Agregar al carrito
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Modal selección de variante ───────────────────── */}
       {productoVariante && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+          className="fixed inset-0 bg-black/55 z-50 flex items-end sm:items-center justify-center p-4"
           onClick={() => setProductoVariante(null)}
         >
           <div
