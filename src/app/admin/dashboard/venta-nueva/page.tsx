@@ -8,20 +8,25 @@ export default async function PáginaVentaNueva() {
 
   const [
     { data: productosRaw },
+    { data: imagenesRaw },
+    { data: variantesRaw },
     { data: clientes },
     { data: config },
     { data: facturacion },
   ] = await Promise.all([
     supabase
       .from('productos')
-      .select(`
-        id, nombre, slug, tipo_producto, precio, precio_descuento, stock, esta_activo,
-        imagenes_producto(url, orden),
-        variantes_producto(id, nombre, precio_variante, stock_variante, tipo_precio)
-      `)
+      .select('id, nombre, slug, tipo_producto, precio, precio_descuento, stock')
       .eq('esta_activo', true)
       .not('tipo_producto', 'eq', 'evento')
       .order('nombre'),
+    supabase
+      .from('imagenes_producto')
+      .select('producto_id, url, orden')
+      .order('orden', { ascending: true }),
+    supabase
+      .from('variantes_producto')
+      .select('id, producto_id, nombre, precio_variante, stock_variante, tipo_precio'),
     supabase
       .from('clientes')
       .select('id, tipo_identificacion, identificacion, razon_social, email, telefono')
@@ -36,13 +41,31 @@ export default async function PáginaVentaNueva() {
       .maybeSingle(),
   ])
 
+  // Indexar imágenes y variantes por producto_id
+  const imagenesPorProducto = new Map<string, { url: string; orden: number }[]>()
+  for (const img of (imagenesRaw ?? [])) {
+    const lista = imagenesPorProducto.get(img.producto_id) ?? []
+    lista.push({ url: img.url, orden: img.orden })
+    imagenesPorProducto.set(img.producto_id, lista)
+  }
+
+  const variantesPorProducto = new Map<string, typeof variantesRaw>()
+  for (const v of (variantesRaw ?? [])) {
+    const lista = variantesPorProducto.get(v.producto_id) ?? []
+    lista.push(v)
+    variantesPorProducto.set(v.producto_id, lista)
+  }
+
   const productos = (productosRaw ?? []).map(p => {
-    const imgs = (p.imagenes_producto ?? []) as { url: string; orden: number }[]
+    const imgs  = imagenesPorProducto.get(p.id) ?? []
     const imagen_url = imgs.find(i => i.orden === 0)?.url ?? imgs[0]?.url ?? null
-    const variantes = (p.variantes_producto ?? []) as {
-      id: string; nombre: string; precio_variante: number | null;
-      stock_variante: number | null; tipo_precio: string | null
-    }[]
+    const variantes  = (variantesPorProducto.get(p.id) ?? []).map(v => ({
+      id:             v.id,
+      nombre:         v.nombre,
+      precio_variante: v.precio_variante != null ? Number(v.precio_variante) : null,
+      stock_variante:  v.stock_variante  != null ? Number(v.stock_variante)  : null,
+      tipo_precio:    v.tipo_precio,
+    }))
     return {
       id:               p.id,
       nombre:           p.nombre,
