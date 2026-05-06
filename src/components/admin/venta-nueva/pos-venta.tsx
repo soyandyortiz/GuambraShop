@@ -15,6 +15,22 @@ import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { toast } from 'sonner'
 import type { Cliente, TipoIdentificacionCliente } from '@/types'
 
+// Convierte una URL de Supabase Storage a miniatura 300px para carga rápida
+function thumbUrl(url: string | null, w = 300): string | null {
+  if (!url) return null
+  try {
+    // Supabase Storage: .../object/public/bucket/path → .../render/image/public/bucket/path
+    const u = new URL(url)
+    if (u.pathname.includes('/object/public/')) {
+      u.pathname = u.pathname.replace('/object/public/', '/render/image/public/')
+      u.searchParams.set('width', String(w))
+      u.searchParams.set('quality', '70')
+      return u.toString()
+    }
+  } catch { /* URL externa — usar tal cual */ }
+  return url
+}
+
 // ─── Tipos locales ────────────────────────────────────────────
 
 interface VariantePOS {
@@ -542,7 +558,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                 : 'No hay productos activos'}
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {productosFiltrados.map((producto, idx) => {
                 const precio   = producto.precio_descuento ?? producto.precio
                 const sinStock = producto.stock !== null && producto.stock <= 0 && producto.tipo_producto === 'producto'
@@ -563,9 +579,10 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                     {producto.imagen_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={producto.imagen_url}
+                        src={thumbUrl(producto.imagen_url) ?? producto.imagen_url}
                         alt={producto.nombre}
                         loading="lazy"
+                        decoding="async"
                         className="absolute inset-0 w-full h-full object-cover"
                       />
                     ) : (
@@ -622,7 +639,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
 
         {/* ─── Columna derecha: formulario sticky ──────────── */}
         <div className={cn(
-          'flex flex-col gap-3 lg:sticky lg:top-4',
+          'flex flex-col gap-3 lg:sticky lg:top-6 lg:self-start',
           pestaña !== 'carrito' && 'hidden lg:flex'
         )}>
 
@@ -749,7 +766,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                   <div key={item.key} className="flex items-center gap-2 bg-background-subtle/50 rounded-xl px-2 py-1.5">
                     {item.imagen_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={item.imagen_url} alt={item.nombre} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+                      <img src={thumbUrl(item.imagen_url, 80) ?? item.imagen_url} alt={item.nombre} decoding="async" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
                     ) : (
                       <div className="w-8 h-8 rounded-lg bg-background-subtle flex items-center justify-center flex-shrink-0">
                         <Package className="w-4 h-4 text-foreground-muted/40" />

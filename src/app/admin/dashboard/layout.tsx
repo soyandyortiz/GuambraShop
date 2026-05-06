@@ -42,7 +42,7 @@ export default async function LayoutDashboard({ children }: { children: React.Re
             <HeaderAdmin nombre={nombre} rol={rol} fotoPerfil={fotoPerfil} />
 
             {/* Contenido principal */}
-            <main className="flex-1 min-w-0 overflow-x-hidden">
+            <main className="flex-1 min-w-0 overflow-x-clip">
               <div className="p-4 md:p-6 max-w-6xl mx-auto w-full">
                 {children}
               </div>
