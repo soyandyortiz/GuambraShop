@@ -24,9 +24,18 @@ Estas migraciones se crearon después de la última versión del `schema.sql` y 
 
 | # | Archivo | Qué agrega |
 |---|---------|------------|
-| 1 | `supabase/migrations/20260421000028_tema_id.sql` | Campo `tema_id` en `configuracion_tienda` (selector de tema visual) |
-| 2 | `supabase/migrations/20260501000029_tipo_alquiler.sql` | Tipo de producto `alquiler`, campos `precio_deposito` / `max_dias_alquiler` y tabla `alquileres` |
-| 3 | `supabase/migrations/20260501000030_garantia_alquiler.sql` | Campo `garantia_descripcion` en `productos` |
+| 1 | `20260421000028_tema_id.sql` | Campo `tema_id` en `configuracion_tienda` (selector de tema visual) |
+| 2 | `20260501000029_tipo_alquiler.sql` | Tipo de producto `alquiler`, campos `precio_deposito` / `max_dias_alquiler` y tabla `alquileres` |
+| 3 | `20260501000030_garantia_alquiler.sql` | Campo `garantia_descripcion` en `productos` |
+| 4 | `20260502000031_stock_alquiler_correcto.sql` | Corrección de stock para productos de alquiler |
+| 5 | `20260504000032_disponibilidad_batch_alquiler.sql` | Consulta batch de disponibilidad de alquileres |
+| 6 | `20260504000033_facturacion_sri.sql` | **Módulo Facturación SRI** — tablas `configuracion_facturacion` y `facturas`, bucket privado `facturacion` en Storage |
+| 7 | `20260504000034_datos_facturacion_pedido.sql` | Campo `datos_facturacion` en `pedidos` (datos SRI que el cliente ingresa en checkout) |
+| 8 | `20260505000035_factura_anulacion.sql` | Campo `motivo_anulacion` en `facturas` |
+| 9 | `20260505000036_configuracion_email.sql` | **Módulo Email** — tabla `configuracion_email` (credenciales SMTP/Resend, envío automático) |
+| 10 | `20260505000037_tipo_contribuyente.sql` | Campo `tipo_contribuyente` en `configuracion_facturacion` (RUC / RIMPE / Artesano) |
+| 11 | `20260505000038_tarifa_iva_producto.sql` | Campo `tarifa_iva` en `productos` (IVA individual por producto: 0, 5 o 15%) |
+| 12 | `20260505000039_email_historial_factura.sql` | Campos `email_enviado_en` y `email_enviado_a` en `facturas` (historial de envío de RIDE) |
 
 Para cada una: abrir el archivo → copiar contenido → pegar en SQL Editor → **Run**.
 
@@ -104,18 +113,19 @@ Hay dos opciones:
 1. Ir a [vercel.com](https://vercel.com) → **Add New Project** → importar el repositorio de GitHub
 2. En **Environment Variables** agregar:
 
+**Requeridas:**
 ```
 NEXT_PUBLIC_SUPABASE_URL       → Project URL  (Supabase → Settings → API)
 NEXT_PUBLIC_SUPABASE_ANON_KEY  → anon/public key  (Supabase → Settings → API)
 NEXT_PUBLIC_SITE_URL           → URL del proyecto en Vercel (completar después del primer deploy)
 NEXT_PUBLIC_SOPORTE_WHATSAPP   → número WhatsApp de soporte (solo dígitos, ej: 593982650929)
+SUPABASE_SERVICE_ROLE_KEY      → service_role key (Supabase → Settings → API) — requerida para facturación SRI y envío de email
 ```
 
-Variables opcionales — notificaciones Telegram y resumen diario:
+**Opcionales — notificaciones Telegram:**
 ```
 TELEGRAM_BOT_TOKEN             → token del bot
 TELEGRAM_CHAT_ID               → id del grupo/canal destino
-SUPABASE_SERVICE_ROLE_KEY      → service_role key (Supabase → Settings → API) — requerida para el resumen diario
 ```
 
 3. Click en **Deploy**
@@ -125,6 +135,33 @@ SUPABASE_SERVICE_ROLE_KEY      → service_role key (Supabase → Settings → A
 - Copiar la URL asignada por Vercel y actualizar `NEXT_PUBLIC_SITE_URL` → hacer redeploy
 - Ingresar al admin (`/admin`) y completar: logo, favicon, tema, colores, redes sociales, zonas de envío, etc.
 - Si el cliente tiene dominio propio, configurarlo en **Vercel → Domains**
+
+## 7. Módulo Facturación SRI (si el cliente lo usa)
+
+Solo para clientes que necesiten emitir facturas electrónicas al SRI Ecuador.
+
+1. Ir a `/admin/dashboard/facturacion/configuracion` (solo superadmin)
+2. Completar: RUC, razón social, dirección, establecimiento, punto de emisión
+3. Seleccionar tipo de contribuyente: **RUC General**, **RIMPE Emprendedor** o **Artesano JNDA**
+4. Subir el certificado `.p12` y ingresar el PIN
+5. Seleccionar ambiente: **Pruebas** para probar, **Producción** cuando el contador apruebe
+6. Guardar — el sistema queda listo para emitir facturas desde Pedidos o desde Facturación
+
+> **Nota:** el certificado `.p12` lo emite el Banco Central del Ecuador o un proveedor autorizado. El cliente debe solicitarlo con su RUC en el portal del SRI.
+
+## 8. Módulo Email (envío de RIDE al cliente)
+
+Permite enviar el PDF de la factura (RIDE) al email del comprador, de forma manual o automática.
+
+1. Ir a `/admin/dashboard/email` (solo superadmin)
+2. Elegir proveedor:
+   - **Gmail** — usar una cuenta Gmail + contraseña de aplicación de 16 caracteres (myaccount.google.com/apppasswords)
+   - **SMTP propio** — servidor, puerto, usuario y contraseña del hosting
+   - **Resend** — API key de resend.com (requiere dominio verificado, 3 000 emails/mes gratis)
+3. Completar nombre y email del remitente
+4. Activar **Envío activo** ✅
+5. Activar **Envío automático** si se quiere que el RIDE llegue solo al autorizarse la factura
+6. Usar **Probar envío** para confirmar que las credenciales son correctas antes de guardar
 
 ## Notificaciones Telegram (opcional)
 
