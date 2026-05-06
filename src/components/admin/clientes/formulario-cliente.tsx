@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -11,6 +11,7 @@ import { Save, Loader2 } from 'lucide-react'
 import { Modal } from '@/components/ui/modal'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { obtenerRegiones, obtenerCiudades } from '@/lib/locales'
+import { validarIdentificacion } from '@/lib/sri/validar-identificacion'
 import type { Cliente, TipoIdentificacionCliente } from '@/types'
 
 const esquema = z.object({
@@ -23,6 +24,19 @@ const esquema = z.object({
   provincia: z.string().optional(),
   ciudad: z.string().optional(),
   notas: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.tipo_identificacion === 'consumidor_final') return
+  const resultado = validarIdentificacion(
+    data.tipo_identificacion as 'cedula' | 'ruc' | 'pasaporte',
+    data.identificacion,
+  )
+  if (!resultado.valido) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: resultado.mensaje ?? 'Identificación inválida',
+      path: ['identificacion'],
+    })
+  }
 })
 
 type Datos = z.infer<typeof esquema>
@@ -48,6 +62,7 @@ export function FormularioCliente({ abierto, alCerrar, cliente, pais = 'EC', alG
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<Datos>({
     resolver: zodResolver(esquema),
+    mode: 'onBlur',
     defaultValues: {
       tipo_identificacion: 'cedula',
       identificacion: '',
@@ -62,9 +77,17 @@ export function FormularioCliente({ abierto, alCerrar, cliente, pais = 'EC', alG
   })
 
   const tipoId = watch('tipo_identificacion')
+  const identificacionVal = watch('identificacion')
   const provincia = watch('provincia')
   const regiones = obtenerRegiones(pais)
   const ciudades = provincia ? obtenerCiudades(pais, provincia) : []
+
+  // Indicador visual en tiempo real (sin afectar el submit)
+  const estadoId = useMemo(() => {
+    if (tipoId === 'consumidor_final' || !identificacionVal) return 'vacio'
+    const r = validarIdentificacion(tipoId as 'cedula' | 'ruc' | 'pasaporte', identificacionVal)
+    return r.valido ? 'valido' : 'invalido'
+  }, [tipoId, identificacionVal])
 
   useEffect(() => {
     if (cliente) {
@@ -173,16 +196,24 @@ export function FormularioCliente({ abierto, alCerrar, cliente, pais = 'EC', alG
         {/* Identificación + Razón Social */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="flex flex-col gap-1">
-            <label className={claseLabel}>
-              {tipoId === 'ruc' ? 'RUC (13 dígitos)' :
-               tipoId === 'cedula' ? 'Cédula (10 dígitos)' :
-               tipoId === 'pasaporte' ? 'N.° de pasaporte' : 'Identificación'}
-            </label>
+            <div className="flex items-center justify-between">
+              <label className={claseLabel}>
+                {tipoId === 'ruc' ? 'RUC (13 dígitos)' :
+                 tipoId === 'cedula' ? 'Cédula (10 dígitos)' :
+                 tipoId === 'pasaporte' ? 'N.° de pasaporte' : 'Identificación'}
+              </label>
+              {estadoId === 'valido' && (
+                <span className="text-[10px] font-bold text-success flex items-center gap-0.5">✓ Válida</span>
+              )}
+              {estadoId === 'invalido' && !errors.identificacion && (
+                <span className="text-[10px] font-bold text-warning flex items-center gap-0.5">⚠ Verifica</span>
+              )}
+            </div>
             <input
               {...register('identificacion')}
               disabled={tipoId === 'consumidor_final'}
               placeholder={tipoId === 'ruc' ? '1234567890001' : tipoId === 'cedula' ? '1234567890' : ''}
-              className={claseInput}
+              className={`${claseInput} ${estadoId === 'valido' ? 'border-success/50 focus:ring-success' : estadoId === 'invalido' && identificacionVal ? 'border-warning/50' : ''}`}
             />
             {errors.identificacion && <p className={claseError}>{errors.identificacion.message}</p>}
           </div>

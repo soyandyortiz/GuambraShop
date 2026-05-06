@@ -22,6 +22,7 @@ import { generarClaveAcceso, generarXMLFactura } from '@/lib/sri/generar-xml'
 import { firmarXML } from '@/lib/sri/firmar-xades'
 import { emitirAlSRI } from '@/lib/sri/soap-sri'
 import { enviarRideAuto } from '@/lib/email/enviar-ride-auto'
+import { validarIdentificacion } from '@/lib/sri/validar-identificacion'
 import type { ConfiguracionFacturacion, Factura, ItemFactura, CompradorFactura } from '@/types'
 
 /** Cliente con service role para leer Storage sin restricciones RLS */
@@ -198,6 +199,22 @@ export async function POST(req: NextRequest) {
           email:               pedido.email ?? null,
           direccion:           null,
           telefono:            pedido.whatsapp ?? null,
+        }
+      }
+
+      // Validar identificación del comprador (excepto consumidor final)
+      if (comprador.tipo_identificacion !== '07') {
+        const tipoMap: Record<string, 'cedula' | 'ruc' | 'pasaporte'> = {
+          '04': 'ruc', '05': 'cedula', '06': 'pasaporte',
+        }
+        const tipoVal = tipoMap[comprador.tipo_identificacion]
+        if (tipoVal) {
+          const check = validarIdentificacion(tipoVal, comprador.identificacion)
+          if (!check.valido) {
+            return NextResponse.json({
+              error: `Identificación del comprador inválida: ${check.mensaje}. Corrige los datos del cliente antes de facturar.`,
+            }, { status: 422 })
+          }
         }
       }
 

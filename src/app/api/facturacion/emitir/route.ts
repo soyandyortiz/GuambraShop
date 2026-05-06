@@ -28,6 +28,7 @@ import { generarClaveAcceso, generarXMLFactura } from '@/lib/sri/generar-xml'
 import { firmarXML } from '@/lib/sri/firmar-xades'
 import { emitirAlSRI } from '@/lib/sri/soap-sri'
 import { enviarRideAuto } from '@/lib/email/enviar-ride-auto'
+import { validarIdentificacion } from '@/lib/sri/validar-identificacion'
 import type { Factura, ConfiguracionFacturacion } from '@/types'
 
 export async function POST(req: NextRequest) {
@@ -60,6 +61,23 @@ export async function POST(req: NextRequest) {
 
     if (!['borrador', 'rechazada'].includes(factura.estado)) {
       return NextResponse.json({ error: `La factura está en estado "${factura.estado}" y no puede ser enviada` }, { status: 422 })
+    }
+
+    // Validar identificación del comprador antes de gastar el secuencial
+    const comprador = factura.datos_comprador as { tipo_identificacion?: string; identificacion?: string } | null
+    if (comprador && comprador.tipo_identificacion !== '07') {
+      const tipoMap: Record<string, 'cedula' | 'ruc' | 'pasaporte'> = {
+        '04': 'ruc', '05': 'cedula', '06': 'pasaporte',
+      }
+      const tipoVal = tipoMap[comprador.tipo_identificacion ?? '']
+      if (tipoVal && comprador.identificacion) {
+        const check = validarIdentificacion(tipoVal, comprador.identificacion)
+        if (!check.valido) {
+          return NextResponse.json({
+            error: `Identificación del comprador inválida: ${check.mensaje}. Edita el cliente antes de emitir.`,
+          }, { status: 422 })
+        }
+      }
     }
 
     // 2. Cargar configuración SRI
