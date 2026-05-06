@@ -534,61 +534,77 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
           </div>
 
           {/* Grid de productos */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 overflow-y-auto pr-1" style={{ maxHeight: 'calc(100vh - 240px)', minHeight: '200px' }}>
-            {productosFiltrados.map(producto => {
-              const precio = producto.precio_descuento ?? producto.precio
-              const sinStock = producto.stock !== null && producto.stock <= 0 && producto.tipo_producto === 'producto'
-              return (
-                <button
-                  key={producto.id}
-                  onClick={() => !sinStock && clickProducto(producto)}
-                  disabled={sinStock}
-                  className={cn(
-                    'rounded-xl border bg-card text-left flex flex-col overflow-hidden transition-all',
-                    sinStock
-                      ? 'border-border opacity-50 cursor-not-allowed'
-                      : 'border-card-border hover:border-primary/50 hover:shadow-sm active:scale-[0.98]'
-                  )}
-                >
-                  {/* Imagen */}
-                  <div className="w-full aspect-square bg-background-subtle overflow-hidden">
-                    {producto.imagen_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={producto.imagen_url}
-                        alt={producto.nombre}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Package className="w-8 h-8 text-foreground-muted/30" />
-                      </div>
+          {productosFiltrados.length === 0 ? (
+            <div className="text-center py-16 text-foreground-muted text-sm">
+              {busquedaProducto
+                ? <>Sin resultados para <strong>&quot;{busquedaProducto}&quot;</strong></>
+                : 'No hay productos activos'}
+            </div>
+          ) : (
+            <div
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 overflow-y-auto pb-2"
+              style={{ maxHeight: 'calc(100vh - 220px)' }}
+            >
+              {productosFiltrados.map(producto => {
+                const precio = producto.precio_descuento ?? producto.precio
+                const sinStock = producto.stock !== null && producto.stock <= 0 && producto.tipo_producto === 'producto'
+                return (
+                  <button
+                    key={producto.id}
+                    onClick={() => !sinStock && clickProducto(producto)}
+                    disabled={sinStock}
+                    className={cn(
+                      'rounded-xl border bg-card text-left flex flex-col overflow-hidden transition-all group',
+                      sinStock
+                        ? 'border-border opacity-50 cursor-not-allowed'
+                        : 'border-card-border hover:border-primary/60 hover:shadow-md active:scale-[0.97]'
                     )}
-                  </div>
-                  {/* Info */}
-                  <div className="p-2 flex flex-col gap-0.5">
-                    <p className="text-xs font-semibold text-foreground line-clamp-2 leading-tight">{producto.nombre}</p>
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-sm font-bold text-primary">{formatearPrecio(precio, simboloMoneda)}</p>
+                  >
+                    {/* Imagen */}
+                    <div className="w-full bg-gray-100 dark:bg-zinc-800 overflow-hidden flex-shrink-0" style={{ paddingBottom: '75%', position: 'relative' }}>
+                      {producto.imagen_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={producto.imagen_url}
+                          alt={producto.nombre}
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Package className="w-10 h-10 text-gray-300 dark:text-zinc-600" />
+                        </div>
+                      )}
                       {producto.variantes.length > 0 && (
-                        <ChevronDown className="w-3.5 h-3.5 text-foreground-muted" />
+                        <div className="absolute top-1.5 right-1.5 bg-black/50 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
+                          {producto.variantes.length} var.
+                        </div>
                       )}
                       {sinStock && (
-                        <span className="text-[10px] text-danger font-semibold">Sin stock</span>
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          <span className="text-white text-xs font-bold bg-danger/90 px-2 py-0.5 rounded-lg">Sin stock</span>
+                        </div>
                       )}
                     </div>
-                    {producto.stock !== null && producto.stock > 0 && producto.stock <= 5 && (
-                      <p className="text-[10px] text-warning">Solo {producto.stock} disponibles</p>
-                    )}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
 
-          {productosFiltrados.length === 0 && (
-            <div className="text-center py-10 text-foreground-muted text-sm">
-              Sin resultados para &quot;{busquedaProducto}&quot;
+                    {/* Info */}
+                    <div className="p-2 flex flex-col gap-1 flex-1">
+                      <p className="text-[11px] font-semibold text-foreground leading-snug"
+                         style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {producto.nombre}
+                      </p>
+                      <div className="mt-auto pt-1 flex items-center justify-between">
+                        <p className="text-sm font-extrabold text-primary leading-none">{formatearPrecio(precio, simboloMoneda)}</p>
+                        {producto.precio_descuento && (
+                          <p className="text-[10px] text-foreground-muted line-through leading-none">{formatearPrecio(producto.precio, simboloMoneda)}</p>
+                        )}
+                      </div>
+                      {producto.stock !== null && producto.stock > 0 && producto.stock <= 5 && (
+                        <p className="text-[9px] text-warning font-semibold">Solo {producto.stock} disponibles</p>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
