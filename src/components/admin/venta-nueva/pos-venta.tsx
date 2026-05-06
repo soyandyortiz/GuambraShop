@@ -543,74 +543,67 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
             </div>
           ) : (
             <div
-              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 overflow-y-auto pb-2"
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 overflow-y-auto pb-2"
               style={{ maxHeight: 'calc(100vh - 220px)' }}
             >
               {productosFiltrados.map((producto, idx) => {
-                const precio    = producto.precio_descuento ?? producto.precio
-                const sinStock  = producto.stock !== null && producto.stock <= 0 && producto.tipo_producto === 'producto'
-                const esMasSolicitado = idx === 0 && producto.ventas > 0
+                const precio   = producto.precio_descuento ?? producto.precio
+                const sinStock = producto.stock !== null && producto.stock <= 0 && producto.tipo_producto === 'producto'
+                const esTop    = idx === 0 && producto.ventas > 0
                 return (
                   <button
                     key={producto.id}
                     onClick={() => !sinStock && clickProducto(producto)}
                     disabled={sinStock}
                     className={cn(
-                      'relative aspect-square rounded-2xl overflow-hidden transition-all group',
+                      'relative aspect-square rounded-xl overflow-hidden border-2',
                       sinStock
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:scale-[1.03] hover:shadow-lg active:scale-[0.97]'
+                        ? 'opacity-50 cursor-not-allowed border-border'
+                        : 'border-transparent hover:border-primary cursor-pointer'
                     )}
                   >
-                    {/* Imagen full-bleed */}
+                    {/* Imagen */}
                     {producto.imagen_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={producto.imagen_url}
                         alt={producto.nombre}
-                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="absolute inset-0 w-full h-full object-cover"
                       />
                     ) : (
                       <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
-                        <Package className="w-12 h-12 text-gray-300" />
+                        <Package className="w-10 h-10 text-gray-300" />
                       </div>
                     )}
 
-                    {/* Gradiente inferior */}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent pt-8 pb-2 px-2">
-                      <p className="text-white text-[11px] font-semibold leading-tight line-clamp-2 drop-shadow">
+                    {/* Gradiente + texto inferior */}
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-2 pt-6 pb-2">
+                      <p className="text-white text-[11px] font-semibold leading-tight line-clamp-2">
                         {producto.nombre}
                       </p>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-white font-extrabold text-sm drop-shadow">
-                          {formatearPrecio(precio, simboloMoneda)}
-                        </span>
-                        {producto.precio_descuento && (
-                          <span className="text-white/60 text-[10px] line-through">
-                            {formatearPrecio(producto.precio, simboloMoneda)}
-                          </span>
-                        )}
-                      </div>
+                      <p className="text-white font-bold text-[13px] mt-0.5">
+                        {formatearPrecio(precio, simboloMoneda)}
+                      </p>
                     </div>
 
-                    {/* Badge más vendido */}
-                    {esMasSolicitado && (
-                      <div className="absolute top-2 left-2 bg-amber-400 text-amber-900 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wide shadow">
+                    {/* Badge top */}
+                    {esTop && (
+                      <div className="absolute top-1.5 left-1.5 bg-amber-400 text-amber-900 text-[9px] font-black px-1.5 py-0.5 rounded-md">
                         ★ Top
                       </div>
                     )}
 
                     {/* Badge variantes */}
                     {producto.variantes.length > 0 && !sinStock && (
-                      <div className="absolute top-2 right-2 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                      <div className="absolute top-1.5 right-1.5 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-md">
                         {producto.variantes.length} var.
                       </div>
                     )}
 
-                    {/* Overlay sin stock */}
+                    {/* Sin stock */}
                     {sinStock && (
                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <span className="text-white text-xs font-bold bg-red-600/90 px-3 py-1 rounded-full">
+                        <span className="text-white text-xs font-bold bg-red-600 px-3 py-1 rounded-full">
                           Sin stock
                         </span>
                       </div>
@@ -618,7 +611,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
 
                     {/* Stock bajo */}
                     {!sinStock && producto.stock !== null && producto.stock > 0 && producto.stock <= 5 && (
-                      <div className="absolute top-2 left-2 bg-amber-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                      <div className="absolute top-1.5 left-1.5 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
                         {producto.stock} restantes
                       </div>
                     )}
