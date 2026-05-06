@@ -299,6 +299,48 @@ export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
     }
   }
 
+  function exportarCSV() {
+    const esc = (v: string | number | null | undefined): string => {
+      const s = v == null ? '' : String(v)
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"`
+        : s
+    }
+
+    const encabezado = [
+      'N° Factura', 'Fecha emisión', 'Estado',
+      'Comprador', 'Identificación', 'Email comprador',
+      'Base 0%', 'Base IVA', 'IVA', 'Descuento', 'Total',
+      'N° Autorización SRI', 'Motivo anulación',
+    ]
+
+    const filas = filtradas.map(f => [
+      esc(f.numero_factura ?? f.numero_secuencial),
+      esc(f.fecha_emision),
+      esc(LABELS_ESTADO[f.estado]),
+      esc(f.datos_comprador?.razon_social),
+      esc(f.datos_comprador?.identificacion),
+      esc(f.datos_comprador?.email),
+      esc(f.totales?.subtotal_0?.toFixed(2)),
+      esc(f.totales?.subtotal_iva?.toFixed(2)),
+      esc(f.totales?.total_iva?.toFixed(2)),
+      esc(f.totales?.descuento?.toFixed(2)),
+      esc(f.totales?.total?.toFixed(2)),
+      esc(f.numero_autorizacion),
+      esc(f.motivo_anulacion),
+    ].join(','))
+
+    const csv = [encabezado.join(','), ...filas].join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `facturas_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success(`${filtradas.length} factura${filtradas.length !== 1 ? 's' : ''} exportada${filtradas.length !== 1 ? 's' : ''}`)
+  }
+
   async function sendRide(facturaId: string, emailDestino?: string) {
     setEnviandoEmail(facturaId)
     try {
@@ -429,6 +471,15 @@ export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
             </select>
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground-muted pointer-events-none" />
           </div>
+          <button
+            onClick={exportarCSV}
+            disabled={filtradas.length === 0}
+            title="Exportar facturas visibles a CSV"
+            className="flex items-center gap-2 h-10 px-3 rounded-xl border border-border text-foreground-muted text-sm font-medium hover:text-foreground hover:border-primary/40 transition-all disabled:opacity-40 flex-shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">CSV</span>
+          </button>
         </div>
 
         {/* Tabla */}
