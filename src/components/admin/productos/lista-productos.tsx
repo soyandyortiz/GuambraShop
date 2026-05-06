@@ -146,7 +146,7 @@ export function ListaProductosAdmin({ productos: productosServidor, categorias }
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {filtrados.map(producto => {
             const img = imagenPrincipal(producto.imagenes_producto)
             const esServicio  = producto.tipo_producto === 'servicio'
