@@ -23,6 +23,7 @@ import { firmarXML } from '@/lib/sri/firmar-xades'
 import { emitirAlSRI } from '@/lib/sri/soap-sri'
 import { enviarRideAuto } from '@/lib/email/enviar-ride-auto'
 import { validarIdentificacion } from '@/lib/sri/validar-identificacion'
+import { esClaveDuplicada, traducirMensajesSRI } from '@/lib/sri/errores-sri'
 import type { ConfiguracionFacturacion, Factura, ItemFactura, CompradorFactura } from '@/types'
 
 /** Cliente con service role para leer Storage sin restricciones RLS */
@@ -354,8 +355,8 @@ export async function POST(req: NextRequest) {
     const p12Buffer = Buffer.from(await certBlob.arrayBuffer())
 
     // 6. Generar clave de acceso + XML + firma
-    const claveAcceso = generarClaveAcceso(cfg, factura)
-    const xmlSinFirma = generarXMLFactura(cfg, factura, claveAcceso)
+    let claveAcceso = generarClaveAcceso(cfg, factura)
+    let xmlSinFirma = generarXMLFactura(cfg, factura, claveAcceso)
 
     let xmlFirmado: string
     try {
@@ -374,10 +375,21 @@ export async function POST(req: NextRequest) {
     }).eq('id', factura.id)
 
     // 7. Enviar al SRI
-    const { recepcion, autorizacion } = await emitirAlSRI(xmlFirmado, claveAcceso, cfg.ambiente)
+    let { recepcion, autorizacion } = await emitirAlSRI(xmlFirmado, claveAcceso, cfg.ambiente)
+
+    // Reintento automático si la clave de acceso ya está registrada (error SRI 43)
+    if (!recepcion.ok && esClaveDuplicada(recepcion.mensajes)) {
+      try {
+        claveAcceso  = generarClaveAcceso(cfg, factura)
+        xmlSinFirma  = generarXMLFactura(cfg, factura, claveAcceso)
+        const xmlFirmado2 = firmarXML(xmlSinFirma, p12Buffer, cfg.cert_pin!)
+        await supabase.from('facturas').update({ clave_acceso: claveAcceso, xml_firmado: xmlFirmado2 }).eq('id', factura.id)
+        ;({ recepcion, autorizacion } = await emitirAlSRI(xmlFirmado2, claveAcceso, cfg.ambiente))
+      } catch { /* si el reintento falla, continúa con el error original */ }
+    }
 
     if (!recepcion.ok) {
-      const errorMsg = recepcion.mensajes.map(m => `${m.identificador}: ${m.mensaje}`).join(' | ')
+      const errorMsg = traducirMensajesSRI(recepcion.mensajes)
       await supabase.from('facturas').update({ estado: 'rechazada', error_sri: errorMsg }).eq('id', factura.id)
       return NextResponse.json({
         ok: false, estado: 'rechazada',
@@ -410,9 +422,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Rechazada por el SRI (NO AUTORIZADO)
-    const errorMsg = (autorizacion?.mensajes ?? [])
-      .map((m: any) => `${m.identificador}: ${m.mensaje}${m.informacionAdicional ? ' — ' + m.informacionAdicional : ''}`)
-      .join(' | ')
+    const errorMsg = traducirMensajesSRI(autorizacion?.mensajes ?? [])
 
     await supabase.from('facturas').update({ estado: 'rechazada', error_sri: errorMsg }).eq('id', factura.id)
     return NextResponse.json({

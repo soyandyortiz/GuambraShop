@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileText, Download, XCircle, ChevronDown, Search,
@@ -10,6 +10,7 @@ import {
 import { formatearPrecio } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { traducirMensajesSRI } from '@/lib/sri/errores-sri'
 import type { Factura, EstadoFactura } from '@/types'
 
 interface Props {
@@ -368,6 +369,45 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
   const [enviandoEmail, setEnviandoEmail] = useState<string | null>(null)
   const [bannerAnulacion, setBannerAnulacion] = useState<{ factura: Factura; ambiente: string } | null>(null)
 
+  // Auto-consulta al cargar la página: resuelve facturas en estado "enviada"
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const pendientes = facturasInic.filter(f => f.estado === 'enviada')
+    if (pendientes.length === 0) return
+    let cancelado = false
+    ;(async () => {
+      for (const f of pendientes) {
+        if (cancelado) break
+        setConsultando(f.id)
+        try {
+          const res = await fetch('/api/facturacion/consultar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ facturaId: f.id }),
+          })
+          const data = await res.json()
+          if (!cancelado) {
+            if (data.estado === 'autorizada') {
+              toast.success(`¡Autorizada! N° ${data.numeroAutorizacion?.slice(0, 10)}…`)
+              router.refresh()
+            } else if (data.estado === 'rechazada') {
+              const msg = data.mensajes?.length > 0
+                ? traducirMensajesSRI(data.mensajes)
+                : (data.error ?? 'Error desconocido')
+              toast.error(`SRI rechazó: ${msg}`)
+              router.refresh()
+            }
+          }
+        } catch { /* error de red silencioso en auto-consulta */ }
+        finally { if (!cancelado) setConsultando(null) }
+        if (!cancelado && pendientes.indexOf(f) < pendientes.length - 1) {
+          await new Promise(r => setTimeout(r, 800))
+        }
+      }
+    })()
+    return () => { cancelado = true }
+  }, []) // solo al montar — intencional
+
   // Mapa facturaId → ncId para detectar cuáles tienen NC emitida
   const ncPorFactura = Object.fromEntries(
     facturas
@@ -389,8 +429,10 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
       } else if (data.ok) {
         toast.info('Factura enviada al SRI, pendiente de autorización')
       } else {
-        const primer = data.mensajes?.[0]
-        toast.error(`SRI rechazó: ${primer?.mensaje ?? data.error ?? 'Error desconocido'}`)
+        const msg = data.mensajes?.length > 0
+          ? traducirMensajesSRI(data.mensajes)
+          : (data.error ?? 'Error desconocido')
+        toast.error(`SRI rechazó: ${msg}`)
       }
       router.refresh()
     } catch {
@@ -415,7 +457,10 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
         toast.success(`¡Autorizada por el SRI! N° ${data.numeroAutorizacion?.slice(0,10)}…`)
         router.refresh()
       } else if (data.estado === 'rechazada') {
-        toast.error(`SRI rechazó: ${data.mensajes?.[0]?.mensaje ?? 'Error desconocido'}`)
+        const msg = data.mensajes?.length > 0
+          ? traducirMensajesSRI(data.mensajes)
+          : (data.error ?? 'Error desconocido')
+        toast.error(`SRI rechazó: ${msg}`)
         router.refresh()
       } else {
         toast.info('El SRI aún no ha procesado el comprobante. Intenta más tarde.')
@@ -446,8 +491,10 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
         toast.info('Nota de Crédito enviada al SRI, pendiente de autorización')
         router.refresh()
       } else {
-        const primer = data.mensajes?.[0]
-        toast.error(`SRI rechazó la NC: ${primer?.mensaje ?? data.error ?? 'Error desconocido'}`)
+        const msg = data.mensajes?.length > 0
+          ? traducirMensajesSRI(data.mensajes)
+          : (data.error ?? 'Error desconocido')
+        toast.error(`SRI rechazó la NC: ${msg}`)
         router.refresh()
       }
     } catch {
