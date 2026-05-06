@@ -100,6 +100,26 @@ WHERE id = (SELECT id FROM auth.users WHERE email = 'andyortiz.ec@gmail.com');
 
 > Si `perfiles` está vacía, el trigger no se ejecutó — probablemente el usuario fue creado antes de correr el `schema.sql`. Solución: eliminar el usuario desde Authentication → Users y volver a crearlo después de haber ejecutado el schema.
 
+### Problema: "Usuario o contraseña incorrectos" al ingresar al admin
+
+Si el login falla con ese mensaje (error 400 en consola), las causas en orden de probabilidad son:
+
+1. **Variables de entorno en Vercel apuntan al proyecto Supabase equivocado** — el usuario existe en otro proyecto. Verificar que `NEXT_PUBLIC_SUPABASE_URL` sea exactamente la URL del proyecto donde se creó el usuario (Supabase → Settings → API → Project URL).
+
+2. **Usuario no creado en ese proyecto** — ir a Authentication → Users y verificar que aparece el email. Si no está, crearlo siguiendo los pasos anteriores.
+
+3. **Contraseña incorrecta** — resetearla desde Authentication → Users → `···` → **Send password recovery** o cambiarla directamente.
+
+> **Importante:** después de cambiar variables de entorno en Vercel siempre hacer **Redeploy** para que tomen efecto.
+
+### URL Configuration en Supabase (para dominios y subdominios)
+
+En Supabase → **Authentication → URL Configuration** agregar el dominio del cliente:
+- **Site URL:** `https://tutienda.vercel.app`
+- **Redirect URLs:** `https://tutienda.vercel.app/**` y `https://tudominio.com/**` (si tiene dominio propio)
+
+Esto es necesario para que los links de reset de contraseña funcionen. El login con email/password no depende del dominio.
+
 ## 4. Datos iniciales del cliente (opcional)
 
 El `01_datos_iniciales.sql` ya crea una fila base en `configuracion_tienda` con datos genéricos, por lo que la tienda funciona sin este paso.
@@ -150,6 +170,43 @@ Solo para clientes que necesiten emitir facturas electrónicas al SRI Ecuador.
 6. Guardar — el sistema queda listo para emitir facturas desde Pedidos o desde Facturación
 
 > **Nota:** el certificado `.p12` lo emite el Banco Central del Ecuador o un proveedor autorizado. El cliente debe solicitarlo con su RUC en el portal del SRI.
+
+### Funciones disponibles en la tabla de facturas
+
+| Botón | Cuándo aparece | Qué hace |
+|-------|----------------|----------|
+| **Consultar SRI** | Factura en estado *Pendiente SRI* (enviada) | Re-consulta la autorización al SRI usando la clave de acceso guardada |
+| **NC** | Factura autorizada sin Nota de Crédito activa | Abre modal para emitir una Nota de Crédito Electrónica (código 04) que la revierte |
+| **Email** | Factura autorizada con email del comprador | Envía el RIDE PDF al comprador |
+| **RIDE** | Factura o NC autorizada | Descarga el PDF en formato estándar SRI con logo y código de barras |
+| **XML** | Cualquier factura con XML firmado | Descarga el XML firmado |
+
+### Notas de Crédito Electrónicas
+
+Las Notas de Crédito (NC) son el mecanismo oficial del SRI para anular una factura ya autorizada. El sistema las emite con código de comprobante `04` y las envía directamente al SRI.
+
+**Plazo para emitirlas:** hasta el día de vencimiento de la declaración de IVA del mes siguiente, que depende del último dígito del RUC:
+
+| Último dígito RUC | Fecha límite |
+|-------------------|--------------|
+| 1 | Día 10 |
+| 2 | Día 12 |
+| 3 | Día 14 |
+| 4 | Día 16 |
+| 5 | Día 18 |
+| 6 | Día 20 |
+| 7 | Día 22 |
+| 8 | Día 24 |
+| 9 | Día 26 |
+| 0 | Día 28 |
+
+El sistema muestra un indicador visual (verde / ámbar / rojo) con los días restantes al abrir el modal de NC.
+
+### RIDE PDF
+
+El RIDE sigue el formato estándar SRI Ecuador:
+- **Logo** tomado desde `/admin/dashboard/perfil` → pestaña Imágenes → campo *Logotipo del Menú*. Usar imagen con fondo blanco o transparente.
+- **Código de barras** Code 128 generado automáticamente a partir de la clave de acceso de 49 dígitos.
 
 ## 8. Módulo Email (envío de RIDE al cliente)
 
