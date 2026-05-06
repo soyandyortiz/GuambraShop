@@ -96,7 +96,7 @@ export function TablaPedidos({ pedidos: pedidosInic, configTicket }: Props) {
     if (!hayEnviadas) return
     const timer = setInterval(() => {
       cargarFacturas(pedidos.map(p => p.id))
-    }, 20_000)
+    }, 60_000)
     return () => clearInterval(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [facturasEmitidas, pedidos])

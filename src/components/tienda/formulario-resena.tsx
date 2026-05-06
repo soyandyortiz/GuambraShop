@@ -98,7 +98,7 @@ export function FormularioResena({ productoId, onEnviada }: Props) {
               onClick={() => setCalificacion(i)}
               onMouseEnter={() => setHover(i)}
               onMouseLeave={() => setHover(0)}
-              className="transition-transform hover:scale-110 active:scale-95"
+              className="transition-colors"
             >
               <Star className={cn(
                 'w-7 h-7 transition-colors',

@@ -52,40 +52,40 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
     {
       titulo: 'Ventas',
       items: [
-        { href: '/admin/dashboard/venta-nueva', icono: <Receipt className="w-3.5 h-3.5" />,      etiqueta: 'Nueva Venta',  badge: null },
-        { href: '/admin/dashboard/pedidos',     icono: <ClipboardList className="w-3.5 h-3.5" />, etiqueta: 'Pedidos',      badge: 'pedidos' },
-        { href: '/admin/dashboard/clientes',    icono: <Users className="w-3.5 h-3.5" />,         etiqueta: 'Clientes',     badge: null },
-        { href: '/admin/dashboard/ingresos',    icono: <TrendingUp className="w-3.5 h-3.5" />,    etiqueta: 'Ingresos',     badge: null },
+        { href: '/admin/dashboard/venta-nueva', icono: <Receipt className="w-4 h-4" />,      etiqueta: 'Nueva Venta',  badge: null },
+        { href: '/admin/dashboard/pedidos',     icono: <ClipboardList className="w-4 h-4" />, etiqueta: 'Pedidos',      badge: 'pedidos' },
+        { href: '/admin/dashboard/clientes',    icono: <Users className="w-4 h-4" />,         etiqueta: 'Clientes',     badge: null },
+        { href: '/admin/dashboard/ingresos',    icono: <TrendingUp className="w-4 h-4" />,    etiqueta: 'Ingresos',     badge: null },
       ],
     },
     {
       titulo: 'Catálogo',
       items: [
-        { href: '/admin/dashboard/productos',   icono: <Package className="w-3.5 h-3.5" />,   etiqueta: 'Productos',   badge: null },
-        { href: '/admin/dashboard/categorias',  icono: <Tag className="w-3.5 h-3.5" />,        etiqueta: 'Categorías',  badge: null },
-        { href: '/admin/dashboard/cupones',     icono: <Ticket className="w-3.5 h-3.5" />,     etiqueta: 'Cupones',     badge: null },
-        { href: '/admin/dashboard/promociones', icono: <Megaphone className="w-3.5 h-3.5" />,  etiqueta: 'Promociones', badge: null },
+        { href: '/admin/dashboard/productos',   icono: <Package className="w-4 h-4" />,   etiqueta: 'Productos',   badge: null },
+        { href: '/admin/dashboard/categorias',  icono: <Tag className="w-4 h-4" />,        etiqueta: 'Categorías',  badge: null },
+        { href: '/admin/dashboard/cupones',     icono: <Ticket className="w-4 h-4" />,     etiqueta: 'Cupones',     badge: null },
+        { href: '/admin/dashboard/promociones', icono: <Megaphone className="w-4 h-4" />,  etiqueta: 'Promociones', badge: null },
       ],
     },
     {
       titulo: 'Servicios',
       items: [
-        { href: '/admin/dashboard/calendario',  icono: <CalendarDays className="w-3.5 h-3.5" />, etiqueta: 'Calendario', badge: 'citas' },
-        { href: '/admin/dashboard/solicitudes', icono: <PartyPopper className="w-3.5 h-3.5" />,  etiqueta: 'Eventos',    badge: 'solicitudes' },
-        { href: '/admin/dashboard/alquileres',  icono: <KeyRound className="w-3.5 h-3.5" />,     etiqueta: 'Alquileres', badge: null },
-        { href: '/admin/dashboard/envios',      icono: <Truck className="w-3.5 h-3.5" />,        etiqueta: 'Envíos',     badge: null },
+        { href: '/admin/dashboard/calendario',  icono: <CalendarDays className="w-4 h-4" />, etiqueta: 'Calendario', badge: 'citas' },
+        { href: '/admin/dashboard/solicitudes', icono: <PartyPopper className="w-4 h-4" />,  etiqueta: 'Eventos',    badge: 'solicitudes' },
+        { href: '/admin/dashboard/alquileres',  icono: <KeyRound className="w-4 h-4" />,     etiqueta: 'Alquileres', badge: null },
+        { href: '/admin/dashboard/envios',      icono: <Truck className="w-4 h-4" />,        etiqueta: 'Envíos',     badge: null },
       ],
     },
     {
       titulo: 'Administración',
       items: [
-        { href: '/admin/dashboard/facturacion', icono: <FileText className="w-3.5 h-3.5" />, etiqueta: 'Facturación', badge: null },
-        { href: '/admin/dashboard/resenas',     icono: <Star className="w-3.5 h-3.5" />,     etiqueta: 'Reseñas',     badge: null },
+        { href: '/admin/dashboard/facturacion', icono: <FileText className="w-4 h-4" />, etiqueta: 'Facturación', badge: null },
+        { href: '/admin/dashboard/resenas',     icono: <Star className="w-4 h-4" />,     etiqueta: 'Reseñas',     badge: null },
         ...(esSuperadmin ? [
-          { href: '/admin/dashboard/mensajes', icono: <MessageSquare className="w-3.5 h-3.5" />, etiqueta: 'Mensajes',     badge: null },
-          { href: '/admin/dashboard/email',    icono: <Mail className="w-3.5 h-3.5" />,           etiqueta: 'Email',        badge: null },
+          { href: '/admin/dashboard/mensajes', icono: <MessageSquare className="w-4 h-4" />, etiqueta: 'Mensajes',     badge: null },
+          { href: '/admin/dashboard/email',    icono: <Mail className="w-4 h-4" />,           etiqueta: 'Email',        badge: null },
         ] : []),
-        { href: '/admin/dashboard/perfil',      icono: <Settings className="w-3.5 h-3.5" />,  etiqueta: 'Configuración', badge: null },
+        { href: '/admin/dashboard/perfil',      icono: <Settings className="w-4 h-4" />,  etiqueta: 'Configuración', badge: null },
       ],
     },
   ]
@@ -104,29 +104,29 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
     <aside className="hidden lg:flex flex-col w-60 min-h-screen bg-card border-r border-border fixed left-0 top-0 bottom-0 z-40">
 
       {/* Inicio */}
-      <div className="px-2 pt-2">
+      <div className="px-2 pt-3">
         <Link
           href="/admin/dashboard"
           className={cn(
-            'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+            'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors',
             esActivo('/admin/dashboard')
               ? 'bg-primary text-white'
               : 'text-foreground-muted hover:text-foreground hover:bg-background-subtle'
           )}
         >
-          <LayoutDashboard className="w-3.5 h-3.5 flex-shrink-0" />
+          <LayoutDashboard className="w-4 h-4 flex-shrink-0" />
           Inicio
         </Link>
       </div>
 
       {/* Secciones */}
-      <nav className="flex-1 overflow-y-auto px-2 pb-2 mt-1">
+      <nav className="flex-1 overflow-y-auto px-2 pb-3 mt-2">
         {secciones.map(seccion => (
-          <div key={seccion.titulo} className="mb-3">
-            <p className="px-2.5 py-1 text-[10px] font-bold text-foreground-muted/60 uppercase tracking-wider">
+          <div key={seccion.titulo} className="mb-5">
+            <p className="px-3 py-1.5 text-[10px] font-bold text-foreground-muted/50 uppercase tracking-widest">
               {seccion.titulo}
             </p>
-            <div className="flex flex-col gap-px">
+            <div className="flex flex-col gap-0.5">
               {seccion.items.map(item => {
                 const activo = esActivo(item.href)
                 const count  = obtenerBadge(item.badge)
@@ -135,13 +135,13 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                      'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                       activo
                         ? 'bg-primary text-white'
                         : 'text-foreground-muted hover:text-foreground hover:bg-background-subtle'
                     )}
                   >
-                    <span className="flex-shrink-0">{item.icono}</span>
+                    <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">{item.icono}</span>
                     <span className="truncate">{item.etiqueta}</span>
                     <BadgeConteo count={count} activo={activo} />
                   </Link>

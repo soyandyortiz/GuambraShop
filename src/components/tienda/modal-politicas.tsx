@@ -36,7 +36,7 @@ export function ModalPoliticas({ politicas }: Props) {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           {/* Backdrop */}
           <div 
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300"
+            className="absolute inset-0 bg-black/40 animate-in fade-in duration-200"
             onClick={() => setAbierto(false)}
           />
           

@@ -87,7 +87,7 @@ export function TarjetaProducto({
 
   return (
     <>
-    <div className="bg-card rounded-2xl overflow-hidden border border-card-border hover:shadow-md hover:border-border-strong transition-all duration-300 flex flex-col">
+    <div className="bg-card rounded-2xl overflow-hidden border border-card-border hover:shadow-sm hover:border-border-strong transition-shadow duration-150 flex flex-col">
 
       {/* Imagen — clic navega al producto */}
       <div
@@ -151,7 +151,7 @@ export function TarjetaProducto({
           )}
           {pocasUnidades && (stock ?? 0) <= 2 && (
             <div className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
-              <span className="w-1 h-1 rounded-full bg-white animate-pulse flex-shrink-0" />
+              <span className="w-1 h-1 rounded-full bg-white flex-shrink-0" />
               ¡Solo {stock === 1 ? 'queda 1' : `quedan ${stock}`}!
             </div>
           )}
@@ -175,7 +175,7 @@ export function TarjetaProducto({
             'absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center transition-all z-10 shadow-sm',
             fav
               ? 'bg-primary border border-primary text-white'
-              : 'bg-white/90 backdrop-blur-sm border border-primary/60 text-primary hover:border-primary hover:bg-primary/5'
+              : 'bg-white/90 border border-primary/60 text-primary hover:border-primary hover:bg-primary/5'
           )}
         >
           <Heart className={cn('w-3.5 h-3.5', fav && 'fill-current')} />
@@ -257,7 +257,7 @@ export function TarjetaProducto({
         <div className="grid grid-cols-2 gap-1 mt-2">
           <Link
             href={`/producto/${slug}`}
-            className="flex items-center justify-center gap-1 h-8 rounded-lg bg-foreground text-background text-[10px] font-bold hover:opacity-80 active:scale-95 transition-all"
+            className="flex items-center justify-center gap-1 h-8 rounded-lg bg-foreground text-background text-[10px] font-bold hover:opacity-80 transition-opacity"
           >
             <Eye className="w-3 h-3 flex-shrink-0" />
             Ver
@@ -268,7 +268,7 @@ export function TarjetaProducto({
             onClick={agregarAlCarrito}
             disabled={agregando && tipo_producto !== 'servicio' && tipo_producto !== 'evento'}
             className={cn(
-              'flex items-center justify-center gap-1 h-8 rounded-lg text-[10px] font-bold active:scale-95 transition-all',
+              'flex items-center justify-center gap-1 h-8 rounded-lg text-[10px] font-bold transition-opacity',
               tipo_producto === 'evento'
                 ? 'bg-purple-600 text-white hover:bg-purple-700'
                 : agregando && tipo_producto !== 'servicio'
@@ -281,7 +281,7 @@ export function TarjetaProducto({
             {tipo_producto === 'evento' ? (
               <Calendar className="w-3 h-3 flex-shrink-0" />
             ) : agregando && tipo_producto !== 'servicio' ? (
-              <Check className="w-3 h-3 flex-shrink-0 animate-in zoom-in duration-300" />
+              <Check className="w-3 h-3 flex-shrink-0" />
             ) : tipo_producto === 'servicio' ? (
               <Calendar className="w-3 h-3 flex-shrink-0" />
             ) : (

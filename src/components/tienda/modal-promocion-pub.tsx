@@ -41,7 +41,7 @@ export function ModalPromocionPub({ promocion, whatsapp }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60"
       onClick={() => setVisible(false)}
     >
       <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">

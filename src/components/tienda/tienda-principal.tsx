@@ -540,7 +540,7 @@ export function TiendaPrincipal({ precioMinGlobal, precioMaxGlobal, categorias }
               <button
                 onClick={() => cargarProductos(false)}
                 disabled={cargandoMas}
-                className="group flex items-center gap-2 px-6 py-2.5 rounded-full bg-card border border-card-border shadow-sm hover:border-primary/50 transition-all active:scale-95 disabled:opacity-50"
+                className="group flex items-center gap-2 px-6 py-2.5 rounded-full bg-card border border-card-border shadow-sm hover:border-primary/50 transition-colors disabled:opacity-50"
               >
                 {cargandoMas ? (
                   <Loader2 className="w-4 h-4 text-primary animate-spin" />

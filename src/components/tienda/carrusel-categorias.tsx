@@ -52,7 +52,7 @@ export function CarruselCategorias({ categorias }: Props) {
           'bg-card border border-border shadow-md',
           'flex items-center justify-center',
           'text-foreground-muted hover:text-primary hover:border-primary/40 hover:bg-background-subtle',
-          'transition-all duration-200 active:scale-90',
+          'transition-colors duration-150',
           mostrarIzq ? 'opacity-100' : 'opacity-0 pointer-events-none'
         )}
       >
@@ -71,7 +71,7 @@ export function CarruselCategorias({ categorias }: Props) {
             href={`/categoria/${cat.slug}`}
             className="flex flex-col items-center gap-2 group flex-shrink-0 w-[68px] sm:w-[80px]"
           >
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-background-subtle border border-border group-hover:border-primary/40 transition-all duration-300 group-hover:scale-105 group-hover:shadow-md">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-background-subtle border border-border group-hover:border-primary/40 transition-colors duration-150">
               {cat.imagen_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={cat.imagen_url} alt={cat.nombre} className="w-full h-full object-cover" />
@@ -92,7 +92,7 @@ export function CarruselCategorias({ categorias }: Props) {
           href="/categorias"
           className="flex flex-col items-center gap-2 group flex-shrink-0 w-[68px] sm:w-[80px]"
         >
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 flex items-center justify-center group-hover:border-primary/60 group-hover:bg-primary/10 transition-all duration-300 group-hover:scale-105">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 flex items-center justify-center group-hover:border-primary/60 group-hover:bg-primary/10 transition-colors duration-150">
             <LayoutGrid className="w-7 h-7 text-primary/50 group-hover:text-primary transition-colors duration-300" />
           </div>
           <span className="text-[10px] sm:text-[11px] text-primary/60 font-bold text-center w-full leading-tight group-hover:text-primary transition-colors line-clamp-2 min-h-[2rem]">
@@ -110,7 +110,7 @@ export function CarruselCategorias({ categorias }: Props) {
           'bg-card border border-border shadow-md',
           'flex items-center justify-center',
           'text-foreground-muted hover:text-primary hover:border-primary/40 hover:bg-background-subtle',
-          'transition-all duration-200 active:scale-90',
+          'transition-colors duration-150',
           mostrarDer ? 'opacity-100' : 'opacity-0 pointer-events-none'
         )}
       >

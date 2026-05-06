@@ -200,7 +200,7 @@ export function ModalAgendar({ productoId, nombre, slug, imagenUrl, precio, simb
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCerrar} />
+      <div className="absolute inset-0 bg-black/60" onClick={onCerrar} />
 
       {/* Panel */}
       <div className="relative w-full max-w-md bg-card rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">

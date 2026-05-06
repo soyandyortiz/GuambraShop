@@ -129,7 +129,7 @@ export function ContadorPago({ fechaInicio, diasPago, compacto = false }: Props)
       <div className="flex items-center gap-2 mb-3">
         {tiempo.vencido
           ? <AlertTriangle className="w-4 h-4 text-danger" />
-          : <Clock className="w-4 h-4 text-primary animate-pulse" />
+          : <Clock className="w-4 h-4 text-primary" />
         }
         <p className="text-xs font-semibold text-foreground">
           {tiempo.vencido ? 'PERÍODO VENCIDO' : 'Tiempo restante'}
