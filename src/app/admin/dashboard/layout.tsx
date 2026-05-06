@@ -37,7 +37,7 @@ export default async function LayoutDashboard({ children }: { children: React.Re
           {/* Sidebar desktop */}
           <Sidebar nombre={nombre} rol={rol} fotoPerfil={fotoPerfil} faviconUrl={faviconUrl} />
 
-          <div className="flex flex-col flex-1 min-w-0 lg:ml-60">
+          <div className="flex flex-col flex-1 min-w-0 lg:ml-56">
             {/* Header móvil */}
             <HeaderAdmin nombre={nombre} rol={rol} fotoPerfil={fotoPerfil} />
 
