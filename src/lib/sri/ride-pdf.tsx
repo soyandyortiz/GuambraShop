@@ -515,9 +515,6 @@ function RIDEDocument({
 
           {/* Forma de pago */}
           <View style={s.pagoBox}>
-            <View style={s.seccionTitulo}>
-              <Text style={s.seccionTituloTexto}>FORMA DE PAGO</Text>
-            </View>
             <View style={s.pagoTabla}>
               <View style={s.pagoCabecera}>
                 <Text style={[s.th, s.pagoColLabel, { color: BLANCO }]}>FORMA DE PAGO</Text>

@@ -362,6 +362,10 @@ function TabImagenes({ config }: { config: ConfigTienda }) {
             <p className="text-[11px] text-foreground-muted mt-0.5">
               Aparece en la barra superior. Se recomienda un formato <strong>rectangular</strong> de aprox. <strong>500x150px</strong>.
             </p>
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2 flex items-start gap-2">
+              <span className="flex-shrink-0">📄</span>
+              <span>Este logotipo también aparece en los <strong>comprobantes electrónicos RIDE</strong> emitidos al SRI. Usa imagen con fondo blanco o transparente para que se vea correctamente en el PDF.</span>
+            </p>
           </div>
           <SubidorImagenes
             imagenes={logo}
