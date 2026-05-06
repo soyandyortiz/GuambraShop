@@ -35,6 +35,7 @@ interface ProductoPOS {
   stock: number | null
   imagen_url: string | null
   variantes: VariantePOS[]
+  ventas: number
 }
 
 interface ItemCarritoPOS {
@@ -545,63 +546,82 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
               className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 overflow-y-auto pb-2"
               style={{ maxHeight: 'calc(100vh - 220px)' }}
             >
-              {productosFiltrados.map(producto => {
-                const precio = producto.precio_descuento ?? producto.precio
-                const sinStock = producto.stock !== null && producto.stock <= 0 && producto.tipo_producto === 'producto'
+              {productosFiltrados.map((producto, idx) => {
+                const precio    = producto.precio_descuento ?? producto.precio
+                const sinStock  = producto.stock !== null && producto.stock <= 0 && producto.tipo_producto === 'producto'
+                const esMasSolicitado = idx === 0 && producto.ventas > 0
                 return (
                   <button
                     key={producto.id}
                     onClick={() => !sinStock && clickProducto(producto)}
                     disabled={sinStock}
                     className={cn(
-                      'rounded-xl border bg-card text-left flex flex-col overflow-hidden transition-all group',
+                      'relative aspect-square rounded-2xl overflow-hidden transition-all group',
                       sinStock
-                        ? 'border-border opacity-50 cursor-not-allowed'
-                        : 'border-card-border hover:border-primary/60 hover:shadow-md active:scale-[0.97]'
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:scale-[1.03] hover:shadow-lg active:scale-[0.97]'
                     )}
                   >
-                    {/* Imagen */}
-                    <div className="w-full bg-gray-100 dark:bg-zinc-800 overflow-hidden flex-shrink-0" style={{ paddingBottom: '75%', position: 'relative' }}>
-                      {producto.imagen_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={producto.imagen_url}
-                          alt={producto.nombre}
-                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Package className="w-10 h-10 text-gray-300 dark:text-zinc-600" />
-                        </div>
-                      )}
-                      {producto.variantes.length > 0 && (
-                        <div className="absolute top-1.5 right-1.5 bg-black/50 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
-                          {producto.variantes.length} var.
-                        </div>
-                      )}
-                      {sinStock && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                          <span className="text-white text-xs font-bold bg-danger/90 px-2 py-0.5 rounded-lg">Sin stock</span>
-                        </div>
-                      )}
-                    </div>
+                    {/* Imagen full-bleed */}
+                    {producto.imagen_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={producto.imagen_url}
+                        alt={producto.nombre}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+                        <Package className="w-12 h-12 text-gray-300" />
+                      </div>
+                    )}
 
-                    {/* Info */}
-                    <div className="p-2 flex flex-col gap-1 flex-1">
-                      <p className="text-[11px] font-semibold text-foreground leading-snug"
-                         style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {/* Gradiente inferior */}
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent pt-8 pb-2 px-2">
+                      <p className="text-white text-[11px] font-semibold leading-tight line-clamp-2 drop-shadow">
                         {producto.nombre}
                       </p>
-                      <div className="mt-auto pt-1 flex items-center justify-between">
-                        <p className="text-sm font-extrabold text-primary leading-none">{formatearPrecio(precio, simboloMoneda)}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-white font-extrabold text-sm drop-shadow">
+                          {formatearPrecio(precio, simboloMoneda)}
+                        </span>
                         {producto.precio_descuento && (
-                          <p className="text-[10px] text-foreground-muted line-through leading-none">{formatearPrecio(producto.precio, simboloMoneda)}</p>
+                          <span className="text-white/60 text-[10px] line-through">
+                            {formatearPrecio(producto.precio, simboloMoneda)}
+                          </span>
                         )}
                       </div>
-                      {producto.stock !== null && producto.stock > 0 && producto.stock <= 5 && (
-                        <p className="text-[9px] text-warning font-semibold">Solo {producto.stock} disponibles</p>
-                      )}
                     </div>
+
+                    {/* Badge más vendido */}
+                    {esMasSolicitado && (
+                      <div className="absolute top-2 left-2 bg-amber-400 text-amber-900 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wide shadow">
+                        ★ Top
+                      </div>
+                    )}
+
+                    {/* Badge variantes */}
+                    {producto.variantes.length > 0 && !sinStock && (
+                      <div className="absolute top-2 right-2 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                        {producto.variantes.length} var.
+                      </div>
+                    )}
+
+                    {/* Overlay sin stock */}
+                    {sinStock && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <span className="text-white text-xs font-bold bg-red-600/90 px-3 py-1 rounded-full">
+                          Sin stock
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Stock bajo */}
+                    {!sinStock && producto.stock !== null && producto.stock > 0 && producto.stock <= 5 && (
+                      <div className="absolute top-2 left-2 bg-amber-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                        {producto.stock} restantes
+                      </div>
+                    )}
                   </button>
                 )
               })}

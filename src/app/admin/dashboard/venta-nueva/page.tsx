@@ -10,6 +10,7 @@ export default async function PáginaVentaNueva() {
     { data: productosRaw },
     { data: imagenesRaw },
     { data: variantesRaw },
+    { data: pedidosItems },
     { data: clientes },
     { data: config },
     { data: facturacion },
@@ -18,8 +19,7 @@ export default async function PáginaVentaNueva() {
       .from('productos')
       .select('id, nombre, slug, tipo_producto, precio, precio_descuento, stock')
       .eq('esta_activo', true)
-      .not('tipo_producto', 'eq', 'evento')
-      .order('nombre'),
+      .not('tipo_producto', 'eq', 'evento'),
     supabase
       .from('imagenes_producto')
       .select('producto_id, url, orden')
@@ -27,6 +27,12 @@ export default async function PáginaVentaNueva() {
     supabase
       .from('variantes_producto')
       .select('id, producto_id, nombre, precio_variante, stock_variante, tipo_precio'),
+    // Contar ventas por producto (solo pedidos completados/confirmados)
+    supabase
+      .from('pedidos')
+      .select('items')
+      .in('estado', ['confirmado', 'en_proceso', 'enviado', 'entregado'])
+      .limit(500),
     supabase
       .from('clientes')
       .select('id, tipo_identificacion, identificacion, razon_social, email, telefono')
@@ -40,6 +46,17 @@ export default async function PáginaVentaNueva() {
       .select('activo')
       .maybeSingle(),
   ])
+
+  // Contar cuántas veces se vendió cada producto_id
+  const conteoVentas = new Map<string, number>()
+  for (const pedido of (pedidosItems ?? [])) {
+    const items = (pedido.items ?? []) as { producto_id?: string }[]
+    for (const item of items) {
+      if (item.producto_id) {
+        conteoVentas.set(item.producto_id, (conteoVentas.get(item.producto_id) ?? 0) + 1)
+      }
+    }
+  }
 
   // Indexar imágenes y variantes por producto_id
   const imagenesPorProducto = new Map<string, { url: string; orden: number }[]>()
@@ -56,28 +73,32 @@ export default async function PáginaVentaNueva() {
     variantesPorProducto.set(v.producto_id, lista)
   }
 
-  const productos = (productosRaw ?? []).map(p => {
-    const imgs  = imagenesPorProducto.get(p.id) ?? []
-    const imagen_url = imgs.find(i => i.orden === 0)?.url ?? imgs[0]?.url ?? null
-    const variantes  = (variantesPorProducto.get(p.id) ?? []).map(v => ({
-      id:             v.id,
-      nombre:         v.nombre,
-      precio_variante: v.precio_variante != null ? Number(v.precio_variante) : null,
-      stock_variante:  v.stock_variante  != null ? Number(v.stock_variante)  : null,
-      tipo_precio:    v.tipo_precio,
-    }))
-    return {
-      id:               p.id,
-      nombre:           p.nombre,
-      slug:             p.slug,
-      tipo_producto:    p.tipo_producto,
-      precio:           Number(p.precio),
-      precio_descuento: p.precio_descuento ? Number(p.precio_descuento) : null,
-      stock:            p.stock ?? null,
-      imagen_url,
-      variantes,
-    }
-  })
+  const productos = (productosRaw ?? [])
+    .map(p => {
+      const imgs = imagenesPorProducto.get(p.id) ?? []
+      const imagen_url = imgs.find(i => i.orden === 0)?.url ?? imgs[0]?.url ?? null
+      const variantes = (variantesPorProducto.get(p.id) ?? []).map(v => ({
+        id:              v.id,
+        nombre:          v.nombre,
+        precio_variante: v.precio_variante != null ? Number(v.precio_variante) : null,
+        stock_variante:  v.stock_variante  != null ? Number(v.stock_variante)  : null,
+        tipo_precio:     v.tipo_precio,
+      }))
+      return {
+        id:               p.id,
+        nombre:           p.nombre,
+        slug:             p.slug,
+        tipo_producto:    p.tipo_producto,
+        precio:           Number(p.precio),
+        precio_descuento: p.precio_descuento ? Number(p.precio_descuento) : null,
+        stock:            p.stock ?? null,
+        imagen_url,
+        variantes,
+        ventas:           conteoVentas.get(p.id) ?? 0,
+      }
+    })
+    // Ordenar: más vendidos primero, luego alfabético
+    .sort((a, b) => b.ventas - a.ventas || a.nombre.localeCompare(b.nombre))
 
   return (
     <div className="flex flex-col gap-4">
