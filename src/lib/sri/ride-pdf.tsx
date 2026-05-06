@@ -1,38 +1,44 @@
 /**
  * RIDE — Representación Impresa del Documento Electrónico
- * Generado con @react-pdf/renderer siguiendo el formato SRI Ecuador
+ * Formato estándar SRI Ecuador con código de barras Code 128
  */
 
 import React from 'react'
 import {
-  Document, Page, Text, View, StyleSheet, Font, renderToBuffer
+  Document, Page, Text, View, Image, StyleSheet, renderToBuffer
 } from '@react-pdf/renderer'
+import { createClient } from '@supabase/supabase-js'
+// @ts-expect-error bwip-js lacks TS types in some setups
+import bwipjs from 'bwip-js'
 import type { Factura, ConfiguracionFacturacion } from '@/types'
 
-// Paleta SRI Ecuador (colores neutros para facturas legales)
-const AZUL   = '#1E3A5F'
-const GRIS   = '#F5F5F5'
-const BORDE  = '#CCCCCC'
-const NEGRO  = '#111111'
-const MUTED  = '#555555'
+// ── Colores ──────────────────────────────────────────────────────────────────
+const NEGRO  = '#000000'
+const BORDE  = '#888888'
+const GRIS   = '#EBEBEB'
+const MUTED  = '#444444'
+const BLANCO = '#FFFFFF'
 
-const styles = StyleSheet.create({
+// ── Estilos ──────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
   page: {
     fontFamily: 'Helvetica',
-    fontSize: 8,
+    fontSize: 7.5,
     color: NEGRO,
-    padding: 28,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    backgroundColor: BLANCO,
   },
-  // ── Cabecera ──
+
+  // ── Cabecera
   header: {
     flexDirection: 'row',
     borderWidth: 1,
     borderColor: BORDE,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   headerLeft: {
-    flex: 2,
+    flex: 35,
     padding: 8,
     borderRightWidth: 1,
     borderColor: BORDE,
@@ -40,358 +46,570 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerRight: {
-    flex: 3,
+    flex: 65,
     padding: 8,
   },
+  logo: {
+    maxWidth: 110,
+    maxHeight: 60,
+    objectFit: 'contain',
+    marginBottom: 4,
+  },
   razonSocial: {
-    fontSize: 11,
+    fontSize: 9,
     fontFamily: 'Helvetica-Bold',
-    color: AZUL,
     textAlign: 'center',
     marginBottom: 2,
   },
   nombreComercial: {
-    fontSize: 8,
+    fontSize: 7,
     color: MUTED,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   emisorDato: {
-    fontSize: 7,
+    fontSize: 6.5,
     color: MUTED,
     textAlign: 'center',
-    lineHeight: 1.4,
+    lineHeight: 1.45,
   },
-  tipoComprobante: {
-    fontSize: 10,
+  // Lado derecho de la cabecera
+  rucRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderColor: BORDE,
+    paddingBottom: 3,
+    marginBottom: 3,
+    alignItems: 'center',
+  },
+  rucLabel: { fontSize: 7, color: MUTED, marginRight: 4 },
+  rucValue: { fontSize: 8, fontFamily: 'Helvetica-Bold' },
+  tipoDoc: {
+    fontSize: 11,
     fontFamily: 'Helvetica-Bold',
-    color: AZUL,
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: BORDE,
+    padding: '3 6',
+    marginBottom: 3,
+    textTransform: 'uppercase',
+  },
+  numDoc: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
     marginBottom: 4,
   },
-  numeroFactura: {
-    fontSize: 9,
-    fontFamily: 'Helvetica-Bold',
-    textAlign: 'center',
-    marginBottom: 6,
+  autoRow: {
+    flexDirection: 'row',
+    marginBottom: 1.5,
   },
-  // ── Clave de acceso ──
-  claveBox: {
+  autoLabel: { fontSize: 6.5, color: MUTED, width: 110 },
+  autoValue: { fontSize: 6.5, fontFamily: 'Helvetica-Bold', flex: 1 },
+  barcodeImg: {
+    width: '100%',
+    height: 28,
+    objectFit: 'contain',
+    marginTop: 3,
+    marginBottom: 1,
+  },
+  claveText: {
+    fontSize: 5.5,
+    color: MUTED,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+  },
+
+  // ── Sección título
+  seccionTitulo: {
     backgroundColor: GRIS,
-    padding: 4,
     borderWidth: 1,
     borderColor: BORDE,
-    marginBottom: 6,
-  },
-  claveLabel: { fontSize: 6, color: MUTED, marginBottom: 2 },
-  claveValue: { fontSize: 7, fontFamily: 'Helvetica-Bold', letterSpacing: 0.5 },
-  // ── Autorización ──
-  autoRow: { flexDirection: 'row', marginBottom: 2 },
-  autoLabel: { fontSize: 7, color: MUTED, width: 100 },
-  autoValue: { fontSize: 7, fontFamily: 'Helvetica-Bold', flex: 1 },
-  // ── Comprador ──
-  sectionTitle: {
-    backgroundColor: AZUL,
-    color: '#FFFFFF',
-    fontFamily: 'Helvetica-Bold',
-    fontSize: 7,
     padding: '3 6',
+    marginTop: 4,
     marginBottom: 0,
   },
+  seccionTituloTexto: {
+    fontSize: 7,
+    fontFamily: 'Helvetica-Bold',
+  },
+
+  // ── Comprador
   compradorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderColor: BORDE,
-    marginBottom: 6,
-  },
-  compradorCell: {
-    width: '50%',
-    padding: '4 6',
+    borderLeftWidth: 1,
     borderRightWidth: 1,
     borderBottomWidth: 1,
     borderColor: BORDE,
+    marginBottom: 0,
   },
-  compradorCellFull: {
+  celdaMedia: {
+    width: '50%',
+    padding: '3 5',
+    borderBottomWidth: 1,
+    borderRightWidth: 1,
+    borderColor: BORDE,
+  },
+  celdaCompleta: {
     width: '100%',
-    padding: '4 6',
+    padding: '3 5',
     borderBottomWidth: 1,
     borderColor: BORDE,
   },
-  cellLabel: { fontSize: 6, color: MUTED, marginBottom: 1 },
-  cellValue: { fontSize: 7, fontFamily: 'Helvetica-Bold' },
-  // ── Tabla de ítems ──
-  table: {
+  celdaTercio: {
+    width: '33.33%',
+    padding: '3 5',
+    borderBottomWidth: 1,
+    borderRightWidth: 1,
+    borderColor: BORDE,
+  },
+  etiqueta: { fontSize: 6, color: MUTED, marginBottom: 1 },
+  valor: { fontSize: 7, fontFamily: 'Helvetica-Bold' },
+
+  // ── Tabla de ítems
+  tabla: {
     borderWidth: 1,
     borderColor: BORDE,
-    marginBottom: 6,
+    marginTop: 4,
+    marginBottom: 0,
   },
-  tableHeader: {
+  tablaEncabezado: {
     flexDirection: 'row',
-    backgroundColor: AZUL,
-    padding: '3 4',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderColor: BORDE,
-    padding: '3 4',
-  },
-  tableRowAlt: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderColor: BORDE,
-    padding: '3 4',
     backgroundColor: GRIS,
-  },
-  thText: { color: '#FFFFFF', fontFamily: 'Helvetica-Bold', fontSize: 7 },
-  tdText: { fontSize: 7, color: NEGRO },
-  tdMuted: { fontSize: 7, color: MUTED },
-  colCod:   { width: '8%' },
-  colDesc:  { width: '40%' },
-  colCant:  { width: '10%', textAlign: 'right' },
-  colPU:    { width: '14%', textAlign: 'right' },
-  colDesc2: { width: '10%', textAlign: 'right' },
-  colTotal: { width: '18%', textAlign: 'right' },
-  // ── Totales ──
-  totalesBox: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: 6,
-  },
-  totalesTable: {
-    width: '45%',
-    borderWidth: 1,
+    borderBottomWidth: 1,
     borderColor: BORDE,
+    padding: '3 4',
   },
-  totalesRow: {
+  tablaFila: {
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderColor: BORDE,
-    padding: '3 6',
+    padding: '3 4',
   },
-  totalesRowFinal: {
+  tablaFilaAlt: {
     flexDirection: 'row',
-    backgroundColor: AZUL,
-    padding: '4 6',
+    borderBottomWidth: 1,
+    borderColor: BORDE,
+    padding: '3 4',
+    backgroundColor: '#F8F8F8',
   },
-  totalesLabel: { flex: 1, fontSize: 7, color: MUTED },
-  totalesValue: { fontSize: 7, fontFamily: 'Helvetica-Bold', textAlign: 'right' },
-  totalesLabelFinal: { flex: 1, fontSize: 8, color: '#FFFFFF', fontFamily: 'Helvetica-Bold' },
-  totalesValueFinal: { fontSize: 8, color: '#FFFFFF', fontFamily: 'Helvetica-Bold', textAlign: 'right' },
-  // ── Info adicional ──
-  infoAdicional: {
+  th: { fontSize: 6.5, fontFamily: 'Helvetica-Bold' },
+  td: { fontSize: 6.5 },
+  tdRight: { fontSize: 6.5, textAlign: 'right' },
+  // columnas ítems
+  cCodP:  { width: '9%' },
+  cCodA:  { width: '8%' },
+  cCant:  { width: '7%', textAlign: 'right' },
+  cUnid:  { width: '7%' },
+  cDesc:  { width: '37%' },
+  cPU:    { width: '12%', textAlign: 'right' },
+  cDsc:   { width: '8%', textAlign: 'right' },
+  cTotal: { width: '12%', textAlign: 'right' },
+
+  // ── Parte baja (pago + totales)
+  parteInferior: {
+    flexDirection: 'row',
+    marginTop: 4,
+    gap: 6,
+  },
+  pagoBox: {
+    flex: 50,
+  },
+  totalesBox: {
+    flex: 50,
+  },
+
+  // Forma de pago
+  pagoTabla: {
     borderWidth: 1,
     borderColor: BORDE,
-    padding: 6,
-    marginBottom: 6,
   },
-  infoItem: { fontSize: 7, color: MUTED, marginBottom: 1 },
-  // ── Footer ──
+  pagoCabecera: {
+    flexDirection: 'row',
+    backgroundColor: GRIS,
+    borderBottomWidth: 1,
+    borderColor: BORDE,
+    padding: '3 5',
+  },
+  pagoFila: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderColor: BORDE,
+    padding: '3 5',
+  },
+  pagoFilaLast: {
+    flexDirection: 'row',
+    padding: '3 5',
+  },
+  pagoColLabel: { flex: 1, fontSize: 6.5 },
+  pagoColValue: { width: 50, textAlign: 'right', fontSize: 6.5 },
+
+  // Totales
+  totalesTabla: {
+    borderWidth: 1,
+    borderColor: BORDE,
+  },
+  totalesFila: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderColor: BORDE,
+    padding: '2.5 5',
+  },
+  totalesFilaFinal: {
+    flexDirection: 'row',
+    backgroundColor: GRIS,
+    padding: '3 5',
+  },
+  totalesLabel: { flex: 1, fontSize: 6.5, color: MUTED },
+  totalesValue: { width: 55, textAlign: 'right', fontSize: 6.5, fontFamily: 'Helvetica-Bold' },
+  totalesLabelFinal: { flex: 1, fontSize: 7.5, fontFamily: 'Helvetica-Bold' },
+  totalesValueFinal: { width: 55, textAlign: 'right', fontSize: 7.5, fontFamily: 'Helvetica-Bold' },
+
+  // Info adicional
+  infoBox: {
+    borderWidth: 1,
+    borderColor: BORDE,
+    padding: '4 6',
+    marginTop: 4,
+  },
+  infoFila: {
+    flexDirection: 'row',
+    marginBottom: 1.5,
+  },
+  infoLabel: { fontSize: 6.5, color: MUTED, width: 60 },
+  infoValor: { fontSize: 6.5, flex: 1 },
+
+  // Footer
   footer: {
     borderTopWidth: 1,
     borderColor: BORDE,
-    paddingTop: 4,
+    marginTop: 6,
+    paddingTop: 3,
     textAlign: 'center',
   },
   footerText: { fontSize: 6, color: MUTED },
 })
 
-function n2(v: number) { return v.toFixed(2) }
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function n2(v: number) { return `$${v.toFixed(2)}` }
 
 function formatFecha(iso: string) {
   const d = new Date(iso + (iso.length === 10 ? 'T12:00:00' : ''))
   return d.toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-const AMBIENTES: Record<string, string> = {
-  pruebas:   'PRUEBAS',
-  produccion: 'PRODUCCIÓN',
+function formatFechaHora(iso: string) {
+  const d = new Date(iso)
+  return d.toLocaleString('es-EC', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
 }
 
-function chunkClave(clave: string): string {
-  return (clave.match(/.{1,10}/g) ?? [clave]).join(' - ')
+const TIPO_ID: Record<string, string> = {
+  '04': 'RUC',
+  '05': 'CÉDULA',
+  '06': 'PASAPORTE',
+  '07': 'CONS. FINAL',
 }
 
-// Componente PDF
-function RIDEDocument({ factura, config }: { factura: Factura; config: ConfiguracionFacturacion }) {
+// ── Documento PDF ─────────────────────────────────────────────────────────────
+function RIDEDocument({
+  factura,
+  config,
+  logoDataUrl,
+  barcodeDataUrl,
+}: {
+  factura: Factura
+  config: ConfiguracionFacturacion
+  logoDataUrl: string | null
+  barcodeDataUrl: string
+}) {
   const comp = factura.datos_comprador
   const items = factura.items
   const tot = factura.totales
-  const numFac = factura.numero_factura ?? `${config.codigo_establecimiento.padStart(3,'0')}-${config.punto_emision.padStart(3,'0')}-${factura.numero_secuencial.padStart(9,'0')}`
 
+  const esNC = factura.tipo === 'nota_credito'
+  const tipoLabel = esNC ? 'NOTA DE CRÉDITO' : 'FACTURA'
+
+  const numDoc = factura.numero_factura
+    ?? `${config.codigo_establecimiento.padStart(3,'0')}-${config.punto_emision.padStart(3,'0')}-${factura.numero_secuencial.padStart(9,'0')}`
+
+  const claveAcceso = factura.clave_acceso ?? ''
+
+  // Subtotales por tarifa
+  const base15 = tot.subtotal_iva
+  const base0  = tot.subtotal_0
+  const iva15  = tot.total_iva
+  const subtotalSinImp = base15 + base0
+  const descuento = tot.descuento
+  const totalFinal = tot.total
+
+  // Info adicional (campos extra)
   const infoAdicional: { label: string; value: string }[] = []
-  if (comp.email)     infoAdicional.push({ label: 'EMAIL', value: comp.email })
-  if (comp.telefono)  infoAdicional.push({ label: 'TELÉFONO', value: comp.telefono })
-  if (comp.direccion) infoAdicional.push({ label: 'DIRECCIÓN', value: comp.direccion })
-  if (factura.notas)  infoAdicional.push({ label: 'NOTAS', value: factura.notas })
+  if (comp.email)     infoAdicional.push({ label: 'Email', value: comp.email })
+  if (comp.telefono)  infoAdicional.push({ label: 'Teléfono', value: comp.telefono })
+  if (factura.notas)  infoAdicional.push({ label: 'Notas', value: factura.notas })
+
+  // Dividir clave de acceso en grupos de 10 para display
+  const claveGrupos = (claveAcceso.match(/.{1,10}/g) ?? []).join('  ')
 
   return (
     <Document
-      title={`Factura ${numFac}`}
+      title={`${tipoLabel} ${numDoc}`}
       author={config.razon_social}
-      subject="Factura Electrónica SRI Ecuador"
+      subject={`${tipoLabel} Electrónica SRI Ecuador`}
     >
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" style={s.page}>
 
-        {/* ── CABECERA ── */}
-        <View style={styles.header}>
-          {/* Datos del emisor */}
-          <View style={styles.headerLeft}>
-            <Text style={styles.razonSocial}>{config.razon_social}</Text>
+        {/* ══════════════════════════════════════════════════════
+            CABECERA
+        ══════════════════════════════════════════════════════ */}
+        <View style={s.header}>
+
+          {/* Columna izquierda — logo + datos emisor */}
+          <View style={s.headerLeft}>
+            {logoDataUrl ? (
+              <Image style={s.logo} src={logoDataUrl} />
+            ) : null}
+            <Text style={s.razonSocial}>{config.razon_social}</Text>
             {config.nombre_comercial && (
-              <Text style={styles.nombreComercial}>{config.nombre_comercial}</Text>
+              <Text style={s.nombreComercial}>{config.nombre_comercial}</Text>
             )}
-            <Text style={styles.emisorDato}>Dir: {config.direccion_matriz}</Text>
-            <Text style={styles.emisorDato}>RUC: {config.ruc}</Text>
-            <Text style={styles.emisorDato}>
-              Oblig. Contabilidad: {config.obligado_contabilidad ? 'SÍ' : 'NO'}
-            </Text>
+            <Text style={s.emisorDato}>Dir. Matriz: {config.direccion_matriz}</Text>
             {config.contribuyente_especial && (
-              <Text style={styles.emisorDato}>
-                Contrib. Especial N°: {config.contribuyente_especial}
+              <Text style={s.emisorDato}>
+                Contribuyente Especial N° {config.contribuyente_especial}
               </Text>
             )}
+            <Text style={s.emisorDato}>
+              Obligado a llevar Contabilidad: {config.obligado_contabilidad ? 'SÍ' : 'NO'}
+            </Text>
           </View>
 
-          {/* Tipo de comprobante + clave de acceso */}
-          <View style={styles.headerRight}>
-            <Text style={styles.tipoComprobante}>FACTURA</Text>
-            <Text style={styles.numeroFactura}>{numFac}</Text>
-
-            <View style={styles.claveBox}>
-              <Text style={styles.claveLabel}>NÚMERO DE CLAVE DE ACCESO</Text>
-              <Text style={styles.claveValue}>{chunkClave(factura.clave_acceso ?? '—')}</Text>
+          {/* Columna derecha — RUC, tipo comprobante, autorización, barcode */}
+          <View style={s.headerRight}>
+            <View style={s.rucRow}>
+              <Text style={s.rucLabel}>R.U.C.:</Text>
+              <Text style={s.rucValue}>{config.ruc}</Text>
             </View>
 
-            <View style={styles.autoRow}>
-              <Text style={styles.autoLabel}>N° DE AUTORIZACIÓN</Text>
-              <Text style={styles.autoValue}>{factura.numero_autorizacion ?? '(PENDIENTE)'}</Text>
+            <Text style={s.tipoDoc}>{tipoLabel}</Text>
+            <Text style={s.numDoc}>No. {numDoc}</Text>
+
+            <View style={s.autoRow}>
+              <Text style={s.autoLabel}>N° AUTORIZACIÓN:</Text>
+              <Text style={s.autoValue}>{factura.numero_autorizacion ?? '(PENDIENTE)'}</Text>
             </View>
-            <View style={styles.autoRow}>
-              <Text style={styles.autoLabel}>FECHA Y HORA AUTORIZACIÓN</Text>
-              <Text style={styles.autoValue}>
-                {factura.fecha_autorizacion ? formatFecha(factura.fecha_autorizacion) : '—'}
+            <View style={s.autoRow}>
+              <Text style={s.autoLabel}>FECHA Y HORA AUTORIZACIÓN:</Text>
+              <Text style={s.autoValue}>
+                {factura.fecha_autorizacion ? formatFechaHora(factura.fecha_autorizacion) : '—'}
               </Text>
             </View>
-            <View style={styles.autoRow}>
-              <Text style={styles.autoLabel}>AMBIENTE</Text>
-              <Text style={styles.autoValue}>{AMBIENTES[config.ambiente] ?? config.ambiente.toUpperCase()}</Text>
+            <View style={s.autoRow}>
+              <Text style={s.autoLabel}>AMBIENTE:</Text>
+              <Text style={s.autoValue}>
+                {config.ambiente === 'produccion' ? 'PRODUCCIÓN' : 'PRUEBAS'}
+              </Text>
             </View>
-            <View style={styles.autoRow}>
-              <Text style={styles.autoLabel}>EMISIÓN</Text>
-              <Text style={styles.autoValue}>NORMAL</Text>
+            <View style={s.autoRow}>
+              <Text style={s.autoLabel}>EMISIÓN:</Text>
+              <Text style={s.autoValue}>NORMAL</Text>
             </View>
+            <View style={s.autoRow}>
+              <Text style={s.autoLabel}>CLAVE DE ACCESO:</Text>
+            </View>
+
+            {barcodeDataUrl ? (
+              <Image style={s.barcodeImg} src={barcodeDataUrl} />
+            ) : null}
+            <Text style={s.claveText}>{claveGrupos}</Text>
           </View>
         </View>
 
-        {/* ── DATOS DEL COMPRADOR ── */}
-        <Text style={styles.sectionTitle}>DATOS DEL COMPRADOR</Text>
-        <View style={styles.compradorGrid}>
-          <View style={{ ...styles.compradorCellFull }}>
-            <Text style={styles.cellLabel}>RAZÓN SOCIAL / NOMBRES Y APELLIDOS</Text>
-            <Text style={styles.cellValue}>
+        {/* ══════════════════════════════════════════════════════
+            DATOS DEL ADQUIRENTE
+        ══════════════════════════════════════════════════════ */}
+        <View style={s.seccionTitulo}>
+          <Text style={s.seccionTituloTexto}>DATOS DEL ADQUIRENTE / COMPRADOR</Text>
+        </View>
+        <View style={s.compradorGrid}>
+          {/* Razón social — ocupa toda la fila */}
+          <View style={[s.celdaCompleta, { borderRightWidth: 0 }]}>
+            <Text style={s.etiqueta}>RAZÓN SOCIAL / NOMBRES Y APELLIDOS</Text>
+            <Text style={s.valor}>
               {comp.tipo_identificacion === '07' ? 'CONSUMIDOR FINAL' : comp.razon_social}
             </Text>
           </View>
-          <View style={styles.compradorCell}>
-            <Text style={styles.cellLabel}>IDENTIFICACIÓN</Text>
-            <Text style={styles.cellValue}>
+          {/* Identificación + Tipo + Fecha */}
+          <View style={s.celdaTercio}>
+            <Text style={s.etiqueta}>IDENTIFICACIÓN</Text>
+            <Text style={s.valor}>
               {comp.tipo_identificacion === '07' ? '9999999999999' : comp.identificacion}
             </Text>
           </View>
-          <View style={{ ...styles.compradorCell, borderRightWidth: 0 }}>
-            <Text style={styles.cellLabel}>FECHA DE EMISIÓN</Text>
-            <Text style={styles.cellValue}>{formatFecha(factura.fecha_emision)}</Text>
+          <View style={s.celdaTercio}>
+            <Text style={s.etiqueta}>TIPO IDENTIFICACIÓN</Text>
+            <Text style={s.valor}>{TIPO_ID[comp.tipo_identificacion] ?? comp.tipo_identificacion}</Text>
           </View>
-          {comp.direccion && (
-            <View style={{ ...styles.compradorCellFull, borderBottomWidth: 0 }}>
-              <Text style={styles.cellLabel}>DIRECCIÓN</Text>
-              <Text style={styles.cellValue}>{comp.direccion}</Text>
+          <View style={[s.celdaTercio, { borderRightWidth: 0 }]}>
+            <Text style={s.etiqueta}>FECHA EMISIÓN</Text>
+            <Text style={s.valor}>{formatFecha(factura.fecha_emision)}</Text>
+          </View>
+          {/* Dirección */}
+          {comp.direccion ? (
+            <View style={[s.celdaCompleta, { borderBottomWidth: 0, borderRightWidth: 0 }]}>
+              <Text style={s.etiqueta}>DIRECCIÓN DEL COMPRADOR</Text>
+              <Text style={s.valor}>{comp.direccion}</Text>
             </View>
+          ) : (
+            // Celda vacía para cerrar la tabla correctamente
+            <View style={[s.celdaCompleta, { borderBottomWidth: 0, borderRightWidth: 0, padding: 0 }]} />
           )}
         </View>
 
-        {/* ── DETALLE DE PRODUCTOS ── */}
-        <View style={styles.table}>
-          <View style={styles.tableHeader}>
-            <Text style={{ ...styles.thText, ...styles.colCod }}>CÓD.</Text>
-            <Text style={{ ...styles.thText, ...styles.colDesc }}>DESCRIPCIÓN</Text>
-            <Text style={{ ...styles.thText, ...styles.colCant }}>CANT.</Text>
-            <Text style={{ ...styles.thText, ...styles.colPU }}>P. UNIT.</Text>
-            <Text style={{ ...styles.thText, ...styles.colDesc2 }}>DESC.</Text>
-            <Text style={{ ...styles.thText, ...styles.colTotal }}>TOTAL S/IMP.</Text>
+        {/* ══════════════════════════════════════════════════════
+            DETALLE DE BIENES Y/O SERVICIOS
+        ══════════════════════════════════════════════════════ */}
+        <View style={s.seccionTitulo}>
+          <Text style={s.seccionTituloTexto}>DETALLE DE BIENES Y/O SERVICIOS</Text>
+        </View>
+        <View style={s.tabla}>
+          {/* Encabezado */}
+          <View style={s.tablaEncabezado}>
+            <Text style={[s.th, s.cCodP]}>CÓD. PRINCIPAL</Text>
+            <Text style={[s.th, s.cCodA]}>CÓD. AUX.</Text>
+            <Text style={[s.th, s.cCant]}>CANT.</Text>
+            <Text style={[s.th, s.cUnid]}>UNIDAD</Text>
+            <Text style={[s.th, s.cDesc]}>DESCRIPCIÓN</Text>
+            <Text style={[s.th, s.cPU]}>P. UNITARIO</Text>
+            <Text style={[s.th, s.cDsc]}>DESCUENTO</Text>
+            <Text style={[s.th, s.cTotal]}>P. TOTAL</Text>
           </View>
+          {/* Filas */}
           {items.map((item, i) => (
-            <View key={i} style={i % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
-              <Text style={{ ...styles.tdMuted, ...styles.colCod }}>{String(i + 1).padStart(3, '0')}</Text>
-              <Text style={{ ...styles.tdText, ...styles.colDesc }}>{item.descripcion}</Text>
-              <Text style={{ ...styles.tdMuted, ...styles.colCant }}>{item.cantidad.toFixed(2)}</Text>
-              <Text style={{ ...styles.tdMuted, ...styles.colPU }}>${n2(item.precio_unitario)}</Text>
-              <Text style={{ ...styles.tdMuted, ...styles.colDesc2 }}>${n2(item.descuento)}</Text>
-              <Text style={{ ...styles.tdText, ...styles.colTotal }}>${n2(item.subtotal)}</Text>
+            <View key={i} style={i % 2 === 0 ? s.tablaFila : s.tablaFilaAlt}>
+              <Text style={[s.td, s.cCodP]}>{String(i + 1).padStart(6,'0')}</Text>
+              <Text style={[s.td, s.cCodA]}>—</Text>
+              <Text style={[s.tdRight, s.cCant]}>{item.cantidad.toFixed(2)}</Text>
+              <Text style={[s.td, s.cUnid]}>U</Text>
+              <Text style={[s.td, s.cDesc]}>{item.descripcion}</Text>
+              <Text style={[s.tdRight, s.cPU]}>{item.precio_unitario.toFixed(2)}</Text>
+              <Text style={[s.tdRight, s.cDsc]}>{item.descuento.toFixed(2)}</Text>
+              <Text style={[s.tdRight, s.cTotal]}>{item.subtotal.toFixed(2)}</Text>
             </View>
           ))}
         </View>
 
-        {/* ── TOTALES ── */}
-        <View style={styles.totalesBox}>
-          <View style={styles.totalesTable}>
-            {tot.subtotal_0 > 0 && (
-              <View style={styles.totalesRow}>
-                <Text style={styles.totalesLabel}>SUBTOTAL TARIFA 0%</Text>
-                <Text style={styles.totalesValue}>${n2(tot.subtotal_0)}</Text>
-              </View>
-            )}
-            {tot.subtotal_iva > 0 && (
-              <View style={styles.totalesRow}>
-                <Text style={styles.totalesLabel}>SUBTOTAL TARIFA {config.tarifa_iva}%</Text>
-                <Text style={styles.totalesValue}>${n2(tot.subtotal_iva)}</Text>
-              </View>
-            )}
-            {tot.descuento > 0 && (
-              <View style={styles.totalesRow}>
-                <Text style={styles.totalesLabel}>DESCUENTO</Text>
-                <Text style={styles.totalesValue}>- ${n2(tot.descuento)}</Text>
-              </View>
-            )}
-            <View style={styles.totalesRow}>
-              <Text style={styles.totalesLabel}>IVA {config.tarifa_iva}%</Text>
-              <Text style={styles.totalesValue}>${n2(tot.total_iva)}</Text>
+        {/* ══════════════════════════════════════════════════════
+            FORMA DE PAGO  +  TOTALES
+        ══════════════════════════════════════════════════════ */}
+        <View style={s.parteInferior}>
+
+          {/* Forma de pago */}
+          <View style={s.pagoBox}>
+            <View style={s.seccionTitulo}>
+              <Text style={s.seccionTituloTexto}>FORMA DE PAGO</Text>
             </View>
-            <View style={styles.totalesRow}>
-              <Text style={styles.totalesLabel}>PROPINA</Text>
-              <Text style={styles.totalesValue}>$0.00</Text>
+            <View style={s.pagoTabla}>
+              <View style={s.pagoCabecera}>
+                <Text style={[s.th, s.pagoColLabel]}>FORMA DE PAGO</Text>
+                <Text style={[s.th, s.pagoColValue]}>VALOR</Text>
+              </View>
+              <View style={s.pagoFilaLast}>
+                <Text style={s.pagoColLabel}>SIN UTILIZACIÓN DEL SISTEMA FINANCIERO</Text>
+                <Text style={s.pagoColValue}>{totalFinal.toFixed(2)}</Text>
+              </View>
             </View>
-            <View style={styles.totalesRowFinal}>
-              <Text style={styles.totalesLabelFinal}>VALOR TOTAL</Text>
-              <Text style={styles.totalesValueFinal}>${n2(tot.total)}</Text>
+          </View>
+
+          {/* Totales */}
+          <View style={s.totalesBox}>
+            <View style={s.seccionTitulo}>
+              <Text style={s.seccionTituloTexto}>RESUMEN DE VALORES</Text>
+            </View>
+            <View style={s.totalesTabla}>
+              {base15 > 0 && (
+                <View style={s.totalesFila}>
+                  <Text style={s.totalesLabel}>SUBTOTAL {config.tarifa_iva}%</Text>
+                  <Text style={s.totalesValue}>{base15.toFixed(2)}</Text>
+                </View>
+              )}
+              {base0 > 0 && (
+                <View style={s.totalesFila}>
+                  <Text style={s.totalesLabel}>SUBTOTAL 0%</Text>
+                  <Text style={s.totalesValue}>{base0.toFixed(2)}</Text>
+                </View>
+              )}
+              <View style={s.totalesFila}>
+                <Text style={s.totalesLabel}>SUBTOTAL SIN IMPUESTOS</Text>
+                <Text style={s.totalesValue}>{subtotalSinImp.toFixed(2)}</Text>
+              </View>
+              <View style={s.totalesFila}>
+                <Text style={s.totalesLabel}>SUBTOTAL NO OBJETO DE IVA</Text>
+                <Text style={s.totalesValue}>0.00</Text>
+              </View>
+              <View style={s.totalesFila}>
+                <Text style={s.totalesLabel}>SUBTOTAL EXENTO DE IVA</Text>
+                <Text style={s.totalesValue}>0.00</Text>
+              </View>
+              {descuento > 0 && (
+                <View style={s.totalesFila}>
+                  <Text style={s.totalesLabel}>DESCUENTO</Text>
+                  <Text style={s.totalesValue}>{descuento.toFixed(2)}</Text>
+                </View>
+              )}
+              <View style={s.totalesFila}>
+                <Text style={s.totalesLabel}>ICE</Text>
+                <Text style={s.totalesValue}>0.00</Text>
+              </View>
+              <View style={s.totalesFila}>
+                <Text style={s.totalesLabel}>IVA {config.tarifa_iva}%</Text>
+                <Text style={s.totalesValue}>{iva15.toFixed(2)}</Text>
+              </View>
+              <View style={s.totalesFila}>
+                <Text style={s.totalesLabel}>IRBPNR</Text>
+                <Text style={s.totalesValue}>0.00</Text>
+              </View>
+              <View style={s.totalesFila}>
+                <Text style={s.totalesLabel}>PROPINA</Text>
+                <Text style={s.totalesValue}>0.00</Text>
+              </View>
+              <View style={s.totalesFilaFinal}>
+                <Text style={s.totalesLabelFinal}>VALOR TOTAL</Text>
+                <Text style={s.totalesValueFinal}>{n2(totalFinal)}</Text>
+              </View>
             </View>
           </View>
         </View>
 
-        {/* ── INFORMACIÓN ADICIONAL ── */}
+        {/* ══════════════════════════════════════════════════════
+            INFORMACIÓN ADICIONAL
+        ══════════════════════════════════════════════════════ */}
         {infoAdicional.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>INFORMACIÓN ADICIONAL</Text>
-            <View style={styles.infoAdicional}>
+            <View style={s.seccionTitulo}>
+              <Text style={s.seccionTituloTexto}>INFORMACIÓN ADICIONAL</Text>
+            </View>
+            <View style={s.infoBox}>
               {infoAdicional.map((info, i) => (
-                <Text key={i} style={styles.infoItem}>
-                  {info.label}: {info.value}
-                </Text>
+                <View key={i} style={s.infoFila}>
+                  <Text style={s.infoLabel}>{info.label}:</Text>
+                  <Text style={s.infoValor}>{info.value}</Text>
+                </View>
               ))}
             </View>
           </>
         )}
 
-        {/* ── PIE DE PÁGINA ── */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Documento generado electrónicamente · Autorizado por el SRI Ecuador · {config.ruc}
-          </Text>
-          <Text style={styles.footerText}>
-            Verifique este documento en: www.sri.gob.ec
+        {/* ══════════════════════════════════════════════════════
+            PIE DE PÁGINA
+        ══════════════════════════════════════════════════════ */}
+        <View style={s.footer}>
+          <Text style={s.footerText}>
+            Documento generado y autorizado electrónicamente — verifique en: www.sri.gob.ec
           </Text>
         </View>
 
@@ -400,12 +618,58 @@ function RIDEDocument({ factura, config }: { factura: Factura; config: Configura
   )
 }
 
-/** Genera el RIDE como buffer PDF */
+// ── Función principal ─────────────────────────────────────────────────────────
+
+/** Genera el RIDE como buffer PDF con logo y código de barras Code 128 */
 export async function generarRIDEBuffer(
   factura: Factura,
-  config: ConfiguracionFacturacion
+  config: ConfiguracionFacturacion,
 ): Promise<Buffer> {
+  // 1. Código de barras Code 128 (clave de acceso de 49 dígitos)
+  let barcodeDataUrl = ''
+  const claveAcceso = factura.clave_acceso ?? ''
+  if (claveAcceso) {
+    try {
+      const buf: Buffer = await bwipjs.toBuffer({
+        bcid:        'code128',
+        text:        claveAcceso,
+        scale:       2,
+        height:      10,
+        includetext: false,
+        padding:     2,
+      })
+      barcodeDataUrl = `data:image/png;base64,${buf.toString('base64')}`
+    } catch (e) {
+      console.warn('[ride-pdf] barcode generation failed:', e)
+    }
+  }
+
+  // 2. Logo de la tienda (desde configuracion_tienda)
+  let logoDataUrl: string | null = null
+  try {
+    const admin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    )
+    const { data: tienda } = await admin
+      .from('configuracion_tienda')
+      .select('logo_url')
+      .maybeSingle()
+
+    if (tienda?.logo_url) {
+      const res = await fetch(tienda.logo_url)
+      if (res.ok) {
+        const buf = await res.arrayBuffer()
+        const mime = res.headers.get('content-type') ?? 'image/png'
+        logoDataUrl = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`
+      }
+    }
+  } catch (e) {
+    console.warn('[ride-pdf] logo load failed:', e)
+  }
+
+  // 3. Renderizar PDF
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const element = React.createElement(RIDEDocument, { factura, config }) as any
+  const element = React.createElement(RIDEDocument, { factura, config, logoDataUrl, barcodeDataUrl }) as any
   return renderToBuffer(element)
 }
