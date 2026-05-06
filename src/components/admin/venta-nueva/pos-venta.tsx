@@ -489,7 +489,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
       <div className="flex lg:hidden gap-1 bg-background-subtle rounded-xl p-1">
         <button
           onClick={() => setPestaña('productos')}
-          className={cn('flex-1 h-9 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2',
+          className={cn('flex-1 h-9 rounded-lg text-sm font-semibold flex items-center justify-center gap-2',
             pestaña === 'productos' ? 'bg-card shadow text-foreground' : 'text-foreground-muted'
           )}
         >
@@ -497,7 +497,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
         </button>
         <button
           onClick={() => setPestaña('carrito')}
-          className={cn('flex-1 h-9 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 relative',
+          className={cn('flex-1 h-9 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 relative',
             pestaña === 'carrito' ? 'bg-card shadow text-foreground' : 'text-foreground-muted'
           )}
         >
@@ -510,18 +510,18 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
         </button>
       </div>
 
-      {/* Grid principal */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+      {/* Layout 2 columnas: productos | formulario */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 items-start">
 
-        {/* ─── Panel productos ─────────────────────────────── */}
-        <div className={cn('lg:col-span-3 flex flex-col gap-3', pestaña !== 'productos' && 'hidden lg:flex')}>
+        {/* ─── Columna izquierda: buscador + catálogo ──────── */}
+        <div className={cn('flex flex-col gap-4', pestaña !== 'productos' && 'hidden lg:flex')}>
 
           {/* Buscador */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted pointer-events-none" />
             <input
               type="text"
-              placeholder="Buscar producto por nombre…"
+              placeholder="Buscar producto…"
               value={busquedaProducto}
               onChange={e => setBusquedaProducto(e.target.value)}
               className="w-full h-11 pl-9 pr-4 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -534,7 +534,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
             )}
           </div>
 
-          {/* Grid de productos */}
+          {/* Catálogo — scroll infinito con la página */}
           {productosFiltrados.length === 0 ? (
             <div className="text-center py-16 text-foreground-muted text-sm">
               {busquedaProducto
@@ -542,10 +542,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                 : 'No hay productos activos'}
             </div>
           ) : (
-            <div
-              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 overflow-y-auto pb-2"
-              style={{ maxHeight: 'calc(100vh - 220px)' }}
-            >
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {productosFiltrados.map((producto, idx) => {
                 const precio   = producto.precio_descuento ?? producto.precio
                 const sinStock = producto.stock !== null && producto.stock <= 0 && producto.tipo_producto === 'producto'
@@ -556,10 +553,10 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                     onClick={() => !sinStock && clickProducto(producto)}
                     disabled={sinStock}
                     className={cn(
-                      'relative aspect-square rounded-xl overflow-hidden border-2',
+                      'relative aspect-square rounded-xl overflow-hidden ring-2',
                       sinStock
-                        ? 'opacity-50 cursor-not-allowed border-border'
-                        : 'border-transparent hover:border-primary cursor-pointer'
+                        ? 'opacity-50 cursor-not-allowed ring-transparent'
+                        : 'ring-transparent hover:ring-primary cursor-pointer'
                     )}
                   >
                     {/* Imagen */}
@@ -568,6 +565,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                       <img
                         src={producto.imagen_url}
                         alt={producto.nombre}
+                        loading="lazy"
                         className="absolute inset-0 w-full h-full object-cover"
                       />
                     ) : (
@@ -576,26 +574,26 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                       </div>
                     )}
 
-                    {/* Gradiente + texto inferior */}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-2 pt-6 pb-2">
-                      <p className="text-white text-[11px] font-semibold leading-tight line-clamp-2">
+                    {/* Gradiente + nombre + precio */}
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-2.5 pt-8 pb-2.5">
+                      <p className="text-white text-[11px] font-semibold leading-snug line-clamp-2">
                         {producto.nombre}
                       </p>
-                      <p className="text-white font-bold text-[13px] mt-0.5">
+                      <p className="text-white font-extrabold text-sm mt-1">
                         {formatearPrecio(precio, simboloMoneda)}
                       </p>
                     </div>
 
                     {/* Badge top */}
                     {esTop && (
-                      <div className="absolute top-1.5 left-1.5 bg-amber-400 text-amber-900 text-[9px] font-black px-1.5 py-0.5 rounded-md">
+                      <div className="absolute top-2 left-2 bg-amber-400 text-amber-900 text-[9px] font-black px-1.5 py-0.5 rounded-md">
                         ★ Top
                       </div>
                     )}
 
                     {/* Badge variantes */}
                     {producto.variantes.length > 0 && !sinStock && (
-                      <div className="absolute top-1.5 right-1.5 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-md">
+                      <div className="absolute top-2 right-2 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-md">
                         {producto.variantes.length} var.
                       </div>
                     )}
@@ -611,7 +609,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
 
                     {/* Stock bajo */}
                     {!sinStock && producto.stock !== null && producto.stock > 0 && producto.stock <= 5 && (
-                      <div className="absolute top-1.5 left-1.5 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
+                      <div className="absolute top-2 left-2 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
                         {producto.stock} restantes
                       </div>
                     )}
@@ -622,8 +620,11 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
           )}
         </div>
 
-        {/* ─── Panel derecho: carrito + cliente + pago ─────── */}
-        <div className={cn('lg:col-span-2 flex flex-col gap-3', pestaña !== 'carrito' && 'hidden lg:flex')}>
+        {/* ─── Columna derecha: formulario sticky ──────────── */}
+        <div className={cn(
+          'flex flex-col gap-3 lg:sticky lg:top-4',
+          pestaña !== 'carrito' && 'hidden lg:flex'
+        )}>
 
           {/* ── Cliente ─────────────────────────────────────── */}
           <div className="rounded-2xl bg-card border border-card-border p-3 flex flex-col gap-2">
@@ -743,7 +744,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                 <p className="text-xs">Agrega productos desde el catálogo</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto">
+              <div className="flex flex-col gap-1.5">
                 {carrito.map(item => (
                   <div key={item.key} className="flex items-center gap-2 bg-background-subtle/50 rounded-xl px-2 py-1.5">
                     {item.imagen_url ? (
