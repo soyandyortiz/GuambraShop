@@ -106,6 +106,12 @@ export async function POST(req: NextRequest) {
       }],
     })
 
+    // Persistir historial de envío en BD
+    await admin.from('facturas').update({
+      email_enviado_en: new Date().toISOString(),
+      email_enviado_a:  to,
+    }).eq('id', facturaId)
+
     return NextResponse.json({ ok: true, enviado_a: to })
   } catch (err: unknown) {
     console.error('[email/enviar-ride]', err)
