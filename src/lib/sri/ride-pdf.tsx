@@ -13,11 +13,12 @@ import bwipjs from 'bwip-js'
 import type { Factura, ConfiguracionFacturacion } from '@/types'
 
 // ── Colores ──────────────────────────────────────────────────────────────────
-const NEGRO  = '#000000'
-const BORDE  = '#888888'
-const GRIS   = '#EBEBEB'
-const MUTED  = '#444444'
-const BLANCO = '#FFFFFF'
+const NEGRO   = '#111111'
+const AZUL    = '#1B3F7A'   // azul SRI Ecuador
+const AZUL_SM = '#EEF2F9'   // azul muy claro para filas alternadas
+const BORDE   = '#AAAAAA'
+const MUTED   = '#555555'
+const BLANCO  = '#FFFFFF'
 
 // ── Estilos ──────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
@@ -44,10 +45,12 @@ const s = StyleSheet.create({
     borderColor: BORDE,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: BLANCO,   // siempre blanco → logo siempre visible
   },
   headerRight: {
     flex: 65,
     padding: 8,
+    backgroundColor: BLANCO,
   },
   logo: {
     maxWidth: 110,
@@ -76,21 +79,21 @@ const s = StyleSheet.create({
   // Lado derecho de la cabecera
   rucRow: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderColor: BORDE,
-    paddingBottom: 3,
-    marginBottom: 3,
+    backgroundColor: AZUL,
+    padding: '4 6',
+    marginBottom: 4,
     alignItems: 'center',
   },
-  rucLabel: { fontSize: 7, color: MUTED, marginRight: 4 },
-  rucValue: { fontSize: 8, fontFamily: 'Helvetica-Bold' },
+  rucLabel: { fontSize: 7, color: '#AABFE0', marginRight: 4 },
+  rucValue: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: BLANCO },
   tipoDoc: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
-    borderWidth: 1,
-    borderColor: BORDE,
-    padding: '3 6',
+    color: AZUL,
+    borderWidth: 1.5,
+    borderColor: AZUL,
+    padding: '4 6',
     marginBottom: 3,
     textTransform: 'uppercase',
   },
@@ -122,9 +125,9 @@ const s = StyleSheet.create({
 
   // ── Sección título
   seccionTitulo: {
-    backgroundColor: GRIS,
+    backgroundColor: AZUL,
     borderWidth: 1,
-    borderColor: BORDE,
+    borderColor: AZUL,
     padding: '3 6',
     marginTop: 4,
     marginBottom: 0,
@@ -132,6 +135,7 @@ const s = StyleSheet.create({
   seccionTituloTexto: {
     fontSize: 7,
     fontFamily: 'Helvetica-Bold',
+    color: BLANCO,
   },
 
   // ── Comprador
@@ -176,9 +180,9 @@ const s = StyleSheet.create({
   },
   tablaEncabezado: {
     flexDirection: 'row',
-    backgroundColor: GRIS,
+    backgroundColor: AZUL,
     borderBottomWidth: 1,
-    borderColor: BORDE,
+    borderColor: AZUL,
     padding: '3 4',
   },
   tablaFila: {
@@ -186,15 +190,16 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: BORDE,
     padding: '3 4',
+    backgroundColor: BLANCO,
   },
   tablaFilaAlt: {
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderColor: BORDE,
     padding: '3 4',
-    backgroundColor: '#F8F8F8',
+    backgroundColor: AZUL_SM,
   },
-  th: { fontSize: 6.5, fontFamily: 'Helvetica-Bold' },
+  th: { fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: BLANCO },
   td: { fontSize: 6.5 },
   tdRight: { fontSize: 6.5, textAlign: 'right' },
   // columnas ítems
@@ -227,9 +232,9 @@ const s = StyleSheet.create({
   },
   pagoCabecera: {
     flexDirection: 'row',
-    backgroundColor: GRIS,
+    backgroundColor: AZUL,
     borderBottomWidth: 1,
-    borderColor: BORDE,
+    borderColor: AZUL,
     padding: '3 5',
   },
   pagoFila: {
@@ -258,13 +263,13 @@ const s = StyleSheet.create({
   },
   totalesFilaFinal: {
     flexDirection: 'row',
-    backgroundColor: GRIS,
+    backgroundColor: AZUL,
     padding: '3 5',
   },
   totalesLabel: { flex: 1, fontSize: 6.5, color: MUTED },
   totalesValue: { width: 55, textAlign: 'right', fontSize: 6.5, fontFamily: 'Helvetica-Bold' },
-  totalesLabelFinal: { flex: 1, fontSize: 7.5, fontFamily: 'Helvetica-Bold' },
-  totalesValueFinal: { width: 55, textAlign: 'right', fontSize: 7.5, fontFamily: 'Helvetica-Bold' },
+  totalesLabelFinal: { flex: 1, fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: BLANCO },
+  totalesValueFinal: { width: 55, textAlign: 'right', fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: BLANCO },
 
   // Info adicional
   infoBox: {
@@ -515,8 +520,8 @@ function RIDEDocument({
             </View>
             <View style={s.pagoTabla}>
               <View style={s.pagoCabecera}>
-                <Text style={[s.th, s.pagoColLabel]}>FORMA DE PAGO</Text>
-                <Text style={[s.th, s.pagoColValue]}>VALOR</Text>
+                <Text style={[s.th, s.pagoColLabel, { color: BLANCO }]}>FORMA DE PAGO</Text>
+                <Text style={[s.th, s.pagoColValue, { color: BLANCO }]}>VALOR</Text>
               </View>
               <View style={s.pagoFilaLast}>
                 <Text style={s.pagoColLabel}>SIN UTILIZACIÓN DEL SISTEMA FINANCIERO</Text>
