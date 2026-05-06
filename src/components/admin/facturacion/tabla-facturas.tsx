@@ -311,6 +311,11 @@ export function TablaFacturas({ facturas: facturasInic, configActiva }: Props) {
       if (res.ok) {
         toast.success(`RIDE enviado a ${data.enviado_a}`)
         setModalEmail(null)
+        // Actualizar historial en estado local sin recargar
+        setFacturas(prev => prev.map(f => f.id === facturaId
+          ? { ...f, email_enviado_en: new Date().toISOString(), email_enviado_a: data.enviado_a }
+          : f
+        ))
       } else {
         toast.error(data.error ?? 'No se pudo enviar el email')
       }
@@ -574,8 +579,8 @@ function FilaFactura({
               </button>
             )}
 
-            {/* Ver detalle (error / motivo anulación) */}
-            {(factura.error_sri || factura.motivo_anulacion || factura.numero_autorizacion) && (
+            {/* Ver detalle (error / motivo anulación / historial email) */}
+            {(factura.error_sri || factura.motivo_anulacion || factura.numero_autorizacion || factura.email_enviado_en) && (
               <button onClick={() => setMostrarDetalle(v => !v)}
                 title="Ver detalle"
                 className={cn('p-1.5 rounded-lg transition-colors',
@@ -613,6 +618,46 @@ function FilaFactura({
                   <p className="text-xs text-foreground">{factura.motivo_anulacion}</p>
                 </div>
               )}
+              {/* Historial de envío por email */}
+              {factura.email_enviado_en ? (
+                <div className="flex items-center justify-between gap-3 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                    <div>
+                      <p className="text-[10px] font-semibold text-blue-700 uppercase tracking-wide">RIDE enviado por email</p>
+                      <p className="text-xs text-blue-600">
+                        {factura.email_enviado_a} &middot;{' '}
+                        {new Date(factura.email_enviado_en).toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                  {!anulada && (
+                    <button
+                      onClick={onEnviarEmail}
+                      disabled={enviandoEmail}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 text-[11px] font-semibold transition-colors disabled:opacity-50 flex-shrink-0"
+                    >
+                      {enviandoEmail ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
+                      Reenviar
+                    </button>
+                  )}
+                </div>
+              ) : factura.estado === 'autorizada' && !anulada ? (
+                <div className="flex items-center justify-between gap-3 rounded-lg bg-background-subtle border border-border px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5 text-foreground-muted flex-shrink-0" />
+                    <p className="text-xs text-foreground-muted">RIDE no enviado por email aún</p>
+                  </div>
+                  <button
+                    onClick={onEnviarEmail}
+                    disabled={enviandoEmail}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-semibold transition-colors disabled:opacity-50 flex-shrink-0"
+                  >
+                    {enviandoEmail ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
+                    Enviar
+                  </button>
+                </div>
+              ) : null}
             </div>
           </td>
         </tr>
