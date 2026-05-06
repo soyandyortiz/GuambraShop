@@ -4,14 +4,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, Ticket, Megaphone,
-  Settings, MessageSquare, LogOut, Star,
+  Settings, MessageSquare, Star,
   ClipboardList, CalendarDays, Truck, PartyPopper, TrendingUp,
   Users, KeyRound, FileText, Mail, Receipt
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { crearClienteSupabase, CLAVE_DEMO } from '@/lib/supabase/cliente'
-import { DemoStore } from '@/lib/supabase/demo-store'
-import { useRouter } from 'next/navigation'
 import { usarConteosAdmin } from '@/hooks/usar-conteos-admin'
 import type { Rol } from '@/types'
 
@@ -19,7 +16,7 @@ interface PropsSidebar {
   rol: Rol
   nombre: string
   fotoPerfil?: string | null
-  faviconUrl?: string | null
+  faviconUrl?: string | null  // reservado para uso futuro
 }
 
 interface ItemNav {
@@ -46,9 +43,8 @@ function BadgeConteo({ count, activo }: { count: number; activo: boolean }) {
   )
 }
 
-export function Sidebar({ rol, nombre, fotoPerfil, faviconUrl }: PropsSidebar) {
+export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, faviconUrl: _faviconUrl }: PropsSidebar) {
   const pathname = usePathname()
-  const router   = useRouter()
   const esSuperadmin = rol === 'superadmin'
   const { pedidosPendientes, citasPendientes, solicitudesNuevas } = usarConteosAdmin()
 
@@ -101,20 +97,11 @@ export function Sidebar({ rol, nombre, fotoPerfil, faviconUrl }: PropsSidebar) {
     return 0
   }
 
-  async function cerrarSesion() {
-    DemoStore.limpiar()
-    localStorage.removeItem(CLAVE_DEMO)
-    const supabase = crearClienteSupabase()
-    await supabase.auth.signOut()
-    router.push('/admin')
-    router.refresh()
-  }
-
   const esActivo = (href: string) =>
     href === '/admin/dashboard' ? pathname === href : pathname.startsWith(href)
 
   return (
-    <aside className="hidden lg:flex flex-col w-56 min-h-screen bg-card border-r border-border fixed left-0 top-0 bottom-0 z-40">
+    <aside className="hidden lg:flex flex-col w-60 min-h-screen bg-card border-r border-border fixed left-0 top-0 bottom-0 z-40">
 
       {/* Inicio */}
       <div className="px-2 pt-2">
@@ -165,32 +152,6 @@ export function Sidebar({ rol, nombre, fotoPerfil, faviconUrl }: PropsSidebar) {
         ))}
       </nav>
 
-      {/* Footer */}
-      <div className="px-2 pb-2 border-t border-border flex-shrink-0 pt-2">
-        <div className="flex items-center gap-2 px-2 py-1.5 mb-1">
-          <div className="w-6 h-6 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center flex-shrink-0 border border-border">
-            {fotoPerfil ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={fotoPerfil} alt={nombre} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-[10px] font-bold text-primary">
-                {nombre?.charAt(0)?.toUpperCase() ?? 'A'}
-              </span>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold text-foreground truncate">{nombre}</p>
-            <p className="text-[9px] text-foreground-muted capitalize">{rol}</p>
-          </div>
-        </div>
-        <button
-          onClick={cerrarSesion}
-          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-foreground-muted hover:text-danger hover:bg-danger/10 transition-colors"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          Cerrar sesión
-        </button>
-      </div>
     </aside>
   )
 }

@@ -2,6 +2,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/admin/sidebar'
 import { HeaderAdmin } from '@/components/admin/header-admin'
+import { TopbarAdmin } from '@/components/admin/topbar-admin'
 import { ModalMensajes } from '@/components/admin/mensajes/modal-mensajes'
 import { BannerDemo } from '@/components/admin/banner-demo'
 import { DemoProvider } from '@/components/providers/demo-provider'
@@ -21,28 +22,31 @@ export default async function LayoutDashboard({ children }: { children: React.Re
       .eq('leido', false).order('creado_en'),
   ])
 
-  const nombre = perfil?.nombre ?? 'Usuario'
-  const rol    = (perfil?.rol ?? 'admin') as 'admin' | 'superadmin'
+  const nombre     = perfil?.nombre ?? 'Usuario'
+  const email      = user.email ?? ''
+  const rol        = (perfil?.rol ?? 'admin') as 'admin' | 'superadmin'
   const fotoPerfil = config?.foto_perfil_url ?? null
   const faviconUrl = config?.favicon_url ?? null
-  const esDemo = user.email === EMAIL_DEMO
+  const esDemo     = user.email === EMAIL_DEMO
 
   return (
     <DemoProvider esDemo={esDemo}>
       <div className="min-h-screen bg-background flex flex-col">
-        {/* Banner demo — siempre visible en la parte superior */}
         {esDemo && <BannerDemo />}
 
         <div className="flex flex-1">
           {/* Sidebar desktop */}
           <Sidebar nombre={nombre} rol={rol} fotoPerfil={fotoPerfil} faviconUrl={faviconUrl} />
 
-          <div className="flex flex-col flex-1 min-w-0 lg:ml-56">
+          {/* Topbar desktop */}
+          <TopbarAdmin nombre={nombre} email={email} rol={rol} fotoPerfil={fotoPerfil} />
+
+          <div className="flex flex-col flex-1 min-w-0 lg:ml-60">
             {/* Header móvil */}
             <HeaderAdmin nombre={nombre} rol={rol} fotoPerfil={fotoPerfil} />
 
-            {/* Contenido principal */}
-            <main className="flex-1 min-w-0 overflow-x-clip">
+            {/* Contenido principal — pt-11 para compensar la topbar desktop */}
+            <main className="flex-1 min-w-0 overflow-x-clip lg:pt-11">
               <div className="p-4 md:p-6 max-w-6xl mx-auto w-full">
                 {children}
               </div>
@@ -50,7 +54,6 @@ export default async function LayoutDashboard({ children }: { children: React.Re
           </div>
         </div>
 
-        {/* Modal mensajes sin leer — solo para admin (no superadmin) */}
         {rol === 'admin' && mensajesSinLeer && mensajesSinLeer.length > 0 && (
           <ModalMensajes mensajes={mensajesSinLeer} />
         )}
