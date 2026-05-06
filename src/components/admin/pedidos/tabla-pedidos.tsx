@@ -6,7 +6,7 @@ import {
   Package, Phone, Mail, MapPin, Download, ShoppingBag,
   Calendar, MessageCircle, X, Clock, CheckCircle2,
   RotateCcw, XCircle, Send, ArrowUpDown, FileText, Loader2,
-  RefreshCw, AlertCircle, BadgeCheck,
+  RefreshCw, AlertCircle, BadgeCheck, ExternalLink, Receipt,
 } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
@@ -74,9 +74,9 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
       })
   }
 
-  // Carga inicial
+  // Carga inicial — todos los pedidos, no solo entregados
   useEffect(() => {
-    const ids = pedidosInic.filter(p => p.estado === 'entregado').map(p => p.id)
+    const ids = pedidosInic.map(p => p.id)
     cargarFacturas(ids)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pedidosInic])
@@ -86,8 +86,7 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
     const hayEnviadas = Object.values(facturasEmitidas).some(f => f.estado === 'enviada')
     if (!hayEnviadas) return
     const timer = setInterval(() => {
-      const ids = pedidos.filter(p => p.estado === 'entregado').map(p => p.id)
-      cargarFacturas(ids)
+      cargarFacturas(pedidos.map(p => p.id))
     }, 20_000)
     return () => clearInterval(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -432,6 +431,21 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                         {estado.icono}
                         {estado.etiqueta}
                       </span>
+                      {/* Badge de factura — visible en cualquier estado del pedido */}
+                      {facturasEmitidas[pedido.id] && (() => {
+                        const f = facturasEmitidas[pedido.id]
+                        const cfg = f.estado === 'autorizada'
+                          ? { color: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'Facturado' }
+                          : f.estado === 'enviada'
+                          ? { color: 'bg-amber-50 text-amber-700 border-amber-200', label: 'FAC pendiente' }
+                          : { color: 'bg-red-50 text-red-700 border-red-200', label: 'FAC rechazada' }
+                        return (
+                          <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded-full border flex items-center gap-0.5', cfg.color)}>
+                            <Receipt className="w-2.5 h-2.5" />
+                            {cfg.label}
+                          </span>
+                        )
+                      })()}
                     </div>
                     <p className="text-xs text-foreground-muted truncate">{pedido.nombres}</p>
                   </div>
@@ -628,17 +642,38 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                       </div>
                     </div>
 
-                    {/* Panel Factura SRI */}
-                    {pedido.estado === 'entregado' && (() => {
+                    {/* Datos de facturación que el cliente ingresó en checkout */}
+                    {pedido.datos_facturacion && (
+                      <div className="rounded-xl border border-blue-100 bg-blue-50/50 px-3 py-2.5">
+                        <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide mb-1.5 flex items-center gap-1">
+                          <Receipt className="w-3 h-3" /> Datos de facturación del cliente
+                        </p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px]">
+                          <p><span className="text-foreground-muted">Nombre:</span> <span className="font-medium text-foreground">{pedido.datos_facturacion.razon_social}</span></p>
+                          <p><span className="text-foreground-muted">ID:</span> <span className="font-medium font-mono text-foreground">{pedido.datos_facturacion.identificacion}</span></p>
+                          {pedido.datos_facturacion.email && <p className="col-span-2"><span className="text-foreground-muted">Email:</span> <span className="font-medium text-foreground">{pedido.datos_facturacion.email}</span></p>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Panel Factura SRI — visible para cualquier estado del pedido */}
+                    {(() => {
                       const emitida = facturasEmitidas[pedido.id]
                       const cargando = emitiendoFactura === pedido.id
+                      const esEntregado = pedido.estado === 'entregado'
 
                       if (emitida?.estado === 'autorizada') {
                         return (
                           <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-3">
-                            <div className="flex items-center gap-2 mb-2">
-                              <BadgeCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                              <span className="text-xs font-bold text-emerald-700">Factura autorizada por el SRI</span>
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <div className="flex items-center gap-2">
+                                <BadgeCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                                <span className="text-xs font-bold text-emerald-700">Factura autorizada por el SRI</span>
+                              </div>
+                              <a href="/admin/dashboard/facturacion" target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-800 font-medium transition-colors flex-shrink-0">
+                                Ver en Facturación <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
                             </div>
                             {emitida.numeroFactura && (
                               <p className="text-[11px] text-foreground-muted mb-0.5">
@@ -671,15 +706,17 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                               <div className="flex items-center gap-2">
                                 <Loader2 className="w-4 h-4 text-amber-600 animate-spin flex-shrink-0" />
                                 <div>
-                                  <p className="text-xs font-bold text-amber-700">Pendiente de autorización</p>
+                                  <p className="text-xs font-bold text-amber-700">Pendiente de autorización SRI</p>
                                   <p className="text-[10px] text-amber-600 mt-0.5">El SRI recibió el comprobante y lo está procesando. Se actualiza automáticamente.</p>
                                 </div>
                               </div>
-                              <button onClick={() => emitirFactura(pedido.id)} disabled={cargando}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-300 hover:bg-amber-200 transition-colors disabled:opacity-50 flex-shrink-0">
-                                {cargando ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                                Consultar
-                              </button>
+                              {esEntregado && (
+                                <button onClick={() => emitirFactura(pedido.id)} disabled={cargando}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-300 hover:bg-amber-200 transition-colors disabled:opacity-50 flex-shrink-0">
+                                  {cargando ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                                  Consultar
+                                </button>
+                              )}
                             </div>
                           </div>
                         )
@@ -697,23 +734,29 @@ export function TablaPedidos({ pedidos: pedidosInic }: Props) {
                                 )}
                               </div>
                             </div>
-                            <button onClick={() => emitirFactura(pedido.id)} disabled={cargando}
-                              className="flex items-center gap-1.5 w-full justify-center h-8 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors disabled:opacity-50">
-                              {cargando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                              {cargando ? 'Reintentando…' : 'Reintentar emisión SRI'}
-                            </button>
+                            {esEntregado && (
+                              <button onClick={() => emitirFactura(pedido.id)} disabled={cargando}
+                                className="flex items-center gap-1.5 w-full justify-center h-8 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors disabled:opacity-50">
+                                {cargando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                                {cargando ? 'Reintentando…' : 'Reintentar emisión SRI'}
+                              </button>
+                            )}
                           </div>
                         )
                       }
 
-                      // Sin factura
-                      return (
-                        <button onClick={() => emitirFactura(pedido.id)} disabled={cargando}
-                          className="flex items-center gap-2 w-full justify-center h-9 rounded-xl bg-primary/10 text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/20 transition-colors disabled:opacity-50">
-                          {cargando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                          {cargando ? 'Generando y enviando al SRI…' : 'Emitir factura electrónica SRI'}
-                        </button>
-                      )
+                      // Sin factura — solo mostrar botón de emitir si está entregado
+                      if (esEntregado) {
+                        return (
+                          <button onClick={() => emitirFactura(pedido.id)} disabled={cargando}
+                            className="flex items-center gap-2 w-full justify-center h-9 rounded-xl bg-primary/10 text-primary border border-primary/30 text-xs font-semibold hover:bg-primary/20 transition-colors disabled:opacity-50">
+                            {cargando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                            {cargando ? 'Generando y enviando al SRI…' : 'Emitir factura electrónica SRI'}
+                          </button>
+                        )
+                      }
+
+                      return null
                     })()}
 
                   </div>
