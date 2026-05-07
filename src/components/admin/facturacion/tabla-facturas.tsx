@@ -41,6 +41,81 @@ const PORTAL_SRI = {
   produccion: 'https://www.sri.gob.ec/web/guest/facturacion-electronica',
 }
 
+// ─── Modal guía de anulación para facturas AUTORIZADAS ───────────────────────
+function ModalOpcionesAnulacion({
+  factura,
+  onEmitirNC,
+  onAnularManual,
+  onCerrar,
+}: {
+  factura: Factura
+  onEmitirNC: () => void
+  onAnularManual: () => void
+  onCerrar: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-card rounded-2xl border border-border shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">Anular factura autorizada</p>
+              <p className="text-[11px] text-foreground-muted">{factura.numero_factura ?? `#${factura.numero_secuencial}`}</p>
+            </div>
+          </div>
+          <button onClick={onCerrar} className="p-1.5 rounded-lg hover:bg-background-subtle text-foreground-muted transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 flex flex-col gap-3">
+          <p className="text-xs text-foreground-muted leading-relaxed">
+            Esta factura está <span className="font-semibold text-foreground">autorizada por el SRI</span>. Elige cómo proceder:
+          </p>
+
+          {/* Opción 1: Nota de Crédito */}
+          <button
+            onClick={onEmitirNC}
+            className="flex items-start gap-3 w-full rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 px-4 py-3 text-left transition-colors"
+          >
+            <ReceiptText className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-blue-800">Emitir Nota de Crédito <span className="text-[10px] font-semibold bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded-full ml-1">Recomendado</span></p>
+              <p className="text-[11px] text-blue-700 leading-relaxed mt-0.5">
+                Cancela la factura electrónicamente ante el SRI. Tiene plena validez tributaria.
+              </p>
+            </div>
+          </button>
+
+          {/* Opción 2: solo sistema */}
+          <button
+            onClick={onAnularManual}
+            className="flex items-start gap-3 w-full rounded-xl border border-border bg-background-subtle hover:bg-background px-4 py-3 text-left transition-colors"
+          >
+            <XCircle className="w-5 h-5 text-foreground-muted flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">Anular solo en este sistema</p>
+              <p className="text-[11px] text-foreground-muted leading-relaxed mt-0.5">
+                Requiere que tú o tu contador completen la anulación en el portal del SRI. Sin eso, no tiene efecto tributario.
+              </p>
+            </div>
+          </button>
+        </div>
+
+        <div className="px-5 pb-5">
+          <button onClick={onCerrar}
+            className="w-full h-9 rounded-xl border border-border text-sm text-foreground-muted hover:text-foreground hover:border-border-strong transition-colors">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Modal de confirmación de anulación ──────────────────────────────────────
 function ModalAnulacion({
   factura,
@@ -364,6 +439,7 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
   const [consultando, setConsultando] = useState<string | null>(null)
   const [emitiendoNC, setEmitiendoNC] = useState<string | null>(null)
   const [modalAnular, setModalAnular] = useState<Factura | null>(null)
+  const [modalOpcionesAnular, setModalOpcionesAnular] = useState<Factura | null>(null)
   const [modalNC, setModalNC] = useState<Factura | null>(null)
   const [modalEmail, setModalEmail] = useState<Factura | null>(null)
   const [enviandoEmail, setEnviandoEmail] = useState<string | null>(null)
@@ -414,6 +490,14 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
       .filter(f => f.tipo === 'nota_credito' && f.factura_origen_id && f.estado !== 'rechazada')
       .map(f => [f.factura_origen_id!, f.id])
   )
+
+  function handleAnular(factura: Factura) {
+    if (factura.estado === 'autorizada') {
+      setModalOpcionesAnular(factura)
+    } else {
+      setModalAnular(factura)
+    }
+  }
 
   async function emitir(facturaId: string) {
     setEnviando(facturaId)
@@ -642,6 +726,16 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
 
   return (
     <>
+      {/* Modal opciones anulación (facturas autorizadas) */}
+      {modalOpcionesAnular && (
+        <ModalOpcionesAnulacion
+          factura={modalOpcionesAnular}
+          onEmitirNC={() => { setModalNC(modalOpcionesAnular); setModalOpcionesAnular(null) }}
+          onAnularManual={() => { setModalAnular(modalOpcionesAnular); setModalOpcionesAnular(null) }}
+          onCerrar={() => setModalOpcionesAnular(null)}
+        />
+      )}
+
       {/* Modal anulación */}
       {modalAnular && (
         <ModalAnulacion
@@ -674,6 +768,19 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
       )}
 
       <div className="space-y-4">
+        {/* Banner ambiente pruebas */}
+        {ambiente === 'pruebas' && (
+          <div className="flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold text-amber-800">Ambiente de certificación (pruebas)</p>
+              <p className="text-[11px] text-amber-700 leading-relaxed mt-0.5">
+                Las facturas emitidas aquí <span className="font-semibold">no tienen validez tributaria</span>. Cambia a <span className="font-semibold">Producción</span> en Configuración SRI cuando estés listo para emitir facturas reales.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Banner post-anulación */}
         {bannerAnulacion && (
           <BannerAnulacionSRI
@@ -762,7 +869,7 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
                       factura={factura}
                       esUltima={i === filtradas.length - 1}
                       onEmitir={emitir}
-                      onAnular={() => setModalAnular(factura)}
+                      onAnular={() => handleAnular(factura)}
                       onConsultar={consultarSRI}
                       onNotaCredito={() => setModalNC(factura)}
                       onEnviarEmail={() => iniciarEnvioEmail(factura)}
