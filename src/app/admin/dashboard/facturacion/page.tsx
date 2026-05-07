@@ -24,12 +24,14 @@ export default async function PáginaFacturacion() {
     { data: facturas },
     { data: config },
     { data: cfgEmail },
+    { data: cfgTienda },
     { count: countHoy },
     { count: countMes },
   ] = await Promise.all([
     supabase.from('facturas').select('*').order('creado_en', { ascending: false }).limit(100),
     supabase.from('configuracion_facturacion').select('*').maybeSingle(),
     supabase.from('configuracion_email').select('proveedor, activo').maybeSingle(),
+    supabase.from('configuracion_tienda').select('nombre_tienda, simbolo_moneda, ticket_ancho_papel, ticket_linea_1, ticket_linea_2, ticket_linea_3, ticket_linea_4, ticket_texto_pie, ticket_pie_2, ticket_mostrar_precio_unit').single(),
     supabase.from('facturas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', hoy),
     supabase.from('facturas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', inicioMes),
   ])
@@ -117,6 +119,18 @@ export default async function PáginaFacturacion() {
         configActiva={!!configActiva}
         ruc={configActiva?.ruc}
         ambiente={configActiva?.ambiente}
+        configTicket={{
+          nombreTienda:      (cfgTienda as any)?.nombre_tienda  ?? 'Mi Tienda',
+          simboloMoneda:     (cfgTienda as any)?.simbolo_moneda ?? '$',
+          anchoPapel:        ((cfgTienda as any)?.ticket_ancho_papel    ?? '80') as '58' | '80',
+          linea1:            (cfgTienda as any)?.ticket_linea_1          ?? null,
+          linea2:            (cfgTienda as any)?.ticket_linea_2          ?? null,
+          linea3:            (cfgTienda as any)?.ticket_linea_3          ?? null,
+          linea4:            (cfgTienda as any)?.ticket_linea_4          ?? null,
+          pie1:              (cfgTienda as any)?.ticket_texto_pie        ?? null,
+          pie2:              (cfgTienda as any)?.ticket_pie_2            ?? null,
+          mostrarPrecioUnit: (cfgTienda as any)?.ticket_mostrar_precio_unit !== false,
+        }}
       />
     </div>
   )

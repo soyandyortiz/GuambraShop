@@ -102,7 +102,7 @@ export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
   <style>
     @page {
       size: ${ancho}mm auto;
-      margin: 4mm 3mm;
+      margin: 6mm 5mm;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {

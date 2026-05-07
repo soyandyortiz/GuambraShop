@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation'
 import {
   FileText, Download, XCircle, ChevronDown, Search,
   Send, Loader2, AlertTriangle, ExternalLink, X, BadgeCheck, Mail,
-  RefreshCw, ReceiptText, Clock,
+  RefreshCw, ReceiptText, Clock, Printer,
 } from 'lucide-react'
 import { formatearPrecio } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { traducirMensajesSRI } from '@/lib/sri/errores-sri'
+import { imprimirTicket, type ConfigTicket } from '@/lib/ticket'
 import type { Factura, EstadoFactura } from '@/types'
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
   configActiva: boolean
   ruc?: string
   ambiente?: 'pruebas' | 'produccion'
+  configTicket?: ConfigTicket
 }
 
 const COLORES_ESTADO: Record<EstadoFactura, string> = {
@@ -429,7 +431,7 @@ function ModalNotaCredito({
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
-export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', ambiente = 'produccion' }: Props) {
+export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', ambiente = 'produccion', configTicket }: Props) {
   const router = useRouter()
   const [facturas, setFacturas] = useState<Factura[]>(facturasInic)
   const [busqueda, setBusqueda] = useState('')
@@ -878,6 +880,7 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
                       enviandoEmail={enviandoEmail === factura.id}
                       tieneNC={!!ncPorFactura[factura.id]}
                       sinRuc={!ruc}
+                      configTicket={configTicket}
                     />
                   ))}
                 </tbody>
@@ -899,7 +902,7 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
 // ─── Fila individual ──────────────────────────────────────────────────────────
 function FilaFactura({
   factura, esUltima, onEmitir, onAnular, onConsultar, onNotaCredito, onEnviarEmail,
-  cargando, consultando, enviandoEmail, tieneNC, sinRuc,
+  cargando, consultando, enviandoEmail, tieneNC, sinRuc, configTicket,
 }: {
   factura: Factura
   esUltima: boolean
@@ -913,6 +916,7 @@ function FilaFactura({
   enviandoEmail?: boolean
   tieneNC?: boolean
   sinRuc?: boolean
+  configTicket?: ConfigTicket
 }) {
   const [mostrarDetalle, setMostrarDetalle] = useState(false)
   const anulada = factura.estado === 'anulada'
@@ -1003,6 +1007,33 @@ function FilaFactura({
                 className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-background-subtle text-foreground-muted hover:text-foreground text-xs font-medium transition-colors">
                 <FileText className="w-3 h-3" /> RIDE
               </a>
+            )}
+
+            {/* Imprimir ticket térmico */}
+            {configTicket && !anulada && (
+              <button
+                title={`Imprimir ticket ${configTicket.anchoPapel ?? '80'}mm`}
+                onClick={() => imprimirTicket({
+                  numero_orden:    factura.numero_factura ?? factura.numero_secuencial,
+                  creado_en:       factura.fecha_emision,
+                  nombres:         factura.datos_comprador.razon_social,
+                  tipo:            'local',
+                  forma_pago:      null,
+                  items:           factura.items.map(i => ({
+                    nombre:   i.descripcion,
+                    cantidad: i.cantidad,
+                    precio:   i.precio_unitario,
+                    subtotal: i.subtotal,
+                  })),
+                  subtotal:        factura.totales.subtotal_iva + factura.totales.subtotal_0,
+                  descuento_cupon: factura.totales.descuento,
+                  costo_envio:     0,
+                  total:           factura.totales.total,
+                }, configTicket)}
+                className="p-1.5 rounded-lg hover:bg-background-subtle text-foreground-muted hover:text-primary transition-colors"
+              >
+                <Printer className="w-3.5 h-3.5" />
+              </button>
             )}
 
             {/* Enviar RIDE por email — solo facturas autorizadas (no NC) */}
