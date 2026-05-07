@@ -79,9 +79,9 @@ export function HeaderAdmin({ nombre, rol, fotoPerfil }: PropsHeaderAdmin) {
   return (
     <>
       {/* Header móvil/tablet */}
-      <header className="lg:hidden h-14 bg-card border-b border-border flex items-center justify-between px-4 sticky top-0 z-50">
+      <header className="lg:hidden h-14 bg-primary flex items-center justify-between px-4 sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full overflow-hidden bg-primary flex items-center justify-center flex-shrink-0 border-2 border-primary/30">
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-white/20 flex items-center justify-center flex-shrink-0 border-2 border-white/30">
             {fotoPerfil ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={fotoPerfil} alt="Perfil" className="w-full h-full object-cover" />
@@ -89,9 +89,9 @@ export function HeaderAdmin({ nombre, rol, fotoPerfil }: PropsHeaderAdmin) {
               <ShoppingBag className="w-4 h-4 text-white" />
             )}
           </div>
-          <span className="font-bold text-sm text-foreground">Panel Admin</span>
+          <span className="font-bold text-sm text-white">Panel Admin</span>
           {esSuperadmin && (
-            <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+            <span className="text-[10px] font-bold text-white bg-white/20 px-1.5 py-0.5 rounded-full">
               SUPER
             </span>
           )}
@@ -100,7 +100,7 @@ export function HeaderAdmin({ nombre, rol, fotoPerfil }: PropsHeaderAdmin) {
 
           <button
             onClick={() => setMenuAbierto(!menuAbierto)}
-            className="w-9 h-9 rounded-xl flex items-center justify-center bg-background-subtle border border-border text-foreground-muted"
+            className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 border border-white/20 text-white"
           >
             {menuAbierto ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </button>
