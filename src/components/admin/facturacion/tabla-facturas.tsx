@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import {
   FileText, Download, XCircle, ChevronDown, Search,
   Send, Loader2, AlertTriangle, ExternalLink, X, BadgeCheck, Mail,
-  RefreshCw, ReceiptText, Clock, Printer,
+  RefreshCw, ReceiptText, Clock, Printer, Pencil,
 } from 'lucide-react'
+import Link from 'next/link'
 import { formatearPrecio } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -962,6 +963,17 @@ function FilaFactura({
         </td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-1 justify-end">
+            {/* Editar borrador */}
+            {factura.tipo !== 'nota_credito' && factura.estado === 'borrador' && (
+              <Link
+                href={`/admin/dashboard/facturacion/editar/${factura.id}`}
+                title="Editar borrador"
+                className="p-1.5 rounded-lg hover:bg-background-subtle text-foreground-muted hover:text-foreground transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </Link>
+            )}
+
             {/* Enviar al SRI (solo facturas, no NC que ya se emiten directamente) */}
             {factura.tipo !== 'nota_credito' && (factura.estado === 'borrador' || factura.estado === 'rechazada') && (
               <button onClick={() => onEmitir(factura.id)} disabled={cargando}

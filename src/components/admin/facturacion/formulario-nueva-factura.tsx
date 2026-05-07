@@ -6,11 +6,12 @@ import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { toast } from 'sonner'
 import { Plus, Trash2, FileText } from 'lucide-react'
 import { formatearPrecio } from '@/lib/utils'
-import type { ConfiguracionFacturacion, Pedido, ItemFactura, CompradorFactura } from '@/types'
+import type { ConfiguracionFacturacion, Factura, Pedido, ItemFactura, CompradorFactura } from '@/types'
 
 interface Props {
   config: ConfiguracionFacturacion
   pedidos: Pedido[]
+  facturaEditar?: Factura
 }
 
 const TIPOS_ID = [
@@ -24,24 +25,31 @@ function itemVacio(): ItemFactura {
   return { descripcion: '', cantidad: 1, precio_unitario: 0, descuento: 0, subtotal: 0, iva: 15 }
 }
 
-export function FormularioNuevaFactura({ config, pedidos }: Props) {
+export function FormularioNuevaFactura({ config, pedidos, facturaEditar }: Props) {
   const router = useRouter()
   const supabase = crearClienteSupabase()
+  const modoEdicion = !!facturaEditar
 
   const [guardando, setGuardando] = useState(false)
-  const [pedidoSeleccionado, setPedidoSeleccionado] = useState<string>('')
+  const [pedidoSeleccionado, setPedidoSeleccionado] = useState<string>(
+    (facturaEditar as any)?.pedido_id ?? ''
+  )
 
-  const [comprador, setComprador] = useState<CompradorFactura>({
-    tipo_identificacion: '05',
-    identificacion: '',
-    razon_social: '',
-    email: null,
-    direccion: null,
-    telefono: null,
-  })
+  const [comprador, setComprador] = useState<CompradorFactura>(
+    facturaEditar?.datos_comprador ?? {
+      tipo_identificacion: '05',
+      identificacion: '',
+      razon_social: '',
+      email: null,
+      direccion: null,
+      telefono: null,
+    }
+  )
 
-  const [items, setItems] = useState<ItemFactura[]>([itemVacio()])
-  const [notas, setNotas] = useState('')
+  const [items, setItems] = useState<ItemFactura[]>(
+    facturaEditar?.items?.length ? facturaEditar.items : [itemVacio()]
+  )
+  const [notas, setNotas] = useState(facturaEditar?.notas ?? '')
 
   function cambiarComprador(campo: keyof CompradorFactura, valor: string | null) {
     setComprador(prev => ({ ...prev, [campo]: valor }))
@@ -129,38 +137,55 @@ export function FormularioNuevaFactura({ config, pedidos }: Props) {
     setGuardando(true)
     try {
       const totales = calcularTotales()
-      const seq = config.secuencial_actual
-      const seqStr = String(seq).padStart(9, '0')
-      const numFactura = `${config.codigo_establecimiento.padStart(3,'0')}-${config.punto_emision.padStart(3,'0')}-${seqStr}`
 
       const compradorFinal: CompradorFactura = comprador.tipo_identificacion === '07'
         ? { tipo_identificacion: '07', identificacion: '9999999999999', razon_social: 'CONSUMIDOR FINAL', email: null, direccion: null, telefono: null }
         : comprador
 
-      const { error } = await supabase.from('facturas').insert({
-        pedido_id:         pedidoSeleccionado || null,
-        numero_secuencial: seqStr,
-        numero_factura:    numFactura,
-        fecha_emision:     new Date().toISOString().slice(0, 10),
-        estado:            'borrador',
-        datos_comprador:   compradorFinal,
-        items,
-        totales,
-        notas:             notas || null,
-      })
+      if (modoEdicion && facturaEditar) {
+        const { error } = await supabase.from('facturas').update({
+          pedido_id:       pedidoSeleccionado || null,
+          datos_comprador: compradorFinal,
+          items,
+          totales,
+          notas:           notas || null,
+          estado:          'borrador',
+          error_sri:       null,
+        }).eq('id', facturaEditar.id)
 
-      if (error) throw error
+        if (error) throw error
+        toast.success('Borrador actualizado')
+      } else {
+        const seq = config.secuencial_actual
+        const seqStr = String(seq).padStart(9, '0')
+        const numFactura = `${config.codigo_establecimiento.padStart(3,'0')}-${config.punto_emision.padStart(3,'0')}-${seqStr}`
 
-      await supabase
-        .from('configuracion_facturacion')
-        .update({ secuencial_actual: seq + 1 })
-        .eq('id', config.id)
+        const { error } = await supabase.from('facturas').insert({
+          pedido_id:         pedidoSeleccionado || null,
+          numero_secuencial: seqStr,
+          numero_factura:    numFactura,
+          fecha_emision:     new Date().toISOString().slice(0, 10),
+          estado:            'borrador',
+          datos_comprador:   compradorFinal,
+          items,
+          totales,
+          notas:             notas || null,
+        })
 
-      toast.success(`Factura ${numFactura} creada como borrador`)
+        if (error) throw error
+
+        await supabase
+          .from('configuracion_facturacion')
+          .update({ secuencial_actual: seq + 1 })
+          .eq('id', config.id)
+
+        toast.success(`Factura ${numFactura} creada como borrador`)
+      }
+
       router.push('/admin/dashboard/facturacion')
       router.refresh()
     } catch (err: unknown) {
-      toast.error((err as Error).message ?? 'Error al crear la factura')
+      toast.error((err as Error).message ?? 'Error al guardar la factura')
     } finally {
       setGuardando(false)
     }
@@ -403,13 +428,15 @@ export function FormularioNuevaFactura({ config, pedidos }: Props) {
           className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary-hover disabled:opacity-50 transition-all shadow-sm"
         >
           <FileText className="w-4 h-4" />
-          {guardando ? 'Creando…' : 'Crear borrador'}
+          {guardando ? (modoEdicion ? 'Guardando…' : 'Creando…') : (modoEdicion ? 'Guardar cambios' : 'Crear borrador')}
         </button>
       </div>
 
-      <p className="text-xs text-foreground-muted text-center">
-        La factura se crea como <strong>borrador</strong>. Luego podrás firmarla y enviarla al SRI desde el panel de facturas.
-      </p>
+      {!modoEdicion && (
+        <p className="text-xs text-foreground-muted text-center">
+          La factura se crea como <strong>borrador</strong>. Luego podrás firmarla y enviarla al SRI desde el panel de facturas.
+        </p>
+      )}
     </form>
   )
 }
