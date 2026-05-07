@@ -422,6 +422,13 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
       )
     }
 
+    // Email de confirmación al cliente (fire-and-forget)
+    fetch('/api/email/confirmacion-pedido', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pedidoId: data.id }),
+    }).catch(() => {})
+
     // Incrementar uso del cupón
     if (cupon) {
       supabase
