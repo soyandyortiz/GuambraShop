@@ -38,6 +38,9 @@ Estas migraciones se crearon después de la última versión del `schema.sql` y 
 | 12 | `20260505000039_email_historial_factura.sql` | Campos `email_enviado_en` y `email_enviado_a` en `facturas` (historial de envío de RIDE) |
 | 13 | `20260505000040_email_lectura_admin.sql` | Política RLS: admin puede leer `configuracion_email` (para contador de uso en dashboard y facturación) |
 | 14 | `20260505000041_notas_credito.sql` | Notas de Crédito Electrónicas: campo `tipo` y `factura_origen_id` en `facturas`; campo `secuencial_nc_actual` en `configuracion_facturacion` |
+| 15 | `20260506000042_clientes.sql` | **Módulo Clientes** — tabla `clientes` con campos SRI + FK `cliente_id` en `pedidos` |
+| 16 | `20260506000043_pedidos_venta_manual.sql` | Campos `forma_pago` y `es_venta_manual` en `pedidos` (soporte POS) |
+| 17 | `20260506000044_decrementar_stock.sql` | Función `decrementar_stock()` atómica para POS y tienda online |
 
 Para cada una: abrir el archivo → copiar contenido → pegar en SQL Editor → **Run**.
 
@@ -45,7 +48,7 @@ Para cada una: abrir el archivo → copiar contenido → pegar en SQL Editor →
 
 Ejecutar `supabase/seed/01_datos_iniciales.sql` — crea la fila base en `configuracion_tienda` con valores genéricos para que la tienda arranque sin errores.
 
-> **Nota para futuras migraciones:** cada vez que se agregue un archivo nuevo en `supabase/migrations/` con número mayor al `_028`, deberá ejecutarse manualmente aquí después del schema. El archivo `schema.sql` solo se actualiza periódicamente.
+> **Nota para futuras migraciones:** cada vez que se agregue un archivo nuevo en `supabase/migrations/` con número mayor al `_044`, deberá ejecutarse manualmente aquí después del schema. El archivo `schema.sql` solo se actualiza periódicamente.
 
 ## 3. Usuarios administradores
 
@@ -141,7 +144,7 @@ NEXT_PUBLIC_SUPABASE_URL       → Project URL  (Supabase → Settings → API)
 NEXT_PUBLIC_SUPABASE_ANON_KEY  → anon/public key  (Supabase → Settings → API)
 NEXT_PUBLIC_SITE_URL           → URL del proyecto en Vercel (completar después del primer deploy)
 NEXT_PUBLIC_SOPORTE_WHATSAPP   → número WhatsApp de soporte (solo dígitos, ej: 593982650929)
-SUPABASE_SERVICE_ROLE_KEY      → service_role key (Supabase → Settings → API) — requerida para facturación SRI y envío de email
+SUPABASE_SERVICE_ROLE_KEY      → service_role key (Supabase → Settings → API) — requerida para facturación SRI, email y clientes
 ```
 
 **Opcionales — notificaciones Telegram:**
@@ -158,7 +161,11 @@ TELEGRAM_CHAT_ID               → id del grupo/canal destino
 - Ingresar al admin (`/admin`) y completar: logo, favicon, tema, colores, redes sociales, zonas de envío, etc.
 - Si el cliente tiene dominio propio, configurarlo en **Vercel → Domains**
 
-## 7. Módulo Facturación SRI (si el cliente lo usa)
+---
+
+## Módulos del sistema
+
+### Facturación SRI
 
 Solo para clientes que necesiten emitir facturas electrónicas al SRI Ecuador.
 
@@ -171,50 +178,38 @@ Solo para clientes que necesiten emitir facturas electrónicas al SRI Ecuador.
 
 > **Nota:** el certificado `.p12` lo emite el Banco Central del Ecuador o un proveedor autorizado. El cliente debe solicitarlo con su RUC en el portal del SRI.
 
-### Funciones disponibles en la tabla de facturas
+#### Funciones disponibles en la tabla de facturas
 
 | Botón | Cuándo aparece | Qué hace |
 |-------|----------------|----------|
-| **Consultar SRI** | Factura en estado *Pendiente SRI* (enviada) | Re-consulta la autorización al SRI usando la clave de acceso guardada |
-| **NC** | Factura autorizada sin Nota de Crédito activa | Abre modal para emitir una Nota de Crédito Electrónica (código 04) que la revierte |
+| **Consultar SRI** | Factura en estado *Pendiente SRI* | Re-consulta la autorización al SRI usando la clave de acceso guardada |
+| **NC** | Factura autorizada sin Nota de Crédito activa | Abre modal para emitir una Nota de Crédito Electrónica (código 04) |
 | **Email** | Factura autorizada con email del comprador | Envía el RIDE PDF al comprador |
 | **RIDE** | Factura o NC autorizada | Descarga el PDF en formato estándar SRI con logo y código de barras |
 | **XML** | Cualquier factura con XML firmado | Descarga el XML firmado |
+| **Imprimir** | Siempre | Imprime ticket térmico de la factura |
 
-### Notas de Crédito Electrónicas
+#### Notas de Crédito Electrónicas
 
 Las Notas de Crédito (NC) son el mecanismo oficial del SRI para anular una factura ya autorizada. El sistema las emite con código de comprobante `04` y las envía directamente al SRI.
 
-**Plazo para emitirlas:** hasta el día de vencimiento de la declaración de IVA del mes siguiente, que depende del último dígito del RUC:
+**Plazo para emitirlas:** hasta el día de vencimiento de la declaración de IVA del mes siguiente, según el último dígito del RUC (día 10 al 28). El sistema muestra un indicador visual (verde / ámbar / rojo) con los días restantes al abrir el modal de NC.
 
-| Último dígito RUC | Fecha límite |
-|-------------------|--------------|
-| 1 | Día 10 |
-| 2 | Día 12 |
-| 3 | Día 14 |
-| 4 | Día 16 |
-| 5 | Día 18 |
-| 6 | Día 20 |
-| 7 | Día 22 |
-| 8 | Día 24 |
-| 9 | Día 26 |
-| 0 | Día 28 |
-
-El sistema muestra un indicador visual (verde / ámbar / rojo) con los días restantes al abrir el modal de NC.
-
-### RIDE PDF
+#### RIDE PDF
 
 El RIDE sigue el formato estándar SRI Ecuador:
 - **Logo** tomado desde `/admin/dashboard/perfil` → pestaña Imágenes → campo *Logotipo del Menú*. Usar imagen con fondo blanco o transparente.
 - **Código de barras** Code 128 generado automáticamente a partir de la clave de acceso de 49 dígitos.
 
-## 8. Módulo Email (envío de RIDE al cliente)
+---
 
-Permite enviar el PDF de la factura (RIDE) al email del comprador, de forma manual o automática.
+### Módulo Email
+
+Permite enviar emails al cliente: confirmación de pedido automática y RIDE PDF de facturas.
 
 1. Ir a `/admin/dashboard/email` (solo superadmin)
 2. Elegir proveedor:
-   - **Gmail** — usar una cuenta Gmail + contraseña de aplicación de 16 caracteres (myaccount.google.com/apppasswords)
+   - **Gmail** — cuenta Gmail + contraseña de aplicación de 16 caracteres (myaccount.google.com/apppasswords)
    - **SMTP propio** — servidor, puerto, usuario y contraseña del hosting
    - **Resend** — API key de resend.com (requiere dominio verificado, 3 000 emails/mes gratis)
 3. Completar nombre y email del remitente
@@ -222,62 +217,100 @@ Permite enviar el PDF de la factura (RIDE) al email del comprador, de forma manu
 5. Activar **Envío automático** si se quiere que el RIDE llegue solo al autorizarse la factura
 6. Usar **Probar envío** para confirmar que las credenciales son correctas antes de guardar
 
-## Notificaciones Telegram (opcional)
+#### Límites por proveedor (emails/día)
 
-El sistema puede enviar notificaciones automáticas al grupo o canal de Telegram del cliente cuando ocurren eventos: nuevo pedido, nueva cita, nueva solicitud de evento, stock bajo y resumen diario.
+| Proveedor | Límite diario | Límite mensual |
+|-----------|--------------|----------------|
+| Gmail | 499 | — |
+| SMTP propio | 199 | — |
+| Resend | 99 | 2 999 |
 
-### Paso 1 — Crear el bot con BotFather
+#### Emails automáticos que envía el sistema
+
+| Evento | Destinatario | Condición |
+|--------|-------------|-----------|
+| Pedido creado en tienda online | Cliente | Email activo en `configuracion_email` |
+| Factura autorizada por SRI | Comprador (email en datos de facturación) | Email activo + envío automático activado |
+| RIDE enviado manualmente | Comprador | Botón Email en tabla de facturas |
+
+---
+
+### Módulo Clientes
+
+Base de datos de clientes con campos listos para facturación SRI.
+
+- **Importación automática**: el botón **Importar desde pedidos** en `/admin/dashboard/clientes` recorre todos los pedidos sin `cliente_id`, agrupa por email, crea un registro por cliente y los vincula. Los datos reales (cédula/RUC) siempre tienen prioridad sobre Consumidor Final.
+- **Vinculación con POS**: al seleccionar un cliente en el Punto de Venta, el pedido queda vinculado automáticamente y sus datos de facturación se pre-llenan.
+- **Total facturado**: solo suma pedidos en estado `confirmado`, `en_proceso`, `enviado` o `entregado` — excluye pendientes y cancelados.
+
+---
+
+### Punto de Venta (POS)
+
+Accesible desde `/admin/dashboard/venta-nueva`. Permite crear ventas en persona sin que el cliente pase por la tienda online.
+
+- Búsqueda de productos en tiempo real (≥ 2 caracteres)
+- Seleccionar cliente de la base de datos o marcar **Consumidor Final** directamente
+- Descuento manual en monto fijo
+- Formas de pago: efectivo, transferencia, tarjeta, otro
+- Al confirmar la venta:
+  - Crea el pedido con `es_venta_manual = true`
+  - Descuenta stock de productos físicos
+  - Registra filas en `alquileres` para productos de tipo alquiler
+  - Registra filas en `citas` para servicios (fecha = hoy, hora = hora actual, estado = confirmada)
+  - Permite imprimir ticket térmico inmediatamente
+  - Permite emitir factura electrónica SRI al instante
+
+---
+
+### Impresión Térmica
+
+Configurable desde `/admin/dashboard/impresion` (solo superadmin).
+
+- **Tamaño de papel**: 58 mm o 80 mm
+- **Cabecera editable**: 4 líneas de texto libre (nombre, RUC, dirección, teléfono, etc.)
+- **Pie de página**: 2 líneas de texto libre (ej: "Gracias por su compra", horarios)
+- **Precio unitario**: activar/desactivar la columna de precio por unidad en el ticket
+- **Previsualizar**: abre un ticket de muestra antes de guardar
+
+El botón de impresión aparece en:
+- POS → tras completar una venta
+- Pedidos → en cada pedido entregado o venta manual
+- Facturación → en cada fila de factura
+
+---
+
+### Notificaciones Telegram (opcional)
+
+El sistema envía notificaciones automáticas al grupo o canal de Telegram del cliente cuando ocurren eventos: nuevo pedido, nueva cita, nueva solicitud de evento, stock bajo y resumen diario.
+
+#### Paso 1 — Crear el bot con BotFather
 
 1. Abrir Telegram y buscar **@BotFather**
-2. Iniciar conversación y escribir `/newbot`
-3. BotFather pedirá dos cosas:
-   - **Nombre del bot** — el nombre visible, ej: `Notificaciones Ferretería Pérez`
-   - **Username del bot** — debe terminar en `bot`, ej: `ferreterianotif_bot`
-4. BotFather responderá con el token, algo así:
-   ```
-   Done! Use this token to access the HTTP API:
-   7412365890:AAFxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-   ```
-5. Copiar ese token — es el valor de `TELEGRAM_BOT_TOKEN`
+2. Escribir `/newbot` y seguir las instrucciones
+3. BotFather entregará un token, ej: `7412365890:AAFxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+4. Copiar ese token — es el valor de `TELEGRAM_BOT_TOKEN`
 
-### Paso 2 — Crear el grupo y obtener el Chat ID
+#### Paso 2 — Crear el grupo y obtener el Chat ID
 
-1. En Telegram, crear un **grupo nuevo** (ej: "Alertas Tienda Cliente")
-2. Agregar al bot recién creado como miembro del grupo
-3. Escribir cualquier mensaje en el grupo (ej: "hola")
-4. En el navegador, abrir esta URL reemplazando el token:
+1. Crear un grupo nuevo en Telegram y agregar el bot como miembro
+2. Escribir cualquier mensaje en el grupo
+3. Abrir en el navegador:
    ```
    https://api.telegram.org/bot{TOKEN}/getUpdates
    ```
-   Ejemplo real:
-   ```
-   https://api.telegram.org/bot7412365890:AAFxxx/getUpdates
-   ```
-5. En la respuesta JSON buscar el campo `"id"` dentro de `"chat"`. Será un número negativo, ej:
-   ```json
-   "chat": { "id": -1002345678901, "title": "Alertas Tienda" }
-   ```
-6. Ese número negativo (con el `-` incluido) es el valor de `TELEGRAM_CHAT_ID`
+4. En la respuesta JSON buscar `"chat": { "id": -1002345678901 }` — ese número negativo es `TELEGRAM_CHAT_ID`
 
-> Si el JSON aparece vacío `{"ok":true,"result":[]}`, escribir otro mensaje en el grupo e intentar de nuevo.
+> Si el JSON aparece vacío, escribir otro mensaje en el grupo e intentar de nuevo.
 
-### Paso 3 — Agregar las variables en Vercel
-
-En el proyecto del cliente en Vercel → **Settings → Environment Variables**:
+#### Paso 3 — Agregar las variables en Vercel
 
 ```
-TELEGRAM_BOT_TOKEN        → el token de BotFather
-TELEGRAM_CHAT_ID          → el id del grupo (número negativo)
-SUPABASE_SERVICE_ROLE_KEY → service_role key (Supabase → Settings → API)
+TELEGRAM_BOT_TOKEN   → token de BotFather
+TELEGRAM_CHAT_ID     → id del grupo (número negativo, con el - incluido)
 ```
 
-Hacer **redeploy** después de agregar las variables.
-
-### Paso 4 — Verificar que funciona
-
-Crear un pedido de prueba en la tienda. Debe llegar un mensaje al grupo de Telegram en segundos.
-
-> Si no llega nada, verificar que el bot esté en el grupo y que el `TELEGRAM_CHAT_ID` tenga el `-` al inicio.
+Hacer **redeploy** después de agregar las variables. Crear un pedido de prueba para verificar que llega la notificación.
 
 ---
 
@@ -288,4 +321,4 @@ Desde `/admin/dashboard/perfil` → pestaña **Colores**:
 - **Tema base** — 5 opciones: Claro, Oscuro, Midnight, Cálido, Océano. Cambia fondos, cards y textos.
 - **Color de acento** — 28 paletas predefinidas para botones y elementos interactivos.
 
-Ambos ajustes son independientes y se aplican en tiempo real sin redeploy.
+Ambos ajustes son independientes y se aplican en tiempo real sin redeploy. El color de acento también se aplica al menú superior del panel admin.

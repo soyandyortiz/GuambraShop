@@ -34,6 +34,18 @@ src/app/
 ├── api/
 │   ├── auth/logout/       ← Cierra sesión (Route Handler)
 │   ├── superadmin/reset-password/
+│   ├── admin/
+│   │   └── importar-clientes/ ← Crea clientes desde pedidos existentes
+│   ├── email/
+│   │   ├── confirmacion-pedido/ ← Email automático al cliente tras compra online
+│   │   ├── enviar-ride/         ← Envía RIDE PDF al comprador (manual)
+│   │   └── probar/              ← Prueba de credenciales SMTP/Resend
+│   ├── facturacion/
+│   │   ├── emitir/        ← Emite factura electrónica al SRI
+│   │   ├── desde-pedido/  ← Emite factura a partir de un pedido existente
+│   │   ├── nota-credito/  ← Emite Nota de Crédito
+│   │   ├── ride/          ← Genera RIDE PDF
+│   │   └── xml/           ← Descarga XML firmado
 │   └── telegram/          ← Notificaciones Telegram (opcional)
 │       ├── notificar-pedido/
 │       ├── notificar-solicitud/
@@ -48,7 +60,12 @@ src/app/
         ├── promociones/
         ├── envios/
         ├── pedidos/       ← Órdenes de clientes
+        ├── clientes/      ← Base de datos de clientes (con importación desde pedidos)
         ├── ingresos/      ← Resumen financiero con filtro por fechas
+        ├── facturacion/   ← Facturas electrónicas SRI
+        ├── email/         ← Configuración de email (solo superadmin)
+        ├── impresion/     ← Config impresión térmica 58/80mm (solo superadmin)
+        ├── venta-nueva/   ← POS (Punto de Venta)
         ├── solicitudes/   ← Solicitudes de cotización para eventos
         ├── calendario/    ← Vista calendario de citas
         ├── citas/         ← Tabla de citas agendadas
@@ -85,10 +102,14 @@ Esto evita que Next.js las trate como rutas estáticas en build.
 - `src/lib/locales.ts` → multi-país (EC, PE, CO): `obtenerRegiones()`, `obtenerCiudades()`, `obtenerInfoPais()`, `INFO_PAIS`
 - `src/lib/ecuador.ts` → lista de provincias/ciudades **solo Ecuador** (más granular); legado — usar `locales.ts` en código nuevo
 - `src/hooks/usar-conteos-admin.ts` → badges en tiempo real para pedidos pendientes, citas y solicitudes nuevas
+- `src/lib/ticket.ts` → `imprimirTicket(pedido, config)` — genera e imprime ticket térmico 58/80mm via `window.open()`
+- `src/lib/email/enviar.ts` → `enviarEmail(opts)` — soporta Gmail SMTP, SMTP propio y Resend
+- `src/lib/email/verificar-limite.ts` → `verificarLimiteEmail()` — comprueba cuota diaria/mensual antes de enviar
+- `src/lib/email/enviar-ride-auto.ts` → `enviarRideAuto(facturaId)` — envío automático del RIDE al autorizarse una factura
 
 ### Campos de `configuracion_tienda` fuera del tipo TS
 
-`ConfiguracionTienda` en `types/index.ts` **no incluye** `color_primario`, `cobro_activo`, `fecha_inicio_sistema` ni `dias_pago`. Estos campos existen en la base de datos y se consultan con `.select(...)` directo. Al editar queries sobre `configuracion_tienda`, agrégalos manualmente al select si se necesitan.
+`ConfiguracionTienda` en `types/index.ts` **no incluye** `color_primario`, `cobro_activo`, `fecha_inicio_sistema`, `dias_pago`, ni los campos de ticket (`ticket_ancho_papel`, `ticket_linea_1..4`, `ticket_texto_pie`, `ticket_pie_2`, `ticket_mostrar_precio_unit`). Estos campos existen en la base de datos y se consultan con `.select(...)` directo. Al editar queries sobre `configuracion_tienda`, agrégalos manualmente al select si se necesitan.
 
 ### `ItemCarrito` duplicado
 
@@ -98,41 +119,47 @@ Esto evita que Next.js las trate como rutas estáticas en build.
 
 El color de la tienda se lee de `configuracion_tienda.color_primario` en el `RootLayout` del servidor y se aplica como CSS variables globales (`--primary`, `--primary-hover`, `--primary-foreground`). Siempre usar `var(--primary)` o la clase `bg-primary` en lugar de colores hardcodeados.
 
-## Base de datos (21 tablas)
+## Base de datos (25 tablas)
 
-Schema en `supabase/migrations/`. Aplicar en orden cronológico.
+Schema en `supabase/migrations/`. Aplicar en orden cronológico. Ver README.md para la secuencia completa.
 
 | Tabla | Propósito |
 |-------|-----------|
 | `perfiles` | Extiende auth.users con rol admin/superadmin |
-| `configuracion_tienda` | Una sola fila — datos del negocio + citas (`habilitar_citas`, `hora_apertura`, `hora_cierre`, `duracion_cita_minutos`, `capacidad_citas_simultaneas`, `seleccion_empleado`) + cobro (`cobro_activo`, `fecha_inicio_sistema`, `dias_pago`) + país (`pais`) |
+| `configuracion_tienda` | Una sola fila — datos del negocio + citas + cobro + país + campos de ticket térmico (`ticket_ancho_papel`, `ticket_linea_1..4`, `ticket_texto_pie`, `ticket_pie_2`, `ticket_mostrar_precio_unit`) |
+| `configuracion_facturacion` | Datos SRI: RUC, certificado p12, ambiente (pruebas/produccion), secuenciales |
+| `configuracion_email` | Credenciales SMTP/Resend, `envio_automatico`, `activo` |
+| `clientes` | Base de datos de clientes con campos SRI (tipo_identificacion, identificacion, razon_social); FK opcional en `pedidos.cliente_id` |
 | `direcciones_negocio` | Múltiples direcciones físicas |
 | `redes_sociales` | Botones de redes sociales |
 | `mensajes_admin` | Del superadmin al admin |
 | `categorias` | Con subcategorías via parent_id |
-| `productos` | Full-text search en español; `tipo_producto: 'producto' \| 'servicio' \| 'evento'` |
+| `productos` | Full-text search en español; `tipo_producto: 'producto' \| 'servicio' \| 'evento' \| 'alquiler'`; `tarifa_iva: 0 \| 5 \| 15` |
 | `imagenes_producto` | Máx 5 imágenes, orden=0 es la principal |
 | `variantes_producto` | `tipo_precio: 'reemplaza'` (sustituye precio base) o `'suma'` (add-on) |
 | `tallas_producto` | Tallas disponibles (aplica si `requiere_tallas=true`) |
 | `productos_relacionados` | Selección manual |
 | `likes_producto` | Anónimos via session_id (localStorage) |
-| `resenas_producto` | Nombre + cédula obligatorios |
-| `cupones` | tipo: 'porcentaje' o 'fijo' |
+| `resenas_producto` | Nombre + cédula obligatorios; `es_visible` controla aprobación |
+| `cupones` | tipo: 'porcentaje' o 'fijo'; valida `vence_en`, `max_usos` y `compra_minima` |
 | `promociones` | Modal: cuadrado / horizontal / vertical |
 | `zonas_envio` | Provincia, empresa, precio, tiempo |
 | `leads` | Teléfonos capturados por modal de promoción |
-| `pedidos` | Órdenes completas con `numero_orden` auto-generado; `tipo: 'delivery' \| 'local'`; `estado: 'pendiente' \| 'confirmado' \| ...` |
-| `citas` | Reservas de servicios agendados; vinculadas a un `pedido_id` y `producto_id`; `estado: 'pendiente' \| 'reservada' \| 'confirmada' \| 'cancelada'` |
-| `empleados_cita` | Empleados disponibles para asignar a citas (`nombre_completo`, `activo`, `orden`) |
-| `solicitudes_evento` | Solicitudes de cotización para productos tipo `'evento'`; `estado: 'nueva' \| 'en_conversacion' \| 'cotizacion_enviada' \| 'confirmada' \| 'rechazada'` |
+| `pedidos` | Órdenes completas; `tipo: 'delivery' \| 'local'`; `es_venta_manual: bool`; `forma_pago`; `cliente_id FK`; `datos_facturacion JSONB` |
+| `facturas` | Facturas y Notas de Crédito SRI; `tipo: 'factura' \| 'nota_credito'`; `email_enviado_en/a` para historial |
+| `alquileres` | Reservas de productos de alquiler; `fecha_inicio`, `fecha_fin`, `dias`, `estado` |
+| `citas` | Reservas de servicios agendados; `estado: 'pendiente' \| 'reservada' \| 'confirmada' \| 'cancelada'` |
+| `empleados_cita` | Empleados disponibles para asignar a citas |
+| `solicitudes_evento` | Solicitudes de cotización; `estado: 'nueva' \| 'en_conversacion' \| 'cotizacion_enviada' \| 'confirmada' \| 'rechazada'` |
 
-## Productos, Servicios y Eventos
+## Productos, Servicios, Eventos y Alquileres
 
-`tipo_producto` en la tabla `productos` puede ser `'producto'`, `'servicio'` o `'evento'`:
+`tipo_producto` en la tabla `productos` puede ser `'producto'`, `'servicio'`, `'evento'` o `'alquiler'`:
 
-- **producto**: flujo normal con stock, tallas y variantes.
-- **servicio**: oculta stock y tallas; habilita selección de cita (fecha/hora/empleado) en carrito y detalle. Requiere `configuracion_tienda.habilitar_citas = true`. Si `seleccion_empleado = true`, el cliente elige entre empleados disponibles en `empleados_cita`.
+- **producto**: flujo normal con stock, tallas y variantes. Al comprar (online o POS), llama `decrementar_stock(p_producto_id, p_cantidad, p_variante_id)`.
+- **servicio**: oculta stock y tallas; habilita selección de cita (fecha/hora/empleado) en carrito y detalle. Requiere `configuracion_tienda.habilitar_citas = true`. Al comprar, crea fila en `citas`. Desde POS usa fecha=hoy, hora=ahora, estado=confirmada.
 - **evento**: muestra paquetes (`paquetes_evento: PaqueteEvento[]`) y un formulario de solicitud que crea una fila en `solicitudes_evento`. No pasa por el carrito normal.
+- **alquiler**: el cliente selecciona fechas y cantidad; precio = precio_día × días. Al comprar, crea fila en `alquileres`. Desde POS usa fecha_inicio=hoy, fecha_fin=hoy+días, estado=activo.
 
 ## Flujo del carrito (3 pasos)
 
@@ -140,7 +167,31 @@ Schema en `supabase/migrations/`. Aplicar en orden cronológico.
 
 1. **carrito** — ver ítems, aplicar cupón
 2. **envio** — elegir retiro en tienda o delivery (selecciona zona de `zonas_envio`). Para carritos con solo servicios este paso se salta.
-3. **datos** — nombre, email, teléfono del cliente → crea una fila en `pedidos` → genera enlace WhatsApp
+3. **datos** — nombre, email, teléfono del cliente → crea una fila en `pedidos` → crea `citas` y `alquileres` según corresponda → descuenta stock → envía email de confirmación (fire-and-forget) → genera enlace WhatsApp
+
+## Punto de Venta (POS)
+
+`src/components/admin/venta-nueva/pos-venta.tsx` — venta presencial en `/admin/dashboard/venta-nueva`.
+
+- Seleccionar cliente de la BD o marcar **Consumidor Final** (mutuamente excluyentes)
+- Para alquileres: modal para elegir cantidad y días (sin fechas, se asigna hoy automáticamente)
+- Al confirmar: crea `pedido` con `es_venta_manual=true`, descuenta stock, crea `alquileres`/`citas`, habilita impresión de ticket y emisión de factura SRI
+
+## Módulo Email
+
+`src/lib/email/enviar.ts` es la utilidad central. Siempre usar `enviarEmail(opts)` — nunca llamar nodemailer ni la API de Resend directamente.
+
+Emails automáticos que dispara el sistema:
+- **Confirmación de pedido** (`/api/email/confirmacion-pedido`) — al crear pedido en tienda online, fire-and-forget
+- **RIDE automático** (`src/lib/email/enviar-ride-auto.ts`) — al autorizar factura, si `envio_automatico=true`
+
+Ambos verifican que `configuracion_email.activo = true` antes de enviar. Si no hay config, se omiten sin error.
+
+## Impresión Térmica
+
+`src/lib/ticket.ts` exporta `imprimirTicket(pedido, config: ConfigTicket)`. Abre una ventana nueva con CSS `@page { size: Xmm auto }` — sin dependencias de hardware, funciona con cualquier impresora térmica configurada en Windows/macOS.
+
+`ConfigTicket` tiene: `anchoPapel ('58'|'80')`, `linea1..4`, `pie1`, `pie2`, `mostrarPrecioUnit`, `nombreTienda`, `simboloMoneda`. Los campos se guardan en `configuracion_tienda` con prefijo `ticket_`.
 
 ## Modo demo
 
@@ -189,11 +240,15 @@ NEXT_PUBLIC_SITE_URL
 NEXT_PUBLIC_SOPORTE_WHATSAPP=0982650929
 ```
 
+Variables requeridas para módulos avanzados:
+```
+SUPABASE_SERVICE_ROLE_KEY # Facturación SRI, email de confirmación, email RIDE, importar-clientes
+```
+
 Variables opcionales (notificaciones Telegram):
 ```
 TELEGRAM_BOT_TOKEN        # Token del bot de Telegram
 TELEGRAM_CHAT_ID          # Chat/grupo destino de las notificaciones
-SUPABASE_SERVICE_ROLE_KEY # Requerida para /api/telegram/resumen-diario (cron job)
 CRON_SECRET               # Vercel lo inyecta automáticamente en Pro; protege el endpoint del cron
 ```
 Si `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` no están definidas, las rutas `api/telegram/*` responden `{ ok: true, skipped: true }` sin interrumpir el flujo.
