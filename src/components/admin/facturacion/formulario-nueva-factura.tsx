@@ -253,6 +253,7 @@ export function FormularioNuevaFactura({ config, pedidos, facturaEditar }: Props
               </label>
               <input
                 type="text"
+                name="identificacion"
                 value={comprador.identificacion}
                 onChange={e => cambiarComprador('identificacion', e.target.value)}
                 placeholder="Número de identificación"
@@ -263,6 +264,7 @@ export function FormularioNuevaFactura({ config, pedidos, facturaEditar }: Props
               <label className="text-xs font-medium text-foreground-muted block mb-1">Nombre / Razón social</label>
               <input
                 type="text"
+                name="razon_social"
                 value={comprador.razon_social}
                 onChange={e => cambiarComprador('razon_social', e.target.value.toUpperCase())}
                 placeholder="NOMBRE COMPLETO O EMPRESA"
@@ -273,6 +275,7 @@ export function FormularioNuevaFactura({ config, pedidos, facturaEditar }: Props
               <label className="text-xs font-medium text-foreground-muted block mb-1">Email <span className="text-foreground-muted/60">(para envío RIDE)</span></label>
               <input
                 type="email"
+                name="email_comprador"
                 value={comprador.email ?? ''}
                 onChange={e => cambiarComprador('email', e.target.value || null)}
                 placeholder="cliente@correo.com"
@@ -283,6 +286,7 @@ export function FormularioNuevaFactura({ config, pedidos, facturaEditar }: Props
               <label className="text-xs font-medium text-foreground-muted block mb-1">Teléfono</label>
               <input
                 type="tel"
+                name="telefono_comprador"
                 value={comprador.telefono ?? ''}
                 onChange={e => cambiarComprador('telefono', e.target.value || null)}
                 placeholder="0999999999"
@@ -293,6 +297,7 @@ export function FormularioNuevaFactura({ config, pedidos, facturaEditar }: Props
               <label className="text-xs font-medium text-foreground-muted block mb-1">Dirección</label>
               <input
                 type="text"
+                name="direccion_comprador"
                 value={comprador.direccion ?? ''}
                 onChange={e => cambiarComprador('direccion', e.target.value || null)}
                 placeholder="Av. Principal 123, Ciudad"

@@ -5,13 +5,14 @@ import type { ConfiguracionFacturacion, Factura, Pedido } from '@/types'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PáginaEditarFactura({ params }: { params: { id: string } }) {
+export default async function PáginaEditarFactura({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await crearClienteServidor()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/admin')
 
   const [{ data: facturaData }, { data: config }, { data: pedidos }] = await Promise.all([
-    supabase.from('facturas').select('*').eq('id', params.id).single(),
+    supabase.from('facturas').select('*').eq('id', id).single(),
     supabase.from('configuracion_facturacion').select('*').maybeSingle(),
     supabase
       .from('pedidos')
