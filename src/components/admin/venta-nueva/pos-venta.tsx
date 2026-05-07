@@ -311,7 +311,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
       .from('pedidos')
       .insert({
         tipo:             'local',
-        cliente_id:       clienteSeleccionado?.id ?? null,
+        cliente_id:       esConsumidorFinal ? null : (clienteSeleccionado?.id ?? null),
         nombres,
         email:            emailFinal.toLowerCase(),
         whatsapp:         (telefono || '0').replace(/\D/g, '') || '0',
@@ -762,6 +762,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                         key={c.id}
                         onMouseDown={() => {
                           setClienteSeleccionado(c)
+                          setEsConsumidorFinal(false)
                           setBusquedaCliente('')
                           setMostrarListaClientes(false)
                         }}
@@ -782,7 +783,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
                 {/* Acciones rápidas */}
                 <div className="grid grid-cols-2 gap-1.5">
                   <button
-                    onClick={() => setEsConsumidorFinal(true)}
+                    onClick={() => { setEsConsumidorFinal(true); setClienteSeleccionado(null) }}
                     className="h-9 rounded-xl border border-border bg-input-bg text-foreground-muted text-xs font-semibold hover:border-foreground/40 hover:text-foreground transition-colors flex items-center justify-center gap-1.5"
                   >
                     <User className="w-3.5 h-3.5" /> Consumidor Final

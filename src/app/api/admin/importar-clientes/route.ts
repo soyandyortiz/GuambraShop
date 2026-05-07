@@ -4,6 +4,10 @@
  * crea un registro en `clientes` por cada email único y
  * vincula los pedidos existentes.
  * Retorna: { creados, vinculados, omitidos }
+ *
+ * Regla de datos: siempre se prefieren los datos de facturación
+ * con identificación real (cedula/ruc/pasaporte) sobre consumidor final.
+ * Un cliente con datos completos NUNCA se sobrescribe con datos de CF.
  */
 
 import { NextResponse } from 'next/server'
@@ -18,6 +22,29 @@ const MAPA_TIPO: Record<string, string> = {
 
 function mapTipo(codigo?: string): string {
   return MAPA_TIPO[codigo ?? ''] ?? 'consumidor_final'
+}
+
+function esConsumidorFinal(fac: Record<string, string> | null): boolean {
+  return !fac || fac.tipo_identificacion === '07' || !fac.identificacion || fac.identificacion === '9999999999999'
+}
+
+type PedidoImport = {
+  id: string
+  nombres: string
+  email: string
+  whatsapp: string | null
+  provincia: string | null
+  ciudad: string | null
+  datos_facturacion: unknown
+  creado_en: string
+}
+
+/** Devuelve el pedido con los mejores datos de facturación del grupo.
+ *  Prioridad: datos reales (cedula/ruc) > consumidor_final.
+ *  Si hay empate, el más reciente (grupo ya viene desc por creado_en). */
+function mejorPedido(grupo: PedidoImport[]): PedidoImport {
+  const conDatosReales = grupo.filter(p => !esConsumidorFinal(p.datos_facturacion as Record<string, string> | null))
+  return conDatosReales[0] ?? grupo[0]
 }
 
 export async function POST() {
@@ -59,13 +86,14 @@ export async function POST() {
   let omitidos  = 0
 
   for (const [email, grupo] of grupos) {
-    const reciente = grupo[0] // ya viene ordenado por creado_en desc
-    const fac = reciente.datos_facturacion as Record<string, string> | null
+    // Usar el pedido con mejores datos de facturación
+    const mejor = mejorPedido(grupo)
+    const fac   = mejor.datos_facturacion as Record<string, string> | null
 
     // ¿Ya existe un cliente con ese email?
     const { data: existente } = await supabase
       .from('clientes')
-      .select('id')
+      .select('id, tipo_identificacion, identificacion')
       .eq('email', email)
       .maybeSingle()
 
@@ -73,17 +101,38 @@ export async function POST() {
 
     if (existente) {
       clienteId = existente.id
+
+      // Si el cliente existente tiene datos de consumidor_final pero hay datos reales
+      // en algún pedido, actualizamos el cliente con los datos reales.
+      const clienteEsCF = existente.tipo_identificacion === 'consumidor_final'
+        || existente.identificacion === '9999999999999'
+      const hayDatosReales = !esConsumidorFinal(fac)
+
+      if (clienteEsCF && hayDatosReales) {
+        await supabase
+          .from('clientes')
+          .update({
+            tipo_identificacion: mapTipo(fac?.tipo_identificacion),
+            identificacion:      fac?.identificacion,
+            razon_social:        mejor.nombres,
+            telefono:            mejor.whatsapp  || null,
+            provincia:           mejor.provincia || null,
+            ciudad:              mejor.ciudad    || null,
+          })
+          .eq('id', existente.id)
+      }
+      // Si el cliente ya tiene datos reales, no se toca aunque haya pedidos de CF.
     } else {
       const { data: nuevo, error: errIns } = await supabase
         .from('clientes')
         .insert({
           tipo_identificacion: mapTipo(fac?.tipo_identificacion),
           identificacion:      fac?.identificacion ?? '9999999999999',
-          razon_social:        reciente.nombres,
+          razon_social:        mejor.nombres,
           email,
-          telefono:  reciente.whatsapp  || null,
-          provincia: reciente.provincia || null,
-          ciudad:    reciente.ciudad    || null,
+          telefono:  mejor.whatsapp  || null,
+          provincia: mejor.provincia || null,
+          ciudad:    mejor.ciudad    || null,
         })
         .select('id')
         .single()
