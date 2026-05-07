@@ -346,6 +346,47 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
         )
     )
 
+    // Registrar alquileres vendidos por POS
+    const alquileresCarrito = carrito.filter(i => i.tipo_producto === 'alquiler' && i.dias_alquiler)
+    if (alquileresCarrito.length > 0) {
+      const hoy = new Date().toISOString().slice(0, 10)
+      const alqPayload = alquileresCarrito.map(i => {
+        const fin = new Date()
+        fin.setDate(fin.getDate() + (i.dias_alquiler ?? 1))
+        return {
+          pedido_id:    data.id,
+          producto_id:  i.producto_id,
+          fecha_inicio: hoy,
+          fecha_fin:    fin.toISOString().slice(0, 10),
+          dias:         i.dias_alquiler ?? 1,
+          cantidad:     i.cantidad,
+          hora_recogida: null,
+          estado:       'activo',
+        }
+      })
+      await supabase.from('alquileres').insert(alqPayload)
+    }
+
+    // Registrar citas para servicios vendidos por POS (fecha = hoy, hora = ahora)
+    const serviciosCarrito = carrito.filter(i => i.tipo_producto === 'servicio')
+    if (serviciosCarrito.length > 0) {
+      const ahora      = new Date()
+      const horaInicio = ahora.toTimeString().slice(0, 8)
+      ahora.setHours(ahora.getHours() + 1)
+      const horaFin    = ahora.toTimeString().slice(0, 8)
+      const fecha      = new Date().toISOString().slice(0, 10)
+      const citasPayload = serviciosCarrito.map(i => ({
+        pedido_id:   data.id,
+        producto_id: i.producto_id,
+        fecha,
+        hora_inicio: horaInicio,
+        hora_fin:    horaFin,
+        empleado_id: null,
+        estado:      'confirmada',
+      }))
+      await supabase.from('citas').insert(citasPayload)
+    }
+
     setVentaCreada(data)
     toast.success(`Venta #${data.numero_orden} registrada`)
     startTransition(() => router.refresh())
