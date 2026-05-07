@@ -34,24 +34,20 @@ export default async function LayoutDashboard({ children }: { children: React.Re
       <div className="min-h-screen bg-background flex flex-col">
         {esDemo && <BannerDemo />}
 
-        <div className="flex flex-1">
-          {/* Sidebar desktop */}
-          <Sidebar nombre={nombre} rol={rol} fotoPerfil={fotoPerfil} faviconUrl={faviconUrl} />
+        {/* Sidebar + Topbar: ambos fixed, topbar ancho completo z-50, sidebar top-11 z-40 */}
+        <Sidebar nombre={nombre} rol={rol} fotoPerfil={fotoPerfil} faviconUrl={faviconUrl} />
+        <TopbarAdmin nombre={nombre} email={email} rol={rol} fotoPerfil={fotoPerfil} />
 
-          {/* Topbar desktop */}
-          <TopbarAdmin nombre={nombre} email={email} rol={rol} fotoPerfil={fotoPerfil} />
+        {/* Contenido: desplazado por sidebar (ml-60) y topbar (pt-11) en desktop */}
+        <div className="flex flex-col flex-1 min-w-0 lg:ml-60 lg:pt-11">
+          {/* Header móvil */}
+          <HeaderAdmin nombre={nombre} rol={rol} fotoPerfil={fotoPerfil} />
 
-          <div className="flex flex-col flex-1 min-w-0 lg:ml-60">
-            {/* Header móvil */}
-            <HeaderAdmin nombre={nombre} rol={rol} fotoPerfil={fotoPerfil} />
-
-            {/* Contenido principal — pt-11 para compensar la topbar desktop */}
-            <main className="flex-1 min-w-0 overflow-x-clip lg:pt-11">
-              <div className="p-4 md:p-6 max-w-6xl mx-auto w-full">
-                {children}
-              </div>
-            </main>
-          </div>
+          <main className="flex-1 min-w-0 overflow-x-clip">
+            <div className="p-4 md:p-6 max-w-6xl mx-auto w-full">
+              {children}
+            </div>
+          </main>
         </div>
 
         {rol === 'admin' && mensajesSinLeer && mensajesSinLeer.length > 0 && (

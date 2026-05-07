@@ -27,7 +27,18 @@ export function TopbarAdmin({ nombre, email, rol, fotoPerfil }: Props) {
   }
 
   return (
-    <header className="hidden lg:flex fixed top-0 left-60 right-0 h-11 bg-primary z-30 items-center justify-end px-5 gap-3">
+    <header className="hidden lg:flex fixed top-0 left-0 right-0 h-11 bg-primary z-50 items-center justify-between">
+
+      {/* Marca — ocupa el mismo ancho que el sidebar */}
+      <div className="w-60 flex-shrink-0 flex items-center px-4">
+        <Link href="/admin/dashboard" className="flex items-center gap-2">
+          <span className="text-white font-bold text-sm tracking-tight">GuambraShop</span>
+          <span className="text-white/50 text-[10px] font-medium uppercase tracking-widest">Admin</span>
+        </Link>
+      </div>
+
+      {/* Acciones — derecha */}
+      <div className="flex items-center justify-end px-5 gap-3">
 
       {/* Ver tienda */}
       <Link
@@ -74,6 +85,8 @@ export function TopbarAdmin({ nombre, email, rol, fotoPerfil }: Props) {
         <LogOut className="w-3.5 h-3.5" />
         Salir
       </button>
+
+      </div>
     </header>
   )
 }

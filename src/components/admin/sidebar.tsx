@@ -103,14 +103,14 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
     href === '/admin/dashboard' ? pathname === href : pathname.startsWith(href)
 
   return (
-    <aside className="hidden lg:flex flex-col w-60 min-h-screen bg-card border-r border-border fixed left-0 top-0 bottom-0 z-40">
+    <aside className="hidden lg:flex flex-col w-60 bg-card border-r border-border fixed left-0 top-11 bottom-0 z-40 overflow-y-auto">
 
       {/* Inicio */}
-      <div className="px-2 pt-3">
+      <div className="px-2 pt-2">
         <Link
           href="/admin/dashboard"
           className={cn(
-            'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors',
+            'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors',
             esActivo('/admin/dashboard')
               ? 'bg-primary text-white'
               : 'text-foreground-muted hover:text-foreground hover:bg-background-subtle'
@@ -122,10 +122,10 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
       </div>
 
       {/* Secciones */}
-      <nav className="flex-1 overflow-y-auto px-2 pb-3 mt-2">
+      <nav className="px-2 pb-3 mt-1">
         {secciones.map(seccion => (
-          <div key={seccion.titulo} className="mb-5">
-            <p className="px-3 py-1.5 text-[10px] font-bold text-foreground-muted/50 uppercase tracking-widest">
+          <div key={seccion.titulo} className="mb-2">
+            <p className="px-3 py-1 text-[9px] font-bold text-foreground-muted/50 uppercase tracking-widest">
               {seccion.titulo}
             </p>
             <div className="flex flex-col gap-0.5">
@@ -137,7 +137,7 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                      'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
                       activo
                         ? 'bg-primary text-white'
                         : 'text-foreground-muted hover:text-foreground hover:bg-background-subtle'
