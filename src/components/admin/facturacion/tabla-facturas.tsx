@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   FileText, Download, XCircle, ChevronDown, Search,
   Send, Loader2, AlertTriangle, ExternalLink, X, BadgeCheck, Mail,
-  RefreshCw, ReceiptText, Clock, Printer, Pencil,
+  RefreshCw, ReceiptText, Clock, Printer, Pencil, Trash2,
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatearPrecio } from '@/lib/utils'
@@ -431,6 +431,60 @@ function ModalNotaCredito({
   )
 }
 
+// ─── Modal de confirmación de eliminación ────────────────────────────────────
+function ModalEliminar({
+  factura,
+  onConfirmar,
+  onCerrar,
+  cargando,
+}: {
+  factura: Factura
+  onConfirmar: () => void
+  onCerrar: () => void
+  cargando: boolean
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-card rounded-2xl border border-border shadow-xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+              <Trash2 className="w-4 h-4 text-red-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">Eliminar borrador</p>
+              <p className="text-[11px] text-foreground-muted">{factura.numero_factura ?? `#${factura.numero_secuencial}`}</p>
+            </div>
+          </div>
+          <button onClick={onCerrar} className="p-1.5 rounded-lg hover:bg-background-subtle text-foreground-muted">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-5 py-4">
+          <p className="text-sm text-foreground-muted leading-relaxed">
+            Esta acción es <span className="font-semibold text-foreground">permanente e irreversible</span>.
+            El borrador se eliminará del sistema y el número de secuencial no se recuperará.
+          </p>
+        </div>
+        <div className="px-5 pb-5 flex flex-col gap-2">
+          <button
+            onClick={onConfirmar}
+            disabled={cargando}
+            className="flex items-center justify-center gap-2 w-full h-10 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-40"
+          >
+            {cargando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            {cargando ? 'Eliminando…' : 'Sí, eliminar'}
+          </button>
+          <button onClick={onCerrar}
+            className="w-full h-9 rounded-xl border border-border text-sm text-foreground-muted hover:text-foreground hover:border-border-strong transition-colors">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', ambiente = 'produccion', configTicket }: Props) {
   const router = useRouter()
@@ -447,6 +501,8 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
   const [modalEmail, setModalEmail] = useState<Factura | null>(null)
   const [enviandoEmail, setEnviandoEmail] = useState<string | null>(null)
   const [bannerAnulacion, setBannerAnulacion] = useState<{ factura: Factura; ambiente: string } | null>(null)
+  const [modalEliminar, setModalEliminar] = useState<Factura | null>(null)
+  const [eliminando, setEliminando] = useState<string | null>(null)
 
   // Auto-consulta al cargar la página: resuelve facturas en estado "enviada"
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -626,6 +682,28 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
     }
   }
 
+  async function confirmarEliminar() {
+    if (!modalEliminar) return
+    const facturaId = modalEliminar.id
+    setEliminando(facturaId)
+    try {
+      const res = await fetch('/api/facturacion/eliminar', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ facturaId }),
+      })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error ?? 'No se pudo eliminar'); return }
+      setFacturas(prev => prev.filter(f => f.id !== facturaId))
+      setModalEliminar(null)
+      toast.success('Borrador eliminado')
+    } catch {
+      toast.error('Error de conexión al eliminar')
+    } finally {
+      setEliminando(null)
+    }
+  }
+
   function exportarCSV() {
     const esc = (v: string | number | null | undefined): string => {
       const s = v == null ? '' : String(v)
@@ -760,6 +838,16 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
         />
       )}
 
+      {/* Modal eliminar borrador */}
+      {modalEliminar && (
+        <ModalEliminar
+          factura={modalEliminar}
+          onConfirmar={confirmarEliminar}
+          onCerrar={() => setModalEliminar(null)}
+          cargando={eliminando === modalEliminar.id}
+        />
+      )}
+
       {/* Modal email sin destinatario */}
       {modalEmail && (
         <ModalEmail
@@ -876,6 +964,7 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
                       onConsultar={consultarSRI}
                       onNotaCredito={() => setModalNC(factura)}
                       onEnviarEmail={() => iniciarEnvioEmail(factura)}
+                      onEliminar={() => setModalEliminar(factura)}
                       cargando={enviando === factura.id}
                       consultando={consultando === factura.id}
                       enviandoEmail={enviandoEmail === factura.id}
@@ -902,7 +991,7 @@ export function TablaFacturas({ facturas: facturasInic, configActiva, ruc = '', 
 
 // ─── Fila individual ──────────────────────────────────────────────────────────
 function FilaFactura({
-  factura, esUltima, onEmitir, onAnular, onConsultar, onNotaCredito, onEnviarEmail,
+  factura, esUltima, onEmitir, onAnular, onConsultar, onNotaCredito, onEnviarEmail, onEliminar,
   cargando, consultando, enviandoEmail, tieneNC, sinRuc, configTicket,
 }: {
   factura: Factura
@@ -912,6 +1001,7 @@ function FilaFactura({
   onConsultar: (id: string) => Promise<void>
   onNotaCredito: () => void
   onEnviarEmail: () => void
+  onEliminar: () => void
   cargando?: boolean
   consultando?: boolean
   enviandoEmail?: boolean
@@ -972,6 +1062,17 @@ function FilaFactura({
               >
                 <Pencil className="w-3.5 h-3.5" />
               </Link>
+            )}
+
+            {/* Eliminar borrador */}
+            {factura.estado === 'borrador' && (
+              <button
+                onClick={onEliminar}
+                title="Eliminar borrador"
+                className="p-1.5 rounded-lg hover:bg-red-50 text-foreground-muted hover:text-red-600 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             )}
 
             {/* Enviar al SRI (solo facturas, no NC que ya se emiten directamente) */}
