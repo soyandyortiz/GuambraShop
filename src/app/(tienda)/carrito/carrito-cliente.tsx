@@ -972,7 +972,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
               <input
                 value={nombres}
                 onChange={e => setNombres(e.target.value)}
-                placeholder="Ej: Ana García Torres"
+                placeholder="Ej: Juan Pérez"
                 className={INPUT_BASE}
               />
             </div>
@@ -1106,7 +1106,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                         type="text"
                         value={idFactura}
                         onChange={e => setIdFactura(e.target.value)}
-                        placeholder={tipoIdFactura === '04' ? '0602153520001' : tipoIdFactura === '05' ? '0604511089' : 'AB123456'}
+                        placeholder={tipoIdFactura === '04' ? '060xxxxxxxx' : tipoIdFactura === '05' ? '06xxxxxxxx' : 'AB123456'}
                         className={cn(INPUT_BASE, 'font-mono')}
                         maxLength={tipoIdFactura === '04' ? 13 : tipoIdFactura === '05' ? 10 : 20}
                       />

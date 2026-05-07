@@ -162,10 +162,10 @@ export function FormularioConfigImpresion({
             </div>
           </div>
 
-          <CampoLinea label="Línea 1" value={linea1} onChange={setLinea1} placeholder="Ej: RUC: 0602153520001" />
-          <CampoLinea label="Línea 2" value={linea2} onChange={setLinea2} placeholder="Ej: Tel: 0983415042" />
-          <CampoLinea label="Línea 3" value={linea3} onChange={setLinea3} placeholder="Ej: Av. Principal 123, Riobamba" />
-          <CampoLinea label="Línea 4" value={linea4} onChange={setLinea4} placeholder="Ej: Instagram: @chakanaecuador" />
+          <CampoLinea label="Línea 1" value={linea1} onChange={setLinea1} placeholder="Ej: RUC: 060xxxxxxxx" />
+          <CampoLinea label="Línea 2" value={linea2} onChange={setLinea2} placeholder="Ej: Tel: 09xxxxxxxx" />
+          <CampoLinea label="Línea 3" value={linea3} onChange={setLinea3} placeholder="Ej: Av. Principal 123, Ciudad" />
+          <CampoLinea label="Línea 4" value={linea4} onChange={setLinea4} placeholder="Ej: Instagram: @tu_cuenta" />
         </div>
       </div>
 
@@ -206,7 +206,7 @@ export function FormularioConfigImpresion({
         </div>
         <div className="rounded-xl border border-border bg-background-subtle/40 p-4 space-y-2.5">
           <CampoLinea label="Línea 1" value={pie1} onChange={setPie1} placeholder="Ej: ¡Gracias por su compra!" />
-          <CampoLinea label="Línea 2" value={pie2} onChange={setPie2} placeholder="Ej: Síguenos en Instagram: @chakana" />
+          <CampoLinea label="Línea 2" value={pie2} onChange={setPie2} placeholder="Ej: Síguenos en Instagram: @tu_cuenta" />
         </div>
       </div>
 

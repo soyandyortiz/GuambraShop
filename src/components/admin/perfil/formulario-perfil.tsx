@@ -275,9 +275,9 @@ function TabGeneral({ config }: { config: ConfigTienda }) {
       </Campo>
 
       <Campo label="WhatsApp">
-        <input {...register('whatsapp')} className={inputCls} placeholder="Ej: 0982650929" />
+        <input {...register('whatsapp')} className={inputCls} placeholder="Ej: 09xxxxxxxx" />
         <p className="text-[11px] text-foreground-muted mt-1">
-          Ingresa solo el número sin espacios ni guiones. Ecuador: <span className="font-mono bg-background-subtle px-1 rounded">0982650929</span>
+          Ingresa solo el número sin espacios ni guiones. Ecuador: <span className="font-mono bg-background-subtle px-1 rounded">09xxxxxxxx</span>
         </p>
       </Campo>
 
@@ -1604,19 +1604,19 @@ function TabMetodosPago({ metodosPagoInic }: { metodosPagoInic: MetodoPago[] }) 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-foreground-muted">Número de cuenta *</label>
               <input value={form.numero_cuenta} onChange={e => setForm(f => ({ ...f, numero_cuenta: e.target.value }))}
-                placeholder="Ej: 2100123456" className={inputP} />
+                placeholder="Ej: 21xxxxxxxxx" className={inputP} />
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-foreground-muted">Nombre del titular *</label>
               <input value={form.nombre_titular} onChange={e => setForm(f => ({ ...f, nombre_titular: e.target.value }))}
-                placeholder="Ej: Juan Pérez Torres" className={inputP} />
+                placeholder="Ej: Juan Pérez" className={inputP} />
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-foreground-muted">Cédula del titular *</label>
               <input value={form.cedula_titular} onChange={e => setForm(f => ({ ...f, cedula_titular: e.target.value }))}
-                placeholder="Ej: 0604511089" className={inputP} maxLength={13} />
+                placeholder="Ej: 06xxxxxxxxx" className={inputP} maxLength={13} />
             </div>
 
             <div className="flex items-center gap-2 pt-5">
