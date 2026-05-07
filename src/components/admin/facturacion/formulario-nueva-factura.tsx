@@ -58,10 +58,12 @@ export function FormularioNuevaFactura({ config, pedidos, facturaEditar }: Props
   function actualizarItem(idx: number, campo: keyof ItemFactura, valor: string | number) {
     setItems(prev => {
       const next = [...prev]
-      next[idx] = { ...next[idx], [campo]: typeof valor === 'string' ? valor : Number(valor) }
+      // descripcion es el único campo de texto; los demás siempre son numéricos
+      const valorFinal = campo === 'descripcion' ? valor : Number(valor)
+      next[idx] = { ...next[idx], [campo]: valorFinal }
       const it = next[idx]
-      const base = it.cantidad * it.precio_unitario - it.descuento
-      next[idx].subtotal = Math.max(0, base)
+      const base = Number(it.cantidad) * Number(it.precio_unitario) - Number(it.descuento)
+      next[idx].subtotal = Math.max(0, parseFloat(base.toFixed(2)))
       return next
     })
   }
@@ -72,12 +74,19 @@ export function FormularioNuevaFactura({ config, pedidos, facturaEditar }: Props
   }
 
   function calcularTotales() {
-    const subtotal_0  = items.filter(i => i.iva === 0).reduce((s, i) => s + i.subtotal, 0)
-    const subtotal_iva = items.filter(i => i.iva > 0).reduce((s, i) => s + i.subtotal, 0)
-    const total_iva   = subtotal_iva * (config.tarifa_iva / 100)
-    const descuento   = items.reduce((s, i) => s + i.descuento, 0)
-    const total       = subtotal_0 + subtotal_iva + total_iva
-    return { subtotal_0, subtotal_iva, total_iva, descuento, total }
+    // Usar Number() en todas las comparaciones para tolerar valores que vengan como string desde JSONB
+    const subtotal_0   = items.filter(i => Number(i.iva) === 0).reduce((s, i) => s + Number(i.subtotal), 0)
+    const subtotal_iva = items.filter(i => Number(i.iva) > 0).reduce((s, i) => s + Number(i.subtotal), 0)
+    const total_iva    = subtotal_iva * (config.tarifa_iva / 100)
+    const descuento    = items.reduce((s, i) => s + Number(i.descuento), 0)
+    const total        = subtotal_0 + subtotal_iva + total_iva
+    return {
+      subtotal_0:   parseFloat(subtotal_0.toFixed(2)),
+      subtotal_iva: parseFloat(subtotal_iva.toFixed(2)),
+      total_iva:    parseFloat(total_iva.toFixed(2)),
+      descuento:    parseFloat(descuento.toFixed(2)),
+      total:        parseFloat(total.toFixed(2)),
+    }
   }
 
   function cargarPedido(pedidoId: string) {
@@ -129,10 +138,20 @@ export function FormularioNuevaFactura({ config, pedidos, facturaEditar }: Props
       toast.error('Ingresa el nombre o razón social del comprador')
       return
     }
-    if (items.some(i => !i.descripcion || i.cantidad <= 0)) {
+    if (items.some(i => !i.descripcion || Number(i.cantidad) <= 0)) {
       toast.error('Completa todos los ítems de la factura')
       return
     }
+
+    // Normalizar todos los campos numéricos antes de guardar
+    const itemsNormalizados: ItemFactura[] = items.map(i => ({
+      descripcion:     i.descripcion,
+      cantidad:        Number(i.cantidad),
+      precio_unitario: Number(i.precio_unitario),
+      descuento:       Number(i.descuento),
+      subtotal:        Number(i.subtotal),
+      iva:             Number(i.iva),
+    }))
 
     setGuardando(true)
     try {
@@ -146,7 +165,7 @@ export function FormularioNuevaFactura({ config, pedidos, facturaEditar }: Props
         const { error } = await supabase.from('facturas').update({
           pedido_id:       pedidoSeleccionado || null,
           datos_comprador: compradorFinal,
-          items,
+          items:           itemsNormalizados,
           totales,
           notas:           notas || null,
           estado:          'borrador',
@@ -167,7 +186,7 @@ export function FormularioNuevaFactura({ config, pedidos, facturaEditar }: Props
           fecha_emision:     new Date().toISOString().slice(0, 10),
           estado:            'borrador',
           datos_comprador:   compradorFinal,
-          items,
+          items:             itemsNormalizados,
           totales,
           notas:             notas || null,
         })
