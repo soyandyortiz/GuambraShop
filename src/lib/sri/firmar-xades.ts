@@ -57,6 +57,26 @@ function rsaSha1Sign(data: string, privateKeyPem: string): string {
   return sign.sign(privateKeyPem, 'base64')
 }
 
+/** Lee la fecha de expiración del certificado desde el .p12 sin necesidad de firmar */
+export function leerExpiracionCert(
+  p12Buffer: Buffer,
+  pin: string,
+): { expiry: Date; cn: string } | null {
+  try {
+    const p12Asn1 = forge.asn1.fromDer(p12Buffer.toString('binary'))
+    const p12     = forge.pkcs12.pkcs12FromAsn1(p12Asn1, false, pin)
+    const certBags = p12.getBags({ bagType: forge.pki.oids.certBag })
+    const certBag  = certBags[forge.pki.oids.certBag]?.[0]
+    if (!certBag?.cert) return null
+    return {
+      expiry: certBag.cert.validity.notAfter,
+      cn:     certBag.cert.subject.getField('CN')?.value ?? '',
+    }
+  } catch {
+    return null
+  }
+}
+
 export function firmarXML(xmlSinFirma: string, p12Buffer: Buffer, pin: string): string {
   const { privateKey, cert } = cargarP12(p12Buffer, pin)
 

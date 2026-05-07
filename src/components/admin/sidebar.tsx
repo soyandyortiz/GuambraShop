@@ -46,7 +46,7 @@ function BadgeConteo({ count, activo }: { count: number; activo: boolean }) {
 export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, faviconUrl: _faviconUrl }: PropsSidebar) {
   const pathname = usePathname()
   const esSuperadmin = rol === 'superadmin'
-  const { pedidosPendientes, citasPendientes, solicitudesNuevas } = usarConteosAdmin()
+  const { pedidosPendientes, citasPendientes, solicitudesNuevas, alquileresVencidos } = usarConteosAdmin()
 
   const secciones: Seccion[] = [
     {
@@ -72,7 +72,7 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
       items: [
         { href: '/admin/dashboard/calendario',  icono: <CalendarDays className="w-4 h-4" />, etiqueta: 'Calendario', badge: 'citas' },
         { href: '/admin/dashboard/solicitudes', icono: <PartyPopper className="w-4 h-4" />,  etiqueta: 'Eventos',    badge: 'solicitudes' },
-        { href: '/admin/dashboard/alquileres',  icono: <KeyRound className="w-4 h-4" />,     etiqueta: 'Alquileres', badge: null },
+        { href: '/admin/dashboard/alquileres',  icono: <KeyRound className="w-4 h-4" />,     etiqueta: 'Alquileres', badge: 'alquileres' },
         { href: '/admin/dashboard/envios',      icono: <Truck className="w-4 h-4" />,        etiqueta: 'Envíos',     badge: null },
       ],
     },
@@ -94,6 +94,7 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
     if (badge === 'pedidos')     return pedidosPendientes
     if (badge === 'citas')       return citasPendientes
     if (badge === 'solicitudes') return solicitudesNuevas
+    if (badge === 'alquileres')  return alquileresVencidos
     return 0
   }
 

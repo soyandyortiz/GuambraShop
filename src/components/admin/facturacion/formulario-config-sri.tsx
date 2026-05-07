@@ -4,14 +4,22 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { toast } from 'sonner'
-import { Save, Upload, X, Eye, EyeOff } from 'lucide-react'
+import { Save, Upload, X, Eye, EyeOff, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { ConfiguracionFacturacion, AmbienteSRI } from '@/types'
+
+interface CertInfo {
+  expiry: string
+  cn: string
+  diasRestantes: number
+}
 
 interface Props {
   config: ConfiguracionFacturacion | null
+  certInfo?: CertInfo | null
 }
 
-export function FormularioConfigSRI({ config }: Props) {
+export function FormularioConfigSRI({ config, certInfo }: Props) {
   const router = useRouter()
   const supabase = crearClienteSupabase()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -307,6 +315,54 @@ export function FormularioConfigSRI({ config }: Props) {
             El certificado de firma electrónica emitido por el BCE o ANF. Requerido para firmar facturas.
           </p>
         </div>
+
+        {/* Alerta de expiración del certificado */}
+        {certInfo && (
+          <div className={cn(
+            'flex items-start gap-3 rounded-xl border px-4 py-3',
+            certInfo.diasRestantes < 0
+              ? 'bg-red-50 border-red-200'
+              : certInfo.diasRestantes <= 30
+              ? 'bg-amber-50 border-amber-200'
+              : 'bg-emerald-50 border-emerald-200',
+          )}>
+            {certInfo.diasRestantes < 0
+              ? <ShieldAlert className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              : certInfo.diasRestantes <= 30
+              ? <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              : <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+            }
+            <div>
+              <p className={cn(
+                'text-xs font-bold',
+                certInfo.diasRestantes < 0 ? 'text-red-800'
+                : certInfo.diasRestantes <= 30 ? 'text-amber-800'
+                : 'text-emerald-800',
+              )}>
+                {certInfo.diasRestantes < 0
+                  ? `Certificado expirado hace ${Math.abs(certInfo.diasRestantes)} días`
+                  : certInfo.diasRestantes === 0
+                  ? 'El certificado expira hoy'
+                  : certInfo.diasRestantes <= 30
+                  ? `El certificado expira en ${certInfo.diasRestantes} días`
+                  : `Certificado vigente — expira el ${new Date(certInfo.expiry + 'T12:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}`}
+              </p>
+              <p className={cn(
+                'text-[11px] mt-0.5 leading-relaxed',
+                certInfo.diasRestantes < 0 ? 'text-red-700'
+                : certInfo.diasRestantes <= 30 ? 'text-amber-700'
+                : 'text-emerald-700',
+              )}>
+                {certInfo.cn && <span className="font-medium">{certInfo.cn} · </span>}
+                {certInfo.diasRestantes < 0
+                  ? 'Renueva el certificado urgentemente — las facturas no se pueden firmar.'
+                  : certInfo.diasRestantes <= 30
+                  ? 'Renueva el certificado antes de que expire para evitar interrupciones en la facturación.'
+                  : `Válido hasta ${new Date(certInfo.expiry + 'T12:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' })}.`}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Archivo P12 */}
         <div>
