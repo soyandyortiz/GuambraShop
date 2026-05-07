@@ -145,7 +145,7 @@ export function generarXMLFactura(
     : ''
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<factura id="comprobante" version="2.1.0">
+<factura Id="comprobante" version="2.1.0">
   <infoTributaria>
     <ambiente>${ambiente}</ambiente>
     <tipoEmision>1</tipoEmision>
@@ -268,7 +268,7 @@ export function generarXMLNotaCredito(
     : ''
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<notaCredito id="comprobante" version="1.1.0">
+<notaCredito Id="comprobante" version="1.1.0">
   <infoTributaria>
     <ambiente>${ambiente}</ambiente>
     <tipoEmision>1</tipoEmision>

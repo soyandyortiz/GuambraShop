@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { generarClaveAcceso, generarXMLNotaCredito } from '@/lib/sri/generar-xml'
-import { firmarXML } from '@/lib/sri/firmar-xades'
+import { firmarXMLNotaCredito } from '@/lib/sri/firmar-xades'
 import { emitirAlSRI } from '@/lib/sri/soap-sri'
 import type { Factura, ConfiguracionFacturacion } from '@/types'
 
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
     // Firmar
     let xmlFirmado: string
     try {
-      xmlFirmado = firmarXML(xmlSinFirma, p12Buffer, config.cert_pin)
+      xmlFirmado = firmarXMLNotaCredito(xmlSinFirma, p12Buffer, config.cert_pin)
     } catch (err: unknown) {
       const msg = (err as Error).message ?? 'Error de firma'
       await admin.from('facturas').update({ estado: 'rechazada', error_sri: `Error de firma: ${msg}` }).eq('id', nc.id)
