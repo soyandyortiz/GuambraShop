@@ -1,13 +1,13 @@
 /**
  * Firma XAdES-BES para comprobantes electrónicos SRI Ecuador
- * Implementado con node-forge (RSA-SHA1 + C14N)
+ * Implementado con node-forge (RSA-SHA1 + C14N Inclusive)
  *
- * Estructura basada en ANEXO 14 de la Ficha Técnica SRI v2.26:
- *   - 3 References en SignedInfo: SignedProperties → Certificate → comprobante
- *   - Prefijo etsi: para QualifyingProperties (igual al ejemplo oficial)
- *   - KeyInfo incluye X509Data + KeyValue (Modulus/Exponent)
- *   - SignedProperties incluye SignedDataObjectProperties con DataObjectFormat
- *   - C14N inclusivo: xmlns:ds y xmlns:etsi declarados en la raíz de SignedProperties
+ * Estructura según ANEXO 14 de la Ficha Técnica SRI v2.26:
+ *   - xmlns:ds solo en <ds:Signature>
+ *   - xmlns:etsi solo en <etsi:QualifyingProperties>
+ *   - 3 References en SignedInfo: SignedProperties → KeyInfo → comprobante
+ *   - Type de SignedProperties Reference: http://uri.etsi.org/01903#SignedProperties (sin versión)
+ *   - C14N Inclusive: expande elementos vacíos <foo/> → <foo></foo>
  */
 
 import forge from 'node-forge'
@@ -33,14 +33,19 @@ export function cargarP12(p12Buffer: Buffer, pin: string): {
 }
 
 /**
- * C14N simplificado: elimina la declaración XML y normaliza saltos de línea.
- * Suficiente para el esquema SRI donde los elementos no usan prefijos mixtos.
+ * C14N Inclusive (W3C REC xml-c14n-20010315):
+ *  1. Elimina la declaración XML
+ *  2. Normaliza saltos de línea → LF
+ *  3. Expande elementos vacíos auto-cerrados <foo attr="x"/> → <foo attr="x"></foo>
+ *
+ * El SRI valida los hashes sobre la forma canónica — sin expansión los hashes no coinciden.
  */
 function c14n(xml: string): string {
   return xml
     .replace(/^<\?xml[^?]*\?>\s*/m, '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
+    .replace(/<([\w:]+)(\s[^>]*)?\s*\/>/g, (_, tag, attrs) => `<${tag}${attrs ?? ''}></${tag}>`)
 }
 
 function sha1Utf8B64(text: string): string {
@@ -81,19 +86,22 @@ export function firmarXML(xmlSinFirma: string, p12Buffer: Buffer, pin: string): 
   const { privateKey, cert } = cargarP12(p12Buffer, pin)
 
   // --- Datos del certificado ---
-  const certAsn1   = forge.pki.certificateToAsn1(cert)
-  const certDerStr = forge.asn1.toDer(certAsn1).getBytes()
-  const certDerB64 = Buffer.from(certDerStr, 'binary').toString('base64')
+  const certAsn1      = forge.pki.certificateToAsn1(cert)
+  const certDerStr    = forge.asn1.toDer(certAsn1).getBytes()
+  const certDerB64    = Buffer.from(certDerStr, 'binary').toString('base64')
   const certDigestB64 = sha1BinaryB64(certDerStr)
 
+  // IssuerName en formato RFC 2253 (coma + espacio, tal como lo valida el SRI)
   const issuerName = cert.issuer.attributes
     .map(a => `${a.shortName}=${a.value}`)
-    .join(',')
+    .join(', ')
+
   const serialNumberDecimal = BigInt('0x' + cert.serialNumber).toString(10)
 
-  // Módulo y exponente RSA para KeyValue
-  const rsaPub     = cert.publicKey as forge.pki.rsa.PublicKey
-  const modulusB64 = Buffer.from(rsaPub.n.toByteArray()).toString('base64')
+  // Módulo y exponente RSA — strip del byte de signo 0x00 que agrega forge
+  const rsaPub      = cert.publicKey as forge.pki.rsa.PublicKey
+  const nBytes      = rsaPub.n.toByteArray()
+  const modulusB64  = Buffer.from(nBytes[0] === 0 ? nBytes.slice(1) : nBytes).toString('base64')
   const exponentB64 = Buffer.from(rsaPub.e.toByteArray()).toString('base64')
 
   const signingTime = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z')
@@ -108,15 +116,23 @@ export function firmarXML(xmlSinFirma: string, p12Buffer: Buffer, pin: string): 
   const refDocId      = `Reference-ID-${ts}`
   const refPropsId    = `SignedPropertiesID${ts}`
 
-  const NS_DS   = 'http://www.w3.org/2000/09/xmldsig#'
-  const NS_ETSI = 'http://uri.etsi.org/01903/v1.3.2#'
+  const NS_DS        = 'http://www.w3.org/2000/09/xmldsig#'
+  const NS_ETSI      = 'http://uri.etsi.org/01903/v1.3.2#'
+  // El Type de la Reference a SignedProperties usa la URI SIN la versión
+  const TYPE_SP      = 'http://uri.etsi.org/01903#SignedProperties'
 
-  // ─────────────────────────────────────────────────────────────────
-  // 1. KeyInfo XML  (necesario para calcular su digest — Reference 2)
-  // xmlns:ds declarado en el elemento raíz para que el C14N inclusivo
-  // del SRI (que hereda xmlns:ds del Signature padre) produzca los
-  // mismos bytes que nuestra versión standalone.
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // 1. Digest del documento (#comprobante)  ← Reference 3
+  //    El enveloped-signature transform elimina el elemento Signature.
+  //    Como todavía no se ha insertado, hasheamos el XML original directamente.
+  // ─────────────────────────────────────────────────────────────────────────
+  const docDigestB64 = sha1Utf8B64(c14n(xmlSinFirma))
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 2. KeyInfo  ← Reference 2
+  //    xmlns:ds declarado aquí porque el SRI hace C14N de este elemento
+  //    incluyendo los namespaces en scope (xmlns:ds viene de Signature padre).
+  // ─────────────────────────────────────────────────────────────────────────
   const keyInfoXml = `<ds:KeyInfo xmlns:ds="${NS_DS}" Id="${keyInfoId}">
   <ds:X509Data>
     <ds:X509Certificate>
@@ -133,12 +149,10 @@ ${certDerB64}
 
   const keyInfoDigestB64 = sha1Utf8B64(c14n(keyInfoXml))
 
-  // ─────────────────────────────────────────────────────────────────
-  // 2. SignedProperties XML  (Reference 1)
-  // Prefijo etsi: (igual al ANEXO 14 de la Ficha Técnica SRI v2.26)
-  // xmlns:ds declarado en el raíz para C14N inclusivo (heredado de Signature)
-  // Namespace declarations en orden alfabético: xmlns:ds antes de xmlns:etsi
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // 3. SignedProperties  ← Reference 1
+  //    xmlns:ds y xmlns:etsi en scope (ds de Signature, etsi de QualifyingProperties)
+  // ─────────────────────────────────────────────────────────────────────────
   const signedPropertiesXml = `<etsi:SignedProperties xmlns:ds="${NS_DS}" xmlns:etsi="${NS_ETSI}" Id="${signedPropsId}">
   <etsi:SignedSignatureProperties>
     <etsi:SigningTime>${signingTime}</etsi:SigningTime>
@@ -165,22 +179,15 @@ ${certDerB64}
 
   const signedPropsDigestB64 = sha1Utf8B64(c14n(signedPropertiesXml))
 
-  // ─────────────────────────────────────────────────────────────────
-  // 3. Digest del documento (#comprobante)  — Reference 3
-  // C14N elimina la declaración XML; el contenido es el <factura>
-  // sin Signature (aún no insertada → enveloped-signature no tiene nada que quitar)
-  // ─────────────────────────────────────────────────────────────────
-  const docDigestB64 = sha1Utf8B64(c14n(xmlSinFirma))
-
-  // ─────────────────────────────────────────────────────────────────
-  // 4. SignedInfo con 3 References en el orden del ANEXO 14:
-  //    1) SignedProperties  2) Certificate/KeyInfo  3) comprobante
-  // Atributos en orden C14N alfabético en cada elemento.
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // 4. SignedInfo — 3 References en orden del ANEXO 14:
+  //    1) SignedProperties  2) KeyInfo/Certificate  3) comprobante
+  //    TYPE_SP usa la URI sin versión: http://uri.etsi.org/01903#SignedProperties
+  // ─────────────────────────────────────────────────────────────────────────
   const signedInfoXml = `<ds:SignedInfo xmlns:ds="${NS_DS}" Id="${sigInfoId}">
   <ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
   <ds:SignatureMethod Algorithm="${NS_DS}rsa-sha1"/>
-  <ds:Reference Id="${refPropsId}" Type="${NS_ETSI}SignedProperties" URI="#${signedPropsId}">
+  <ds:Reference Id="${refPropsId}" Type="${TYPE_SP}" URI="#${signedPropsId}">
     <ds:DigestMethod Algorithm="${NS_DS}sha1"/>
     <ds:DigestValue>${signedPropsDigestB64}</ds:DigestValue>
   </ds:Reference>
@@ -197,27 +204,32 @@ ${certDerB64}
   </ds:Reference>
 </ds:SignedInfo>`
 
-  // ─────────────────────────────────────────────────────────────────
-  // 5. Firma RSA-SHA1 del SignedInfo canonicalizado
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // 5. Valor de firma RSA-SHA1 sobre el SignedInfo canonicalizado
+  // ─────────────────────────────────────────────────────────────────────────
   const privateKeyPem     = forge.pki.privateKeyToPem(privateKey)
   const signatureValueB64 = rsaSha1Sign(c14n(signedInfoXml), privateKeyPem)
 
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
   // 6. Elemento Signature completo
-  // ─────────────────────────────────────────────────────────────────
-  const signatureXml = `<ds:Signature xmlns:ds="${NS_DS}" xmlns:etsi="${NS_ETSI}" Id="${sigId}">
+  //    - xmlns:ds solo en <ds:Signature> (estructura oficial SRI)
+  //    - xmlns:etsi solo en <etsi:QualifyingProperties> (estructura oficial SRI)
+  // ─────────────────────────────────────────────────────────────────────────
+  const signatureXml = `<ds:Signature xmlns:ds="${NS_DS}" Id="${sigId}">
   ${signedInfoXml}
   <ds:SignatureValue Id="${sigValueId}">
 ${signatureValueB64}
   </ds:SignatureValue>
   ${keyInfoXml}
   <ds:Object Id="${objectId}">
-    <etsi:QualifyingProperties Target="#${sigId}">
+    <etsi:QualifyingProperties xmlns:etsi="${NS_ETSI}" Target="#${sigId}">
       ${signedPropertiesXml}
     </etsi:QualifyingProperties>
   </ds:Object>
 </ds:Signature>`
 
-  return xmlSinFirma.replace(/<\/factura>\s*$/, `${signatureXml}\n</factura>`)
+  // Insertar antes del cierre del elemento raíz (factura o notaCredito)
+  return xmlSinFirma
+    .replace(/<\/factura>\s*$/, `${signatureXml}\n</factura>`)
+    .replace(/<\/notaCredito>\s*$/, `${signatureXml}\n</notaCredito>`)
 }
