@@ -87,13 +87,15 @@ interface Props {
   nombreTienda?: string
   whatsappTienda?: string | null
   facturacionActiva?: boolean
+  ticketAnchoPapel?: '58' | '80'
+  ticketTextoPie?: string | null
 }
 
 type EstadoFactura = 'idle' | 'cargando' | 'autorizada' | 'pendiente' | 'error'
 
 // ─── Componente ───────────────────────────────────────────────
 
-export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nombreTienda = 'Mi Tienda', whatsappTienda, facturacionActiva = false }: Props) {
+export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nombreTienda = 'Mi Tienda', whatsappTienda, facturacionActiva = false, ticketAnchoPapel = '80', ticketTextoPie }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
 
@@ -410,7 +412,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
       costo_envio:     0,
       total,
     }
-    const cfgTicket = { nombreTienda, whatsapp: whatsappTienda, simboloMoneda }
+    const cfgTicket = { nombreTienda, whatsapp: whatsappTienda, simboloMoneda, anchoPapel: ticketAnchoPapel, textoPie: ticketTextoPie ?? null }
 
     return (
       <div className="rounded-2xl bg-card border border-card-border p-6 flex flex-col gap-4 max-w-sm mx-auto">
@@ -439,7 +441,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
             onClick={() => imprimirTicket(datosTicket, cfgTicket)}
             className="w-full h-10 rounded-xl border border-border text-sm font-semibold text-foreground-muted hover:border-primary/50 hover:text-primary flex items-center justify-center gap-2 transition-all"
           >
-            <Printer className="w-4 h-4" /> Imprimir ticket 80mm
+            <Printer className="w-4 h-4" /> Imprimir ticket {ticketAnchoPapel}mm
           </button>
 
           {/* Factura SRI */}

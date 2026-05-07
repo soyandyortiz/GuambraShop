@@ -39,7 +39,7 @@ export default async function PáginaVentaNueva() {
       .order('razon_social'),
     supabase
       .from('configuracion_tienda')
-      .select('nombre_tienda, simbolo_moneda, pais, whatsapp')
+      .select('nombre_tienda, simbolo_moneda, pais, whatsapp, ticket_ancho_papel, ticket_texto_pie')
       .single(),
     supabase
       .from('configuracion_facturacion')
@@ -116,6 +116,8 @@ export default async function PáginaVentaNueva() {
         nombreTienda={config?.nombre_tienda ?? 'Mi Tienda'}
         whatsappTienda={config?.whatsapp ?? null}
         facturacionActiva={facturacion?.activo === true}
+        ticketAnchoPapel={((config as any)?.ticket_ancho_papel ?? '80') as '58' | '80'}
+        ticketTextoPie={(config as any)?.ticket_texto_pie ?? null}
       />
     </div>
   )

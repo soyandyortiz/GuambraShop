@@ -1,4 +1,4 @@
-// Generador de tickets 80mm para impresoras térmicas
+// Generador de tickets para impresoras térmicas
 // Abre una nueva ventana con el HTML del ticket y lanza el diálogo de impresión
 
 export interface ConfigTicket {
@@ -7,6 +7,8 @@ export interface ConfigTicket {
   ruc?: string | null
   direccion?: string | null
   simboloMoneda: string
+  anchoPapel?: '58' | '80'
+  textoPie?: string | null
 }
 
 export interface ItemTicket {
@@ -39,21 +41,11 @@ const FORMA_PAGO: Record<string, string> = {
   otro:          'Otro',
 }
 
-function linea(char = '-', largo = 32) {
-  return char.repeat(largo)
-}
-
-function centrar(texto: string, largo = 32) {
-  const pad = Math.max(0, Math.floor((largo - texto.length) / 2))
-  return ' '.repeat(pad) + texto
-}
-
-function fila(izq: string, der: string, largo = 32) {
-  const espacio = Math.max(1, largo - izq.length - der.length)
-  return izq + ' '.repeat(espacio) + der
-}
-
 export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
+  const ancho        = config.anchoPapel ?? '80'
+  const anchoContenido = ancho === '58' ? '52mm' : '74mm'
+  const textoPie     = config.textoPie ?? '¡Gracias por su compra!'
+
   const fecha = new Date(datos.creado_en)
   const fechaStr = fecha.toLocaleDateString('es-EC', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -83,14 +75,14 @@ export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
   <title>Ticket ${datos.numero_orden}</title>
   <style>
     @page {
-      size: 80mm auto;
+      size: ${ancho}mm auto;
       margin: 4mm 3mm;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Courier New', Courier, monospace;
       font-size: 9pt;
-      width: 74mm;
+      width: ${anchoContenido};
       color: #000;
       background: #fff;
     }
@@ -103,7 +95,7 @@ export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
       margin: 5px 0;
     }
     .nombre-tienda {
-      font-size: 14pt;
+      font-size: 13pt;
       font-weight: bold;
       text-align: center;
       letter-spacing: 1px;
@@ -116,7 +108,7 @@ export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
       margin-bottom: 2px;
     }
     .orden {
-      font-size: 13pt;
+      font-size: 12pt;
       font-weight: bold;
       text-align: center;
       margin: 4px 0 2px;
@@ -138,7 +130,7 @@ export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
     }
     table.items .item-cant { font-size: 8pt; width: 20px; }
     table.items .item-pu   { font-size: 8pt; text-align: right; }
-    table.items .item-sub  { font-size: 8pt; text-align: right; font-weight: bold; width: 55px; }
+    table.items .item-sub  { font-size: 8pt; text-align: right; font-weight: bold; width: 50px; }
     .totales {
       width: 100%;
       margin: 3px 0;
@@ -146,7 +138,7 @@ export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
     }
     .totales td:last-child { text-align: right; font-weight: bold; }
     .fila-total td {
-      font-size: 13pt;
+      font-size: 12pt;
       font-weight: bold;
       padding-top: 3px;
     }
@@ -220,8 +212,8 @@ export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
 
   <hr class="hr">
 
-  <div class="pie">¡Gracias por su compra!</div>
-  <div class="pie" style="margin-top:2px;">${config.nombreTienda}</div>
+  <div class="pie">${textoPie}</div>
+  <div class="pie" style="margin-top:2px;">${config.whatsapp ? 'Tel: ' + config.whatsapp : config.nombreTienda}</div>
 
 </body>
 </html>`
@@ -234,8 +226,5 @@ export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
   ventana.document.write(html)
   ventana.document.close()
   ventana.focus()
-  // Pequeño delay para que el navegador renderice antes de imprimir
-  setTimeout(() => {
-    ventana.print()
-  }, 400)
+  setTimeout(() => { ventana.print() }, 400)
 }

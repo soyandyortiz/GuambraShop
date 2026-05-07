@@ -580,6 +580,36 @@ export function TablaPedidos({ pedidos: pedidosInic, configTicket }: Props) {
                     })()}
                   </div>
 
+                  {/* Imprimir ticket — pedidos entregados o ventas manuales */}
+                  {(pedido.estado === 'entregado' || pedido.es_venta_manual) && (
+                    <button
+                      title={`Imprimir ticket ${configTicket.anchoPapel ?? '80'}mm`}
+                      onClick={() => imprimirTicket({
+                        numero_orden:    pedido.numero_orden,
+                        creado_en:       pedido.creado_en,
+                        nombres:         pedido.nombres,
+                        tipo:            pedido.tipo,
+                        forma_pago:      pedido.forma_pago ?? null,
+                        items:           (pedido.items as any[]).map(i => ({
+                          nombre:   i.nombre,
+                          cantidad: i.cantidad,
+                          precio:   Number(i.precio),
+                          subtotal: Number(i.subtotal),
+                        })),
+                        subtotal:        pedido.subtotal,
+                        descuento_cupon: pedido.descuento_cupon,
+                        cupon_codigo:    pedido.cupon_codigo,
+                        costo_envio:     pedido.costo_envio,
+                        total:           pedido.total,
+                        ciudad:          pedido.ciudad,
+                        provincia:       pedido.provincia,
+                      }, configTicket)}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg text-foreground-muted hover:bg-primary/10 hover:text-primary transition-all flex-shrink-0"
+                    >
+                      <Printer className="w-4 h-4" />
+                    </button>
+                  )}
+
                   {/* Expand */}
                   <button onClick={() => setExpandido(abierto ? null : pedido.id)}
                     className="w-8 h-8 flex items-center justify-center rounded-lg text-foreground-muted hover:bg-background-subtle transition-all flex-shrink-0">
@@ -780,7 +810,7 @@ export function TablaPedidos({ pedidos: pedidosInic, configTicket }: Props) {
                       className="flex items-center justify-center gap-2 w-full h-9 rounded-xl border border-border text-foreground-muted text-xs font-semibold hover:border-primary/50 hover:text-primary transition-all"
                     >
                       <Printer className="w-3.5 h-3.5" />
-                      Imprimir ticket 80mm
+                      Imprimir ticket {configTicket.anchoPapel ?? '80'}mm
                     </button>
 
                     {/* Datos de facturación que el cliente ingresó en checkout */}

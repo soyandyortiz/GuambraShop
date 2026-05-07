@@ -14,7 +14,7 @@ export default async function PáginaPedidos() {
       .order('creado_en', { ascending: false }),
     supabase
       .from('configuracion_tienda')
-      .select('nombre_tienda, whatsapp, simbolo_moneda')
+      .select('nombre_tienda, whatsapp, simbolo_moneda, ticket_ancho_papel, ticket_texto_pie')
       .single(),
     supabase
       .from('configuracion_facturacion')
@@ -44,6 +44,8 @@ export default async function PáginaPedidos() {
           ruc:           facturacion?.ruc        ?? null,
           direccion:     (direcciones as any)?.direccion_completa ?? null,
           simboloMoneda: config?.simbolo_moneda ?? '$',
+          anchoPapel:    ((config as any)?.ticket_ancho_papel ?? '80') as '58' | '80',
+          textoPie:      (config as any)?.ticket_texto_pie ?? null,
         }}
       />
     </div>
