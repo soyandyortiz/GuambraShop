@@ -16,39 +16,13 @@ En **SQL Editor** de Supabase ejecutar en este orden exacto:
 
 Abrir el archivo `supabase/schema.sql` → copiar todo el contenido → pegarlo en SQL Editor → **Run**.
 
-> Este archivo es el schema unificado que reemplaza las migraciones 1–27. Cubre todas las tablas, políticas RLS, triggers y funciones del sistema.
+> Este archivo es el schema unificado y cubre **todas** las tablas, funciones, políticas RLS, triggers y módulos del sistema (incluyendo Facturación SRI, Email, Clientes, POS, Alquileres). No requiere ejecutar migraciones adicionales.
 
-### Paso 2 — Migraciones posteriores al schema
-
-Estas migraciones se crearon después de la última versión del `schema.sql` y **deben ejecutarse una por una**, en el orden indicado:
-
-| # | Archivo | Qué agrega |
-|---|---------|------------|
-| 1 | `20260421000028_tema_id.sql` | Campo `tema_id` en `configuracion_tienda` (selector de tema visual) |
-| 2 | `20260501000029_tipo_alquiler.sql` | Tipo de producto `alquiler`, campos `precio_deposito` / `max_dias_alquiler` y tabla `alquileres` |
-| 3 | `20260501000030_garantia_alquiler.sql` | Campo `garantia_descripcion` en `productos` |
-| 4 | `20260502000031_stock_alquiler_correcto.sql` | Corrección de stock para productos de alquiler |
-| 5 | `20260504000032_disponibilidad_batch_alquiler.sql` | Consulta batch de disponibilidad de alquileres |
-| 6 | `20260504000033_facturacion_sri.sql` | **Módulo Facturación SRI** — tablas `configuracion_facturacion` y `facturas`, bucket privado `facturacion` en Storage |
-| 7 | `20260504000034_datos_facturacion_pedido.sql` | Campo `datos_facturacion` en `pedidos` (datos SRI que el cliente ingresa en checkout) |
-| 8 | `20260505000035_factura_anulacion.sql` | Campo `motivo_anulacion` en `facturas` |
-| 9 | `20260505000036_configuracion_email.sql` | **Módulo Email** — tabla `configuracion_email` (credenciales SMTP/Resend, envío automático) |
-| 10 | `20260505000037_tipo_contribuyente.sql` | Campo `tipo_contribuyente` en `configuracion_facturacion` (RUC / RIMPE / Artesano) |
-| 11 | `20260505000038_tarifa_iva_producto.sql` | Campo `tarifa_iva` en `productos` (IVA individual por producto: 0, 5 o 15%) |
-| 12 | `20260505000039_email_historial_factura.sql` | Campos `email_enviado_en` y `email_enviado_a` en `facturas` (historial de envío de RIDE) |
-| 13 | `20260505000040_email_lectura_admin.sql` | Política RLS: admin puede leer `configuracion_email` (para contador de uso en dashboard y facturación) |
-| 14 | `20260505000041_notas_credito.sql` | Notas de Crédito Electrónicas: campo `tipo` y `factura_origen_id` en `facturas`; campo `secuencial_nc_actual` en `configuracion_facturacion` |
-| 15 | `20260506000042_clientes.sql` | **Módulo Clientes** — tabla `clientes` con campos SRI + FK `cliente_id` en `pedidos` |
-| 16 | `20260506000043_pedidos_venta_manual.sql` | Campos `forma_pago` y `es_venta_manual` en `pedidos` (soporte POS) |
-| 17 | `20260506000044_decrementar_stock.sql` | Función `decrementar_stock()` atómica para POS y tienda online |
-
-Para cada una: abrir el archivo → copiar contenido → pegar en SQL Editor → **Run**.
-
-### Paso 3 — Datos iniciales
+### Paso 2 — Datos iniciales
 
 Ejecutar `supabase/seed/01_datos_iniciales.sql` — crea la fila base en `configuracion_tienda` con valores genéricos para que la tienda arranque sin errores.
 
-> **Nota para futuras migraciones:** cada vez que se agregue un archivo nuevo en `supabase/migrations/` con número mayor al `_044`, deberá ejecutarse manualmente aquí después del schema. El archivo `schema.sql` solo se actualiza periódicamente.
+> **Nota para futuras migraciones:** si se crean nuevas migraciones en `supabase/migrations/` con número mayor al `_044`, deben ejecutarse manualmente después del schema **y** luego incorporarse al `schema.sql` para mantenerlo actualizado.
 
 ## 3. Usuarios administradores
 
