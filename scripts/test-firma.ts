@@ -27,7 +27,7 @@ const PIN = process.argv[2] || ''
 
 // XML de prueba mínimo con la estructura que genera el sistema
 const xmlPrueba = `<?xml version="1.0" encoding="UTF-8"?>
-<factura Id="comprobante" version="2.1.0">
+<factura id="comprobante" version="2.1.0">
   <infoTributaria>
     <ambiente>1</ambiente>
     <tipoEmision>1</tipoEmision>

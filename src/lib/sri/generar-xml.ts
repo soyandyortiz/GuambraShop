@@ -33,7 +33,8 @@ export function generarClaveAcceso(
   factura: Factura,
   tipoComprobante = '01',   // '01'=factura, '04'=nota de crédito
 ): string {
-  const fecha = new Date(factura.fecha_emision + 'T12:00:00')
+  const soloFecha = factura.fecha_emision.split('T')[0]
+  const fecha = new Date(soloFecha + 'T12:00:00')
   const dd   = String(fecha.getDate()).padStart(2, '0')
   const mm   = String(fecha.getMonth() + 1).padStart(2, '0')
   const yyyy = String(fecha.getFullYear())
@@ -55,7 +56,8 @@ export function generarClaveAcceso(
 
 /** Formatea fecha como DD/MM/YYYY para el XML */
 function formatFechaXML(isoDate: string): string {
-  const d = new Date(isoDate + 'T12:00:00')
+  const soloFecha = isoDate.split('T')[0]
+  const d = new Date(soloFecha + 'T12:00:00')
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
 }
 
@@ -145,7 +147,7 @@ export function generarXMLFactura(
     : ''
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<factura Id="comprobante" version="2.1.0">
+<factura id="comprobante" version="2.1.0">
   <infoTributaria>
     <ambiente>${ambiente}</ambiente>
     <tipoEmision>1</tipoEmision>
@@ -268,7 +270,7 @@ export function generarXMLNotaCredito(
     : ''
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<notaCredito Id="comprobante" version="1.1.0">
+<notaCredito id="comprobante" version="1.1.0">
   <infoTributaria>
     <ambiente>${ambiente}</ambiente>
     <tipoEmision>1</tipoEmision>
