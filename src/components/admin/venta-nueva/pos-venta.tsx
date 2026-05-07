@@ -88,14 +88,20 @@ interface Props {
   whatsappTienda?: string | null
   facturacionActiva?: boolean
   ticketAnchoPapel?: '58' | '80'
-  ticketTextoPie?: string | null
+  ticketLinea1?: string | null
+  ticketLinea2?: string | null
+  ticketLinea3?: string | null
+  ticketLinea4?: string | null
+  ticketPie1?: string | null
+  ticketPie2?: string | null
+  ticketMostrarPrecioUnit?: boolean
 }
 
 type EstadoFactura = 'idle' | 'cargando' | 'autorizada' | 'pendiente' | 'error'
 
 // ─── Componente ───────────────────────────────────────────────
 
-export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nombreTienda = 'Mi Tienda', whatsappTienda, facturacionActiva = false, ticketAnchoPapel = '80', ticketTextoPie }: Props) {
+export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nombreTienda = 'Mi Tienda', whatsappTienda, facturacionActiva = false, ticketAnchoPapel = '80', ticketLinea1, ticketLinea2, ticketLinea3, ticketLinea4, ticketPie1, ticketPie2, ticketMostrarPrecioUnit = true }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
 
@@ -412,7 +418,17 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
       costo_envio:     0,
       total,
     }
-    const cfgTicket = { nombreTienda, whatsapp: whatsappTienda, simboloMoneda, anchoPapel: ticketAnchoPapel, textoPie: ticketTextoPie ?? null }
+    const cfgTicket = {
+      nombreTienda, simboloMoneda,
+      anchoPapel:        ticketAnchoPapel,
+      linea1:            ticketLinea1 ?? null,
+      linea2:            ticketLinea2 ?? null,
+      linea3:            ticketLinea3 ?? null,
+      linea4:            ticketLinea4 ?? null,
+      pie1:              ticketPie1   ?? null,
+      pie2:              ticketPie2   ?? null,
+      mostrarPrecioUnit: ticketMostrarPrecioUnit,
+    }
 
     return (
       <div className="rounded-2xl bg-card border border-card-border p-6 flex flex-col gap-4 max-w-sm mx-auto">

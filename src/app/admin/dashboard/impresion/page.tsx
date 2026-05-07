@@ -21,29 +21,35 @@ export default async function PáginaConfigImpresion() {
   if (perfil?.rol !== 'superadmin') redirect('/admin/dashboard')
 
   const admin = crearClienteAdmin()
-  const [{ data: config }, { data: facturacion }, { data: direccion }] = await Promise.all([
-    admin.from('configuracion_tienda')
-      .select('nombre_tienda, simbolo_moneda, whatsapp, ticket_ancho_papel, ticket_texto_pie')
-      .single(),
-    admin.from('configuracion_facturacion').select('ruc').maybeSingle(),
-    admin.from('direcciones_negocio').select('direccion_completa').limit(1).maybeSingle(),
-  ])
+  const { data: config } = await admin
+    .from('configuracion_tienda')
+    .select(`
+      nombre_tienda, simbolo_moneda,
+      ticket_ancho_papel,
+      ticket_linea_1, ticket_linea_2, ticket_linea_3, ticket_linea_4,
+      ticket_texto_pie, ticket_pie_2,
+      ticket_mostrar_precio_unit
+    `)
+    .single()
 
   return (
     <div className="space-y-6 max-w-md">
       <div>
         <h1 className="text-xl font-bold text-foreground">Impresión Térmica</h1>
         <p className="text-sm text-foreground-muted mt-0.5">
-          Configura el formato del ticket para tu impresora térmica
+          Diseña el contenido del ticket para tu impresora térmica
         </p>
       </div>
       <FormularioConfigImpresion
-        anchoPapel={((config?.ticket_ancho_papel as '58' | '80') ?? '80')}
-        textoPie={config?.ticket_texto_pie ?? null}
+        anchoPapel={((config?.ticket_ancho_papel ?? '80') as '58' | '80')}
+        linea1={config?.ticket_linea_1 ?? null}
+        linea2={config?.ticket_linea_2 ?? null}
+        linea3={config?.ticket_linea_3 ?? null}
+        linea4={config?.ticket_linea_4 ?? null}
+        pie1={config?.ticket_texto_pie ?? null}
+        pie2={config?.ticket_pie_2 ?? null}
+        mostrarPrecioUnit={(config?.ticket_mostrar_precio_unit as boolean) ?? true}
         nombreTienda={config?.nombre_tienda ?? 'Mi Tienda'}
-        ruc={facturacion?.ruc ?? null}
-        direccion={(direccion as any)?.direccion_completa ?? null}
-        whatsapp={config?.whatsapp ?? null}
         simboloMoneda={config?.simbolo_moneda ?? '$'}
       />
     </div>

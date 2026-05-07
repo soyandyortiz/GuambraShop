@@ -7,24 +7,15 @@ import type { Pedido } from '@/types'
 export default async function PáginaPedidos() {
   const supabase = await crearClienteServidor()
 
-  const [{ data: pedidos }, { data: config }, { data: facturacion }, { data: direcciones }] = await Promise.all([
+  const [{ data: pedidos }, { data: config }] = await Promise.all([
     supabase
       .from('pedidos')
       .select('*, datos_facturacion')
       .order('creado_en', { ascending: false }),
     supabase
       .from('configuracion_tienda')
-      .select('nombre_tienda, whatsapp, simbolo_moneda, ticket_ancho_papel, ticket_texto_pie')
+      .select('nombre_tienda, simbolo_moneda, ticket_ancho_papel, ticket_linea_1, ticket_linea_2, ticket_linea_3, ticket_linea_4, ticket_texto_pie, ticket_pie_2, ticket_mostrar_precio_unit')
       .single(),
-    supabase
-      .from('configuracion_facturacion')
-      .select('ruc')
-      .maybeSingle(),
-    supabase
-      .from('direcciones_negocio')
-      .select('direccion_completa')
-      .limit(1)
-      .maybeSingle(),
   ])
 
   return (
@@ -39,13 +30,16 @@ export default async function PáginaPedidos() {
       <TablaPedidos
         pedidos={(pedidos as Pedido[]) ?? []}
         configTicket={{
-          nombreTienda:  config?.nombre_tienda  ?? 'Mi Tienda',
-          whatsapp:      config?.whatsapp       ?? null,
-          ruc:           facturacion?.ruc        ?? null,
-          direccion:     (direcciones as any)?.direccion_completa ?? null,
-          simboloMoneda: config?.simbolo_moneda ?? '$',
-          anchoPapel:    ((config as any)?.ticket_ancho_papel ?? '80') as '58' | '80',
-          textoPie:      (config as any)?.ticket_texto_pie ?? null,
+          nombreTienda:      config?.nombre_tienda  ?? 'Mi Tienda',
+          simboloMoneda:     config?.simbolo_moneda ?? '$',
+          anchoPapel:        ((config as any)?.ticket_ancho_papel    ?? '80') as '58' | '80',
+          linea1:            (config as any)?.ticket_linea_1          ?? null,
+          linea2:            (config as any)?.ticket_linea_2          ?? null,
+          linea3:            (config as any)?.ticket_linea_3          ?? null,
+          linea4:            (config as any)?.ticket_linea_4          ?? null,
+          pie1:              (config as any)?.ticket_texto_pie        ?? null,
+          pie2:              (config as any)?.ticket_pie_2            ?? null,
+          mostrarPrecioUnit: (config as any)?.ticket_mostrar_precio_unit !== false,
         }}
       />
     </div>

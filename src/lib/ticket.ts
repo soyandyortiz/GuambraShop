@@ -3,11 +3,22 @@
 
 export interface ConfigTicket {
   nombreTienda: string
+  simboloMoneda: string
+  anchoPapel?: '58' | '80'
+  // Líneas libres del encabezado (debajo del nombre de la tienda)
+  linea1?: string | null
+  linea2?: string | null
+  linea3?: string | null
+  linea4?: string | null
+  // Pie del ticket
+  pie1?: string | null
+  pie2?: string | null
+  // Opciones de columnas
+  mostrarPrecioUnit?: boolean
+  // Campos legacy (compatibilidad con código anterior)
   whatsapp?: string | null
   ruc?: string | null
   direccion?: string | null
-  simboloMoneda: string
-  anchoPapel?: '58' | '80'
   textoPie?: string | null
 }
 
@@ -42,9 +53,21 @@ const FORMA_PAGO: Record<string, string> = {
 }
 
 export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
-  const ancho        = config.anchoPapel ?? '80'
+  const ancho          = config.anchoPapel ?? '80'
   const anchoContenido = ancho === '58' ? '52mm' : '74mm'
-  const textoPie     = config.textoPie ?? '¡Gracias por su compra!'
+  const mostrarPU      = config.mostrarPrecioUnit !== false
+
+  // Líneas del encabezado — usa campos nuevos, con fallback legacy
+  const lineasEncabezado: string[] = [
+    config.linea1 ?? (config.ruc        ? `RUC: ${config.ruc}`           : null),
+    config.linea2 ?? (config.whatsapp   ? `Tel: ${config.whatsapp}`      : null),
+    config.linea3 ?? (config.direccion  ? config.direccion               : null),
+    config.linea4 ?? null,
+  ].filter((l): l is string => !!l?.trim())
+
+  // Pie — usa campos nuevos, con fallback legacy
+  const pie1 = config.pie1 ?? config.textoPie ?? '¡Gracias por su compra!'
+  const pie2 = config.pie2 ?? null
 
   const fecha = new Date(datos.creado_en)
   const fechaStr = fecha.toLocaleDateString('es-EC', {
@@ -53,20 +76,23 @@ export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
   const horaStr = fecha.toLocaleTimeString('es-EC', {
     hour: '2-digit', minute: '2-digit',
   })
-  const sm = config.simboloMoneda
-
+  const sm  = config.simboloMoneda
   const fmt = (n: number) => `${sm}${n.toFixed(2)}`
 
   const itemsHtml = datos.items.map(item => `
     <tr>
-      <td colspan="3" class="item-nombre">${item.nombre}</td>
+      <td colspan="${mostrarPU ? 3 : 2}" class="item-nombre">${item.nombre}</td>
     </tr>
     <tr>
       <td class="item-cant">${item.cantidad}x</td>
-      <td class="item-pu">${fmt(item.precio)}</td>
+      ${mostrarPU ? `<td class="item-pu">${fmt(item.precio)}</td>` : ''}
       <td class="item-sub">${fmt(item.subtotal)}</td>
     </tr>
   `).join('')
+
+  const encabezadoHtml = lineasEncabezado
+    .map(l => `<div class="sub-tienda">${l}</div>`)
+    .join('')
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -86,9 +112,6 @@ export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
       color: #000;
       background: #fff;
     }
-    .center { text-align: center; }
-    .bold   { font-weight: bold; }
-    .right  { text-align: right; }
     .hr {
       border: none;
       border-top: 1px dashed #333;
@@ -156,18 +179,16 @@ export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
 <body>
 
   <div class="nombre-tienda">${config.nombreTienda.toUpperCase()}</div>
-  ${config.ruc        ? `<div class="sub-tienda">RUC: ${config.ruc}</div>` : ''}
-  ${config.direccion  ? `<div class="sub-tienda">${config.direccion}</div>` : ''}
-  ${config.whatsapp   ? `<div class="sub-tienda">Tel: ${config.whatsapp}</div>` : ''}
+  ${encabezadoHtml}
 
   <hr class="hr">
 
   <div class="orden"># ${datos.numero_orden}</div>
-  <div class="meta">Fecha : ${fechaStr}  ${horaStr}</div>
+  <div class="meta">Fecha  : ${fechaStr}  ${horaStr}</div>
   <div class="meta">Cliente: ${datos.nombres}</div>
-  ${datos.forma_pago ? `<div class="meta">Pago  : ${FORMA_PAGO[datos.forma_pago] ?? datos.forma_pago}</div>` : ''}
+  ${datos.forma_pago ? `<div class="meta">Pago   : ${FORMA_PAGO[datos.forma_pago] ?? datos.forma_pago}</div>` : ''}
   ${datos.tipo === 'delivery' && datos.ciudad
-    ? `<div class="meta">Envío : ${datos.ciudad}${datos.provincia ? ', ' + datos.provincia : ''}</div>`
+    ? `<div class="meta">Envío  : ${datos.ciudad}${datos.provincia ? ', ' + datos.provincia : ''}</div>`
     : ''}
 
   <hr class="hr">
@@ -175,8 +196,8 @@ export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
   <table class="items">
     <thead>
       <tr>
-        <th colspan="3" style="font-size:7pt; text-align:left; padding-bottom:2px;">
-          CANT  PRODUCTO              TOTAL
+        <th colspan="${mostrarPU ? 3 : 2}" style="font-size:7pt; text-align:left; padding-bottom:2px;">
+          CANT  PRODUCTO${mostrarPU ? '              TOTAL' : ''}
         </th>
       </tr>
     </thead>
@@ -212,8 +233,8 @@ export function imprimirTicket(datos: DatosTicket, config: ConfigTicket) {
 
   <hr class="hr">
 
-  <div class="pie">${textoPie}</div>
-  <div class="pie" style="margin-top:2px;">${config.whatsapp ? 'Tel: ' + config.whatsapp : config.nombreTienda}</div>
+  ${pie1 ? `<div class="pie">${pie1}</div>` : ''}
+  ${pie2 ? `<div class="pie" style="margin-top:2px;">${pie2}</div>` : ''}
 
 </body>
 </html>`
