@@ -452,7 +452,7 @@ function ModalEliminar({
               <Trash2 className="w-4 h-4 text-red-600" />
             </div>
             <div>
-              <p className="text-sm font-bold text-foreground">Eliminar borrador</p>
+              <p className="text-sm font-bold text-foreground">Eliminar registro</p>
               <p className="text-[11px] text-foreground-muted">{factura.numero_factura ?? `#${factura.numero_secuencial}`}</p>
             </div>
           </div>
@@ -463,7 +463,7 @@ function ModalEliminar({
         <div className="px-5 py-4">
           <p className="text-sm text-foreground-muted leading-relaxed">
             Esta acción es <span className="font-semibold text-foreground">permanente e irreversible</span>.
-            El borrador se eliminará del sistema y el número de secuencial no se recuperará.
+            El registro se eliminará del sistema y el número de secuencial no se recuperará.
           </p>
         </div>
         <div className="px-5 pb-5 flex flex-col gap-2">
@@ -1064,8 +1064,8 @@ function FilaFactura({
               </Link>
             )}
 
-            {/* Eliminar borrador */}
-            {factura.estado === 'borrador' && (
+            {/* Eliminar */}
+            {(factura.estado === 'borrador' || factura.estado === 'rechazada') && (
               <button
                 onClick={onEliminar}
                 title="Eliminar borrador"
@@ -1076,7 +1076,7 @@ function FilaFactura({
             )}
 
             {/* Enviar al SRI (solo facturas, no NC que ya se emiten directamente) */}
-            {factura.tipo !== 'nota_credito' && (factura.estado === 'borrador' || factura.estado === 'rechazada') && (
+            {factura.tipo !== 'nota_credito' && factura.estado === 'borrador' && (
               <button onClick={() => onEmitir(factura.id)} disabled={cargando}
                 title="Enviar al SRI"
                 className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-colors disabled:opacity-50">
@@ -1114,7 +1114,7 @@ function FilaFactura({
             )}
 
             {/* RIDE PDF */}
-            {!anulada && (factura.estado === 'autorizada' || factura.xml_firmado) && (
+            {!anulada && factura.estado !== 'rechazada' && (factura.estado === 'autorizada' || factura.xml_firmado) && (
               <a href={`/api/facturacion/ride?id=${factura.id}`} target="_blank" rel="noopener noreferrer"
                 title="Descargar RIDE (PDF)"
                 className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-background-subtle text-foreground-muted hover:text-foreground text-xs font-medium transition-colors">
@@ -1123,7 +1123,7 @@ function FilaFactura({
             )}
 
             {/* Imprimir ticket térmico */}
-            {configTicket && !anulada && (
+            {configTicket && !anulada && factura.estado !== 'rechazada' && (
               <button
                 title={`Imprimir ticket ${configTicket.anchoPapel ?? '80'}mm`}
                 onClick={() => imprimirTicket({
@@ -1159,7 +1159,7 @@ function FilaFactura({
             )}
 
             {/* XML firmado */}
-            {!anulada && factura.xml_firmado && factura.estado !== 'borrador' && (
+            {!anulada && factura.estado !== 'rechazada' && factura.xml_firmado && factura.estado !== 'borrador' && (
               <a href={`/api/facturacion/xml?id=${factura.id}`} download
                 title="Descargar XML firmado"
                 className="p-1.5 rounded-lg hover:bg-background-subtle text-foreground-muted hover:text-foreground transition-colors">
@@ -1168,7 +1168,7 @@ function FilaFactura({
             )}
 
             {/* Anular — solo si no está anulada y no tiene NC activa */}
-            {!anulada && !tieneNC && (
+            {!anulada && !tieneNC && factura.estado !== 'rechazada' && factura.estado !== 'borrador' && (
               <button onClick={onAnular}
                 title={factura.estado === 'autorizada' ? 'Para facturas autorizadas usa Nota de Crédito (NC)' : 'Anular'}
                 className="p-1.5 rounded-lg hover:bg-red-50 text-foreground-muted hover:text-red-600 transition-colors">

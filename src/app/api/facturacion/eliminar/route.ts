@@ -24,9 +24,9 @@ export async function DELETE(req: NextRequest) {
 
     if (!factura) return NextResponse.json({ error: 'Factura no encontrada' }, { status: 404 })
 
-    if (factura.estado !== 'borrador') {
+    if (factura.estado !== 'borrador' && factura.estado !== 'rechazada') {
       return NextResponse.json(
-        { error: 'Solo se pueden eliminar facturas en estado borrador' },
+        { error: 'Solo se pueden eliminar facturas en estado borrador o rechazadas' },
         { status: 422 }
       )
     }
