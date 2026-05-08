@@ -227,7 +227,7 @@ export function generarXMLNotaCredito(
     const codigoIVA = item.iva === 0 ? '0' : '2'
     const tarifaIVA = item.iva === 0 ? '0' : String(item.iva)
     return `    <detalle>
-      <codigoPrincipal>${String(i + 1).padStart(3, '0')}</codigoPrincipal>
+      <codigoInterno>${String(i + 1).padStart(3, '0')}</codigoInterno>
       <descripcion>${esc(item.descripcion)}</descripcion>
       <cantidad>${item.cantidad.toFixed(6)}</cantidad>
       <precioUnitario>${item.precio_unitario.toFixed(6)}</precioUnitario>
