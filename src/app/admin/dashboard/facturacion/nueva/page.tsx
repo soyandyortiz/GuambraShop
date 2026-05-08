@@ -15,7 +15,7 @@ export default async function PáginaNuevaFactura() {
     supabase
       .from('pedidos')
       .select('id, numero_orden, nombres, email, whatsapp, total, datos_facturacion, creado_en')
-      .in('estado', ['pendiente', 'confirmado', 'entregado'])
+      .in('estado', ['procesando', 'completado'])
       .order('creado_en', { ascending: false })
       .limit(100),
   ])

@@ -8,16 +8,22 @@ import { formatearPrecio } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
 const COLORES_ESTADO: Record<string, string> = {
-  confirmado:  'bg-blue-500/10 text-blue-600',
-  en_proceso:  'bg-violet-500/10 text-violet-600',
-  enviado:     'bg-primary/10 text-primary',
-  entregado:   'bg-success/10 text-success',
+  pendiente_pago: 'bg-gray-100 text-gray-600',
+  procesando:     'bg-emerald-50 text-emerald-700',
+  en_espera:      'bg-amber-50 text-amber-700',
+  completado:     'bg-blue-50 text-blue-700',
+  cancelado:      'bg-red-50 text-red-700',
+  reembolsado:    'bg-gray-100 text-gray-500',
+  fallido:        'bg-red-100 text-red-800',
 }
 const ETIQUETAS_ESTADO: Record<string, string> = {
-  confirmado:  'Confirmado',
-  en_proceso:  'En proceso',
-  enviado:     'Enviado',
-  entregado:   'Entregado',
+  pendiente_pago: 'Pendiente de pago',
+  procesando:     'Procesando',
+  en_espera:      'En espera',
+  completado:     'Completado',
+  cancelado:      'Cancelado',
+  reembolsado:    'Reembolsado',
+  fallido:        'Fallido',
 }
 
 interface Pedido {
