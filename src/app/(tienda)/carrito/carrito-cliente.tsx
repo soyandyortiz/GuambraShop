@@ -408,20 +408,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
       await supabase.from('alquileres').insert(alqPayload)
     }
 
-    // Decrementar stock de productos físicos
-    const productosItems = items.filter(i => i.tipo_producto === 'producto')
-    if (productosItems.length > 0) {
-      await Promise.allSettled(
-        productosItems.map(i =>
-          supabase.rpc('decrementar_stock', {
-            p_producto_id: i.producto_id,
-            p_cantidad:    i.cantidad,
-            p_variante_id: i.variante_id ?? null,
-          })
-        )
-      )
-    }
-
     // Email de confirmación al cliente (fire-and-forget)
     fetch('/api/email/confirmacion-pedido', {
       method: 'POST',

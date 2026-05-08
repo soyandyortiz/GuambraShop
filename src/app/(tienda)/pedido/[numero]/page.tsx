@@ -7,18 +7,22 @@ import Link from 'next/link'
 import { formatearPrecio } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
-type EstadoPedido = 'pendiente' | 'confirmado' | 'en_proceso' | 'enviado' | 'entregado' | 'cancelado'
+type EstadoPedido = 'pendiente_pago' | 'procesando' | 'en_espera' | 'completado' | 'cancelado' | 'reembolsado' | 'fallido'
 
 const PASOS = [
-  { estado: 'pendiente'  as EstadoPedido, etiqueta: 'Recibido',   icono: Clock },
-  { estado: 'confirmado' as EstadoPedido, etiqueta: 'Confirmado', icono: CheckCircle2 },
-  { estado: 'en_proceso' as EstadoPedido, etiqueta: 'En proceso', icono: RotateCcw },
-  { estado: 'enviado'    as EstadoPedido, etiqueta: 'Enviado',    icono: Send },
-  { estado: 'entregado'  as EstadoPedido, etiqueta: 'Entregado',  icono: CheckCircle2 },
+  { estado: 'pendiente_pago' as EstadoPedido, etiqueta: 'Recibido',   icono: Clock },
+  { estado: 'procesando'     as EstadoPedido, etiqueta: 'Preparando', icono: Package },
+  { estado: 'completado'     as EstadoPedido, etiqueta: 'Entregado',  icono: CheckCircle2 },
 ]
 
 const INDICE_ESTADO: Record<EstadoPedido, number> = {
-  pendiente: 0, confirmado: 1, en_proceso: 2, enviado: 3, entregado: 4, cancelado: -1,
+  pendiente_pago: 0,
+  en_espera:      0,
+  procesando:     1,
+  completado:     2,
+  cancelado:     -1,
+  reembolsado:   -1,
+  fallido:       -1,
 }
 
 export default async function PáginaSeguimientoPedido({
@@ -103,7 +107,7 @@ export default async function PáginaSeguimientoPedido({
             'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border',
             cancelado
               ? 'bg-danger/10 text-danger border-danger/30'
-              : indiceActual === 4
+              : indiceActual === 2
                 ? 'bg-success/10 text-success border-success/30'
                 : 'bg-primary/10 text-primary border-primary/20'
           )}>

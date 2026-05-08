@@ -6,7 +6,7 @@ import type { EstadoPedido } from '@/types'
 import { Users, UserCheck, TrendingUp } from 'lucide-react'
 
 // Estados que representan dinero real recibido o comprometido (excluye pendiente y cancelado)
-const ESTADOS_CONFIRMADOS: EstadoPedido[] = ['confirmado', 'en_proceso', 'enviado', 'entregado']
+const ESTADOS_CONFIRMADOS: EstadoPedido[] = ['procesando', 'completado']
 
 export default async function PáginaClientes() {
   const supabase = await crearClienteServidor()

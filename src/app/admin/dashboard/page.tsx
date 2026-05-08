@@ -16,21 +16,23 @@ import { formatearPrecio } from '@/lib/utils'
 import type { ProveedorEmail } from '@/types'
 
 const COLORES_ESTADO: Record<string, string> = {
-  pendiente:   'bg-warning/10 text-warning',
-  confirmado:  'bg-blue-500/10 text-blue-500',
-  en_proceso:  'bg-violet-500/10 text-violet-500',
-  enviado:     'bg-primary/10 text-primary',
-  entregado:   'bg-success/10 text-success',
-  cancelado:   'bg-danger/10 text-danger',
+  pendiente_pago: 'bg-gray-100 text-gray-600',
+  procesando:     'bg-emerald-50 text-emerald-600',
+  en_espera:      'bg-amber-50 text-amber-600',
+  completado:     'bg-blue-50 text-blue-600',
+  cancelado:      'bg-red-50 text-red-600',
+  reembolsado:    'bg-gray-100 text-gray-500',
+  fallido:        'bg-red-100 text-red-800',
 }
 
 const ETIQUETAS_ESTADO: Record<string, string> = {
-  pendiente:  'Pendiente',
-  confirmado: 'Confirmado',
-  en_proceso: 'En proceso',
-  enviado:    'Enviado',
-  entregado:  'Entregado',
-  cancelado:  'Cancelado',
+  pendiente_pago: 'Pendiente de pago',
+  procesando:     'Procesando',
+  en_espera:      'En espera',
+  completado:     'Completado',
+  cancelado:      'Cancelado',
+  reembolsado:    'Reembolsado',
+  fallido:        'Fallido',
 }
 
 export default async function PáginaDashboard() {
@@ -82,11 +84,11 @@ export default async function PáginaDashboard() {
     supabase.from('pedidos')
       .select('total, estado, creado_en')
       .gte('creado_en', inicioMes)
-      .in('estado', ['confirmado', 'en_proceso', 'enviado', 'entregado']),
+      .in('estado', ['procesando', 'completado']),
     // Pedidos pendientes
     supabase.from('pedidos')
       .select('id', { count: 'exact', head: false })
-      .eq('estado', 'pendiente'),
+      .eq('estado', 'pendiente_pago'),
     // Últimos 5 pedidos
     supabase.from('pedidos')
       .select('id, numero_orden, nombres, total, estado, creado_en, tipo')
@@ -96,12 +98,12 @@ export default async function PáginaDashboard() {
     supabase.from('pedidos')
       .select('creado_en, total')
       .gte('creado_en', hace28Dias)
-      .in('estado', ['confirmado', 'en_proceso', 'enviado', 'entregado']),
+      .in('estado', ['procesando', 'completado']),
     // Items de pedidos confirmados últimas 4 semanas (para top productos)
     supabase.from('pedidos')
       .select('items')
       .gte('creado_en', hace28Dias)
-      .in('estado', ['confirmado', 'en_proceso', 'enviado', 'entregado']),
+      .in('estado', ['procesando', 'completado']),
     // Productos con stock bajo
     supabase.from('productos')
       .select('id, nombre, slug, stock')

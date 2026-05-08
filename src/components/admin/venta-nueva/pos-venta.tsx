@@ -324,6 +324,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
         total,
         forma_pago:       formaPago,
         es_venta_manual:  true,
+        estado:           'completado',
         datos_facturacion,
       })
       .select('id, numero_orden')
@@ -332,40 +333,24 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
     setCreando(false)
     if (error) { toast.error('Error al crear la venta'); return }
 
-    // Decrementar stock de productos físicos
-    const supabaseStock = crearClienteSupabase()
-    await Promise.allSettled(
-      carrito
-        .filter(i => i.tipo_producto === 'producto')
-        .map(i =>
-          supabaseStock.rpc('decrementar_stock', {
-            p_producto_id: i.producto_id,
-            p_cantidad:    i.cantidad,
-            p_variante_id: i.variante_id ?? null,
-          })
-        )
-    )
-
-    // Registrar alquileres vendidos por POS
+    // Registrar alquileres reservados por POS
     const alquileresCarrito = carrito.filter(i => i.tipo_producto === 'alquiler' && i.dias_alquiler)
     if (alquileresCarrito.length > 0) {
       const hoy = obtenerFechaEcuador()
-      const alqPayload = alquileresCarrito.map(i => {
-        return {
-          pedido_id:    data.id,
-          producto_id:  i.producto_id,
-          fecha_inicio: hoy,
-          fecha_fin:    obtenerFechaEcuadorDesplazada(i.dias_alquiler ?? 1),
-          dias:         i.dias_alquiler ?? 1,
-          cantidad:     i.cantidad,
-          hora_recogida: null,
-          estado:       'activo',
-        }
-      })
+      const alqPayload = alquileresCarrito.map(i => ({
+        pedido_id:    data.id,
+        producto_id:  i.producto_id,
+        fecha_inicio: hoy,
+        fecha_fin:    obtenerFechaEcuadorDesplazada(i.dias_alquiler ?? 1),
+        dias:         i.dias_alquiler ?? 1,
+        cantidad:     i.cantidad,
+        hora_recogida: null,
+        estado:       'reservado',
+      }))
       await supabase.from('alquileres').insert(alqPayload)
     }
 
-    // Registrar citas para servicios vendidos por POS (fecha = hoy, hora = ahora)
+    // Registrar citas para servicios (estado reservada)
     const serviciosCarrito = carrito.filter(i => i.tipo_producto === 'servicio')
     if (serviciosCarrito.length > 0) {
       const ahora      = new Date()
@@ -380,10 +365,13 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
         hora_inicio: horaInicio,
         hora_fin:    horaFin,
         empleado_id: null,
-        estado:      'confirmada',
+        estado:      'reservada',
       }))
       await supabase.from('citas').insert(citasPayload)
     }
+
+    // DISPARAR LÓGICA UNIFICADA (Stock + Confirmación Citas/Alquileres)
+    await supabase.rpc('confirmar_pedido', { p_pedido_id: data.id })
 
     setVentaCreada(data)
     toast.success(`Venta #${data.numero_orden} registrada`)

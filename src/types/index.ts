@@ -262,7 +262,7 @@ export interface TallaProducto {
   stock?: number | null
 }
 
-export type EstadoPedido = 'pendiente' | 'confirmado' | 'en_proceso' | 'enviado' | 'entregado' | 'cancelado'
+export type EstadoPedido = 'pendiente_pago' | 'procesando' | 'en_espera' | 'completado' | 'cancelado' | 'reembolsado' | 'fallido'
 export type TipoPedido = 'delivery' | 'local'
 
 export interface ItemPedido {

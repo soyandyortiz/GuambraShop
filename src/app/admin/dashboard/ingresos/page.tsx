@@ -4,7 +4,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { redirect } from 'next/navigation'
 import { IngresosCliente } from './ingresos-cliente'
 
-const ESTADOS_INGRESO = ['confirmado', 'en_proceso', 'enviado', 'entregado']
+const ESTADOS_INGRESO = ['procesando', 'completado']
 
 interface Props {
   searchParams: Promise<{ desde?: string; hasta?: string }>
@@ -39,7 +39,7 @@ export default async function PáginaIngresos({ searchParams }: Props) {
       <div>
         <h1 className="text-xl font-bold text-foreground">Ingresos</h1>
         <p className="text-xs text-foreground-muted mt-0.5">
-          Solo pedidos confirmados, en proceso, enviados o entregados
+          Solo pedidos procesando o completados
         </p>
       </div>
 

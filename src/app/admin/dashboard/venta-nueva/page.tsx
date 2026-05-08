@@ -31,7 +31,7 @@ export default async function PáginaVentaNueva() {
     supabase
       .from('pedidos')
       .select('items')
-      .in('estado', ['confirmado', 'en_proceso', 'enviado', 'entregado'])
+      .in('estado', ['procesando', 'completado'])
       .limit(500),
     supabase
       .from('clientes')
