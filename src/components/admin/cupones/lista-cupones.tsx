@@ -177,7 +177,7 @@ export function ListaCuponesAdmin({ cupones: alqInit }: Props) {
                   return (
                     <tr key={cupon.id} className={cn(
                       'group transition-colors hover:bg-background-subtle/30',
-                      !cupon.esta_activa && 'opacity-60'
+                      !cupon.esta_activo && 'opacity-60'
                     )}>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
