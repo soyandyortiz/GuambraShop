@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     supabase
       .from('pedidos')
       .select('id', { count: 'exact', head: true })
-      .eq('estado', 'pendiente'),
+      .eq('estado', 'pendiente_pago'),
 
     supabase
       .from('citas')
@@ -85,20 +85,22 @@ export async function GET(req: NextRequest) {
   }
 
   const EMOJI_ESTADO: Record<string, string> = {
-    pendiente:  '⏳',
-    confirmado: '✅',
-    en_proceso: '🔄',
-    enviado:    '🚚',
-    entregado:  '📦',
-    cancelado:  '❌',
+    pendiente_pago: '⏳',
+    procesando:     '🔄',
+    en_espera:      '⏸️',
+    completado:     '✅',
+    cancelado:      '❌',
+    reembolsado:    '💰',
+    fallido:        '⚠️',
   }
   const LABEL_ESTADO: Record<string, string> = {
-    pendiente:  'Pendiente',
-    confirmado: 'Confirmado',
-    en_proceso: 'En proceso',
-    enviado:    'Enviado',
-    entregado:  'Entregado',
-    cancelado:  'Cancelado',
+    pendiente_pago: 'Pendiente de pago',
+    procesando:     'Procesando',
+    en_espera:      'En espera',
+    completado:     'Completado',
+    cancelado:      'Cancelado',
+    reembolsado:    'Reembolsado',
+    fallido:        'Fallido',
   }
 
   const estadoLineas = Object.entries(porEstado).map(([estado, n]) =>
