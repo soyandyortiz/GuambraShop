@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { toast } from 'sonner'
 import { Plus, Trash2, FileText } from 'lucide-react'
-import { formatearPrecio } from '@/lib/utils'
+import { formatearPrecio, obtenerFechaEcuador } from '@/lib/utils'
 import type { ConfiguracionFacturacion, Factura, Pedido, ItemFactura, CompradorFactura } from '@/types'
 
 interface Props {
@@ -183,7 +183,7 @@ export function FormularioNuevaFactura({ config, pedidos, facturaEditar }: Props
           pedido_id:         pedidoSeleccionado || null,
           numero_secuencial: seqStr,
           numero_factura:    numFactura,
-          fecha_emision:     new Date().toISOString().slice(0, 10),
+          fecha_emision:     obtenerFechaEcuador(),
           estado:            'borrador',
           datos_comprador:   compradorFinal,
           items:             itemsNormalizados,

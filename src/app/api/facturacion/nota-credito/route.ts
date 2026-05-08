@@ -76,18 +76,21 @@ export async function POST(req: NextRequest) {
 
     // Obtener secuencial NC e incrementar atómicamente
     const admin = crearAdmin()
-    const secuencialNC = config.secuencial_nc_actual
+    const nuevoSecuencial = config.secuencial_nc_actual + 1
     await admin.from('configuracion_facturacion')
-      .update({ secuencial_nc_actual: secuencialNC + 1 })
+      .update({ secuencial_nc_actual: nuevoSecuencial })
       .eq('id', config.id)
 
     // Crear registro NC en BD (hereda comprador e items de la factura original)
-    const hoy = new Date().toISOString().slice(0, 10)
+    const now = new Date()
+    const fechaEc = new Date(now.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+    const hoy = `${fechaEc.getFullYear()}-${String(fechaEc.getMonth()+1).padStart(2,'0')}-${String(fechaEc.getDate()).padStart(2,'0')}`
+    
     const { data: ncData, error: errNC } = await admin.from('facturas').insert({
       tipo:             'nota_credito',
       factura_origen_id: facturaOrigenId,
       pedido_id:        original.pedido_id,
-      numero_secuencial: String(secuencialNC),
+      numero_secuencial: String(nuevoSecuencial),
       fecha_emision:    hoy,
       estado:           'enviada',
       datos_comprador:  original.datos_comprador,

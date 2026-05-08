@@ -34,3 +34,14 @@ export function generarSessionId(): string {
   }
   return id
 }
+
+export function obtenerFechaEcuador(): string {
+  const d = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+export function obtenerFechaEcuadorDesplazada(diasOffset: number): string {
+  const d = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+  d.setDate(d.getDate() + diasOffset)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}

@@ -25,6 +25,7 @@ import { enviarRideAuto } from '@/lib/email/enviar-ride-auto'
 import { validarIdentificacion } from '@/lib/sri/validar-identificacion'
 import { esClaveDuplicada, traducirMensajesSRI } from '@/lib/sri/errores-sri'
 import type { ConfiguracionFacturacion, Factura, ItemFactura, CompradorFactura } from '@/types'
+import { obtenerFechaEcuador } from '@/lib/utils'
 
 /** Cliente con service role para leer Storage sin restricciones RLS */
 function crearClienteAdmin() {
@@ -166,7 +167,7 @@ export async function POST(req: NextRequest) {
 
     if (facturaExistente) {
       // Re-emitir factura rechazada — cargar datos completos y actualizar fecha
-      const hoy = new Date().toISOString().slice(0, 10)
+      const hoy = obtenerFechaEcuador()
       const { data: facturaCompleta, error: errLoad } = await supabase
         .from('facturas')
         .update({ fecha_emision: hoy, estado: 'borrador', error_sri: null })
@@ -316,7 +317,7 @@ export async function POST(req: NextRequest) {
           pedido_id:         pedidoId,
           numero_secuencial: seqStr,
           numero_factura:    numFactura,
-          fecha_emision:     new Date().toISOString().slice(0, 10),
+          fecha_emision:     obtenerFechaEcuador(),
           estado:            'borrador',
           datos_comprador:   comprador,
           items,

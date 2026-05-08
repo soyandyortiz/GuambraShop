@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { imprimirTicket } from '@/lib/ticket'
 import { FormularioCliente } from '@/components/admin/clientes/formulario-cliente'
-import { cn, formatearPrecio } from '@/lib/utils'
+import { cn, formatearPrecio, obtenerFechaEcuador, obtenerFechaEcuadorDesplazada } from '@/lib/utils'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { toast } from 'sonner'
 import type { Cliente, TipoIdentificacionCliente } from '@/types'
@@ -349,15 +349,13 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
     // Registrar alquileres vendidos por POS
     const alquileresCarrito = carrito.filter(i => i.tipo_producto === 'alquiler' && i.dias_alquiler)
     if (alquileresCarrito.length > 0) {
-      const hoy = new Date().toISOString().slice(0, 10)
+      const hoy = obtenerFechaEcuador()
       const alqPayload = alquileresCarrito.map(i => {
-        const fin = new Date()
-        fin.setDate(fin.getDate() + (i.dias_alquiler ?? 1))
         return {
           pedido_id:    data.id,
           producto_id:  i.producto_id,
           fecha_inicio: hoy,
-          fecha_fin:    fin.toISOString().slice(0, 10),
+          fecha_fin:    obtenerFechaEcuadorDesplazada(i.dias_alquiler ?? 1),
           dias:         i.dias_alquiler ?? 1,
           cantidad:     i.cantidad,
           hora_recogida: null,
@@ -374,7 +372,7 @@ export function PosVenta({ productos, clientes, simboloMoneda, pais = 'EC', nomb
       const horaInicio = ahora.toTimeString().slice(0, 8)
       ahora.setHours(ahora.getHours() + 1)
       const horaFin    = ahora.toTimeString().slice(0, 8)
-      const fecha      = new Date().toISOString().slice(0, 10)
+      const fecha      = obtenerFechaEcuador()
       const citasPayload = serviciosCarrito.map(i => ({
         pedido_id:   data.id,
         producto_id: i.producto_id,
