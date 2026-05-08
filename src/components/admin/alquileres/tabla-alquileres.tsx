@@ -6,7 +6,7 @@ import {
   Search, Calendar, Package, Phone, CheckCircle2, 
   KeyRound, RotateCcw, XCircle, AlertTriangle, 
   ChevronDown, Eye, Filter, ArrowUpDown, Clock, 
-  Trash2, Mail, ExternalLink, Loader2
+  Trash2, Mail, ExternalLink, Loader2, MessageCircle
 } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { toast } from 'sonner'
