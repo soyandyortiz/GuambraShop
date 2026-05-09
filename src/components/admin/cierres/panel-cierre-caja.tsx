@@ -18,6 +18,7 @@ interface Totales {
   tarjeta: number
   otros: number
   total: number
+  egresos?: number
 }
 
 interface Props {
@@ -145,13 +146,16 @@ export function PanelCierreCaja({ totalesSistema, fecha, yaCerrado, cierreExiste
 
       {/* Desglose del Sistema */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-card border border-border group hover:border-primary/30 transition-all">
-          <div className="flex items-center gap-2 text-emerald-600 mb-2">
-            <DollarSign className="w-4 h-4" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Efectivo Sistema</span>
+          <div className="p-4 rounded-2xl bg-card border border-border group hover:border-primary/30 transition-all">
+            <div className="flex items-center gap-2 text-emerald-600 mb-2">
+              <DollarSign className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Efectivo Sistema</span>
+            </div>
+            <p className="text-xl font-black text-foreground">{formatearPrecio(totalesSistema.efectivo)}</p>
+            {totalesSistema.egresos && totalesSistema.egresos > 0 && (
+              <p className="text-[9px] font-bold text-red-500 mt-1 uppercase">(-{formatearPrecio(totalesSistema.egresos)} Egresos)</p>
+            )}
           </div>
-          <p className="text-xl font-black text-foreground">{formatearPrecio(totalesSistema.efectivo)}</p>
-        </div>
         <div className="p-4 rounded-2xl bg-card border border-border group hover:border-primary/30 transition-all">
           <div className="flex items-center gap-2 text-blue-600 mb-2">
             <ArrowRightLeft className="w-4 h-4" />

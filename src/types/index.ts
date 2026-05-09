@@ -485,3 +485,16 @@ export interface CierreCaja {
   creado_por: string | null
   creado_en: string
 }
+
+export type CategoriaEgreso = 'proveedores' | 'servicios' | 'nomina' | 'alquiler' | 'otros'
+
+export interface Egreso {
+  id: string
+  descripcion: string
+  monto: number
+  categoria: CategoriaEgreso
+  metodo_pago: 'efectivo' | 'transferencia' | 'tarjeta'
+  fecha: string
+  creado_por: string | null
+  creado_en: string
+}

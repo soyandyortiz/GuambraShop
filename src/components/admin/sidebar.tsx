@@ -62,6 +62,7 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
       titulo: 'Finanzas',
       items: [
         { href: '/admin/dashboard/cierres-caja', icono: <Calculator className="w-4 h-4" />, etiqueta: 'Cierre de Caja', badge: null },
+        { href: '/admin/dashboard/egresos',      icono: <TrendingUp className="w-4 h-4" />,    etiqueta: 'Egresos',        badge: null },
       ],
     },
     {

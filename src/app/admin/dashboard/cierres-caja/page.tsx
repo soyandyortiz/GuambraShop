@@ -33,21 +33,34 @@ export default async function PaginaCierresCaja() {
     .order('fecha', { ascending: false })
     .limit(10)
 
-  // 3. Obtener pedidos del día actual para el cálculo en tiempo real
-  const { data: pedidosHoy } = await supabase
-    .from('pedidos')
-    .select('total, forma_pago, creado_en')
-    .gte('creado_en', `${hoy}T00:00:00`)
-    .lte('creado_en', `${hoy}T23:59:59`)
-    .in('estado', ['procesando', 'completado'])
+  // 3. Obtener pedidos del día actual y egresos para el cálculo en tiempo real
+  const [
+    { data: pedidosHoy },
+    { data: dataEgresos }
+  ] = await Promise.all([
+    supabase
+      .from('pedidos')
+      .select('total, forma_pago, creado_en')
+      .gte('creado_en', `${hoy}T00:00:00`)
+      .lte('creado_en', `${hoy}T23:59:59`)
+      .in('estado', ['procesando', 'completado']),
+    supabase
+      .from('egresos')
+      .select('monto')
+      .eq('fecha', hoy)
+      .eq('metodo_pago', 'efectivo')
+  ])
+
+  const totalEgresosHoy = (dataEgresos as { monto: number }[] | null)?.reduce((s, e) => s + Number(e.monto), 0) ?? 0
 
   // Calcular totales por forma de pago
   const totales = {
-    efectivo:      pedidosHoy?.filter(p => p.forma_pago === 'efectivo').reduce((s, p) => s + Number(p.total), 0) ?? 0,
+    efectivo:      (pedidosHoy?.filter(p => p.forma_pago === 'efectivo').reduce((s, p) => s + Number(p.total), 0) ?? 0) - totalEgresosHoy,
     transferencia: pedidosHoy?.filter(p => p.forma_pago === 'transferencia').reduce((s, p) => s + Number(p.total), 0) ?? 0,
     tarjeta:       pedidosHoy?.filter(p => p.forma_pago === 'tarjeta').reduce((s, p) => s + Number(p.total), 0) ?? 0,
     otros:         pedidosHoy?.filter(p => !['efectivo', 'transferencia', 'tarjeta'].includes(p.forma_pago || '')).reduce((s, p) => s + Number(p.total), 0) ?? 0,
-    total:         pedidosHoy?.reduce((s, p) => s + Number(p.total), 0) ?? 0
+    total:         (pedidosHoy?.reduce((s, p) => s + Number(p.total), 0) ?? 0) - totalEgresosHoy,
+    egresos:       totalEgresosHoy
   }
 
   return (
