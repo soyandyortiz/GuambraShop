@@ -33,6 +33,7 @@ export function ListaProveedores({ proveedores: init }: Props) {
     nombre: '', contacto: '', telefono: '', email: '', direccion: '', notas: ''
   })
   const [montoAccion, setMontoAccion] = useState<string>('')
+  const [metodoPago, setMetodoPago] = useState<'efectivo' | 'transferencia' | 'tarjeta'>('efectivo')
   const [notasAccion, setNotasAccion] = useState('')
 
   const filtrados = useMemo(() => {
@@ -42,6 +43,7 @@ export function ListaProveedores({ proveedores: init }: Props) {
   const resetForm = () => {
     setFormProv({ nombre: '', contacto: '', telefono: '', email: '', direccion: '', notas: '' })
     setMontoAccion('')
+    setMetodoPago('efectivo')
     setNotasAccion('')
     setSeleccionado(null)
     setModal(null)
@@ -79,33 +81,27 @@ export function ListaProveedores({ proveedores: init }: Props) {
 
     if (modal === 'deuda') {
       // Incrementar deuda
-      const { error } = await supabase.rpc('incrementar_saldo_proveedor', { 
-        id_prov: seleccionado.id, 
-        monto: montoNum 
-      })
-      // Si no tienes el RPC, lo hacemos por update simple por ahora para no bloquear
-      if (error) {
-        await supabase.from('proveedores').update({ saldo_pendiente: seleccionado.saldo_pendiente + montoNum }).eq('id', seleccionado.id)
-      }
+      const { error } = await supabase.from('proveedores').update({ saldo_pendiente: seleccionado.saldo_pendiente + montoNum }).eq('id', seleccionado.id)
+      if (error) { toast.error('Error al registrar deuda'); setGuardando(false); return }
       toast.success('Deuda registrada')
     } 
     else if (modal === 'abono') {
-      // 1. Registrar el pago en pagos_proveedores (el trigger restará el saldo)
-      const { data: pago, error: errPago } = await supabase.from('pagos_proveedores').insert([{
+      // 1. Registrar el pago en pagos_proveedores
+      const { error: errPago } = await supabase.from('pagos_proveedores').insert([{
         proveedor_id: seleccionado.id,
         monto: montoNum,
-        metodo_pago: 'efectivo',
+        metodo_pago: metodoPago,
         notas: notasAccion
-      }]).select().single()
+      }])
 
       if (errPago) { toast.error('Error al registrar pago'); setGuardando(false); return }
 
-      // 2. CREAR AUTOMÁTICAMENTE UN EGRESO
+      // 2. CREAR AUTOMÁTICAMENTE UN EGRESO con el método de pago seleccionado
       const { error: errEgreso } = await supabase.from('egresos').insert([{
         descripcion: `ABONO A PROVEEDOR: ${seleccionado.nombre} (${notasAccion || 'Sin notas'})`,
         monto: montoNum,
         categoria: 'proveedores',
-        metodo_pago: 'efectivo',
+        metodo_pago: metodoPago,
         fecha: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Guayaquil' })
       }])
 
@@ -113,7 +109,7 @@ export function ListaProveedores({ proveedores: init }: Props) {
       
       // Actualizar estado local
       setProveedores(proveedores.map(p => p.id === seleccionado.id ? { ...p, saldo_pendiente: p.saldo_pendiente - montoNum } : p))
-      toast.success('Abono registrado y Egreso generado')
+      toast.success(`Abono por ${metodoPago} registrado correctamente`)
     }
 
     resetForm()
@@ -268,6 +264,26 @@ export function ListaProveedores({ proveedores: init }: Props) {
                 <input type="text" placeholder="Ej: Pago factura #123, Compra mercadería..." value={notasAccion} onChange={e => setNotasAccion(e.target.value)} className="w-full h-10 px-4 rounded-xl border border-input-border bg-background-subtle text-xs focus:outline-none" />
               </div>
 
+              {modal === 'abono' && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Método de Pago</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['efectivo', 'transferencia', 'tarjeta'].map((met) => (
+                      <button
+                        key={met}
+                        onClick={() => setMetodoPago(met as any)}
+                        className={cn(
+                          "h-10 rounded-xl border text-[10px] font-black uppercase transition-all",
+                          metodoPago === met ? "bg-white text-emerald-600 border-white shadow-md" : "bg-white/10 text-white/70 border-white/10 hover:bg-white/20"
+                        )}
+                      >
+                        {met}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <button 
                 onClick={registrarAccionFinanciera} 
                 disabled={guardando} 
@@ -281,8 +297,15 @@ export function ListaProveedores({ proveedores: init }: Props) {
               </button>
               
               {modal === 'abono' && (
-                <div className="p-3 rounded-xl bg-background-subtle border border-border flex items-center gap-2 text-[10px] text-foreground-muted font-bold">
-                  <InfoIcon className="w-3.5 h-3.5" /> ESTA ACCIÓN GENERARÁ UN EGRESO AUTOMÁTICO
+                <div className="p-3 rounded-xl bg-background-subtle border border-border flex flex-col gap-1 text-[9px] text-foreground-muted font-bold">
+                  <div className="flex items-center gap-2">
+                    <InfoIcon className="w-3.5 h-3.5" /> ESTA ACCIÓN GENERARÁ UN EGRESO AUTOMÁTICO
+                  </div>
+                  {metodoPago === 'efectivo' ? (
+                    <p className="text-red-500 ml-5">RESTARÁ DEL CIERRE DE CAJA DE HOY</p>
+                  ) : (
+                    <p className="text-blue-500 ml-5">NO AFECTARÁ EL CIERRE DE CAJA FÍSICO</p>
+                  )}
                 </div>
               )}
             </div>
