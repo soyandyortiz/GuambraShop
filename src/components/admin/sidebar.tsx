@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, Ticket, Megaphone,
   Settings, MessageSquare, Star,
-  ClipboardList, CalendarDays, Truck, PartyPopper, TrendingUp,
+  ClipboardList, CalendarDays, Truck, PartyPopper, TrendingUp, TrendingDown,
   Users, KeyRound, FileText, Mail, Receipt, Printer, Calculator
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
