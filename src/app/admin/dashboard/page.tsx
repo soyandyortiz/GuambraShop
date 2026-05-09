@@ -16,7 +16,6 @@ import { ContadorEmails } from '@/components/admin/email/contador-emails'
 import { GraficoVentasPremium } from '@/components/admin/dashboard/grafico-ventas'
 import { formatearPrecio, cn } from '@/lib/utils'
 import type { ProveedorEmail } from '@/types'
-import { useMemo } from 'react'
 
 const COLORES_ESTADO: Record<string, string> = {
   pendiente_pago: 'bg-gray-100 text-gray-600 border-gray-200',
@@ -67,7 +66,6 @@ export default async function PáginaDashboard() {
     supabase.from('pedidos').select('total, estado, creado_en').gte('creado_en', inicioMes).in('estado', ['procesando', 'completado']),
     supabase.from('pedidos').select('id').eq('estado', 'pendiente_pago'),
     supabase.from('pedidos').select('id, numero_orden, nombres, total, estado, creado_en, tipo').order('creado_en', { ascending: false }).limit(6),
-    // Datos para el gráfico cartesiano (pedidos diarios de los últimos 28 días)
     supabase.from('pedidos').select('creado_en, total').gte('creado_en', hace28Dias).in('estado', ['procesando', 'completado']),
     supabase.from('pedidos').select('items').gte('creado_en', hace28Dias).in('estado', ['procesando', 'completado']),
     supabase.from('productos').select('id, nombre, stock').eq('esta_activo', true).not('stock', 'is', null).lte('stock', 5).order('stock', { ascending: true }).limit(5),
@@ -79,25 +77,24 @@ export default async function PáginaDashboard() {
   const ingresosMes = pedidosMes?.reduce((s, p) => s + Number(p.total ?? 0), 0) ?? 0
   const tiendaActiva = config?.esta_activa ?? true
 
-  // Procesar datos para el gráfico (agrupar por día)
-  const datosGrafico = useMemo(() => {
-    const dias: Record<string, number> = {}
-    for (let i = 27; i >= 0; i--) {
-      const d = new Date(ahora.getTime() - i * 24 * 60 * 60 * 1000)
-      dias[d.toISOString().split('T')[0]] = 0
+  // Procesar datos para el gráfico (Lógica directa de servidor, sin useMemo)
+  const diasMap: Record<string, number> = {}
+  for (let i = 27; i >= 0; i--) {
+    const d = new Date(ahora.getTime() - i * 24 * 60 * 60 * 1000)
+    diasMap[d.toISOString().split('T')[0]] = 0
+  }
+  pedidosDiarios?.forEach(p => {
+    const fecha = p.creado_en.split('T')[0]
+    if (diasMap[fecha] !== undefined) diasMap[fecha] += Number(p.total || 0)
+  })
+  
+  const datosGrafico = Object.entries(diasMap).map(([fecha, valor]) => {
+    const d = new Date(fecha)
+    return {
+      etiqueta: d.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' }),
+      valor
     }
-    pedidosDiarios?.forEach(p => {
-      const fecha = p.creado_en.split('T')[0]
-      if (dias[fecha] !== undefined) dias[fecha] += Number(p.total || 0)
-    })
-    return Object.entries(dias).map(([fecha, valor]) => {
-      const d = new Date(fecha)
-      return {
-        etiqueta: d.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' }),
-        valor
-      }
-    })
-  }, [pedidosDiarios])
+  })
 
   // Top productos
   const conteoProductos: Record<string, { nombre: string; cantidad: number }> = {}
@@ -137,18 +134,6 @@ export default async function PáginaDashboard() {
           </button>
         </div>
       </div>
-
-      {/* ══ ALERTAS CRÍTICAS ══ */}
-      {(!tiendaActiva || (mensajes?.filter(m => !m.leido).length ?? 0) > 0) && (
-        <div className="flex flex-col gap-3">
-          {!tiendaActiva && (
-            <div className="p-4 rounded-2xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-700 animate-in fade-in slide-in-from-top-2">
-              <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-              <p className="text-xs font-bold uppercase tracking-wide">Tienda Suspendida: {config?.mensaje_suspension}</p>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ══ GRID DE MÉTRICAS PRINCIPALES (BENTO) ══ */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -197,7 +182,7 @@ export default async function PáginaDashboard() {
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-foreground truncate">{p.nombre}</p>
                     <div className="mt-1.5 h-1.5 rounded-full bg-background-subtle overflow-hidden">
-                      <div className="h-full bg-primary rounded-full" style={{ width: `${(p.cantidad / topProductos[0].cantidad) * 100}%` }} />
+                      <div className="h-full bg-primary rounded-full" style={{ width: `${(p.cantidad / (topProductos[0]?.cantidad || 1)) * 100}%` }} />
                     </div>
                   </div>
                   <span className="text-xs font-black text-primary">{p.cantidad}</span>
@@ -233,8 +218,6 @@ export default async function PáginaDashboard() {
 
       {/* ══ SECCIÓN INFERIOR ══ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Últimos Pedidos */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2">
@@ -263,7 +246,6 @@ export default async function PáginaDashboard() {
           </div>
         </div>
 
-        {/* Stock y Alertas */}
         <div className="space-y-4">
           <h2 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-500" /> Alertas de Stock
@@ -272,7 +254,7 @@ export default async function PáginaDashboard() {
             {productosStockBajo?.length === 0 ? (
               <div className="py-6 text-center opacity-40">
                 <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-emerald-500" />
-                <p className="text-xs font-bold">Todo en orden con el inventario</p>
+                <p className="text-xs font-bold">Inventario en orden</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -285,26 +267,12 @@ export default async function PáginaDashboard() {
                       </div>
                     </div>
                     <span className="text-xs font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">
-                      {prod.stock} uds
+                      {prod.stock}
                     </span>
                   </div>
                 ))}
-                <Link href="/admin/dashboard/productos" className="block text-center text-[10px] font-black text-primary uppercase tracking-widest pt-2 hover:underline">Gestionar Inventario</Link>
               </div>
             )}
-          </div>
-
-          {/* Estado de Servicios */}
-          <div className="bg-emerald-600 rounded-3xl p-5 text-white shadow-lg shadow-emerald-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                <Send className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black opacity-60 uppercase tracking-widest">Facturación/Email</p>
-                <p className="text-sm font-bold">Sistema Operativo</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
