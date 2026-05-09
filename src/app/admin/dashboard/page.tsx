@@ -5,34 +5,25 @@ import { redirect } from 'next/navigation'
 import {
   Package, Tag, Ticket, MessageSquare,
   ShoppingBag, TrendingUp, AlertTriangle, CheckCircle2, Power, ExternalLink, ClipboardList,
-  DollarSign, Clock, BarChart2, Star, ArrowRight
+  DollarSign, Clock, BarChart2, Star, ArrowRight, Users, Bell, Zap, LayoutDashboard,
+  ShieldCheck, Send
 } from 'lucide-react'
 import Link from 'next/link'
 import type { MensajeAdmin, ItemPedido } from '@/types'
 import { PanelSuperadmin } from '@/components/admin/superadmin/panel-superadmin'
 import { ContadorPago } from '@/components/admin/superadmin/contador-pago'
 import { ContadorEmails } from '@/components/admin/email/contador-emails'
-import { formatearPrecio } from '@/lib/utils'
+import { GraficoVentasPremium } from '@/components/admin/dashboard/grafico-ventas'
+import { formatearPrecio, cn } from '@/lib/utils'
 import type { ProveedorEmail } from '@/types'
+import { useMemo } from 'react'
 
 const COLORES_ESTADO: Record<string, string> = {
-  pendiente_pago: 'bg-gray-100 text-gray-600',
-  procesando:     'bg-emerald-50 text-emerald-600',
-  en_espera:      'bg-amber-50 text-amber-600',
-  completado:     'bg-blue-50 text-blue-600',
-  cancelado:      'bg-red-50 text-red-600',
-  reembolsado:    'bg-gray-100 text-gray-500',
-  fallido:        'bg-red-100 text-red-800',
-}
-
-const ETIQUETAS_ESTADO: Record<string, string> = {
-  pendiente_pago: 'Pendiente de pago',
-  procesando:     'Procesando',
-  en_espera:      'En espera',
-  completado:     'Completado',
-  cancelado:      'Cancelado',
-  reembolsado:    'Reembolsado',
-  fallido:        'Fallido',
+  pendiente_pago: 'bg-gray-100 text-gray-600 border-gray-200',
+  procesando:     'bg-emerald-50 text-emerald-600 border-emerald-100',
+  en_espera:      'bg-amber-50 text-amber-600 border-amber-100',
+  completado:     'bg-blue-50 text-blue-600 border-blue-100',
+  cancelado:      'bg-red-50 text-red-600 border-red-100',
 }
 
 export default async function PáginaDashboard() {
@@ -40,33 +31,26 @@ export default async function PáginaDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/admin')
 
-  const { data: perfil } = await supabase
-    .from('perfiles')
-    .select('nombre, rol')
-    .eq('id', user.id)
-    .single()
-
+  const { data: perfil } = await supabase.from('perfiles').select('nombre, rol').eq('id', user.id).single()
   const esSuperadmin = perfil?.rol === 'superadmin'
 
-  // Rangos de tiempo
   const ahora      = new Date()
   const inicioMes  = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString()
   const hace28Dias = new Date(ahora.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString()
   const hoy        = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).toISOString()
 
-  // Todas las queries en paralelo
   const [
     { count: totalProductos },
     { count: productosActivos },
     { count: totalCategorias },
-    { count: totalCupones },
+    { count: totalClientes },
     { count: totalPedidos },
     { data: mensajes },
     { data: config },
     { data: pedidosMes },
     { data: pedidosPendientes },
     { data: pedidosRecientes },
-    { data: pedidosSemanas },
+    { data: pedidosDiarios },
     { data: pedidosItems },
     { data: productosStockBajo },
     { data: cfgEmail },
@@ -76,440 +60,262 @@ export default async function PáginaDashboard() {
     supabase.from('productos').select('*', { count: 'exact', head: true }),
     supabase.from('productos').select('*', { count: 'exact', head: true }).eq('esta_activo', true),
     supabase.from('categorias').select('*', { count: 'exact', head: true }).eq('esta_activa', true),
-    supabase.from('cupones').select('*', { count: 'exact', head: true }).eq('esta_activo', true),
+    supabase.from('clientes').select('*', { count: 'exact', head: true }),
     supabase.from('pedidos').select('*', { count: 'exact', head: true }),
-    supabase.from('mensajes_admin').select('*').order('creado_en', { ascending: false }).limit(5),
-    supabase.from('configuracion_tienda').select('id, nombre_tienda, esta_activa, mensaje_suspension, info_pago, cobro_activo, fecha_inicio_sistema, dias_pago').single(),
-    // Pedidos del mes confirmados (ingresos reales)
-    supabase.from('pedidos')
-      .select('total, estado, creado_en')
-      .gte('creado_en', inicioMes)
-      .in('estado', ['procesando', 'completado']),
-    // Pedidos pendientes
-    supabase.from('pedidos')
-      .select('id', { count: 'exact', head: false })
-      .eq('estado', 'pendiente_pago'),
-    // Últimos 5 pedidos
-    supabase.from('pedidos')
-      .select('id, numero_orden, nombres, total, estado, creado_en, tipo')
-      .order('creado_en', { ascending: false })
-      .limit(5),
-    // Pedidos confirmados de últimas 4 semanas (para gráfico)
-    supabase.from('pedidos')
-      .select('creado_en, total')
-      .gte('creado_en', hace28Dias)
-      .in('estado', ['procesando', 'completado']),
-    // Items de pedidos confirmados últimas 4 semanas (para top productos)
-    supabase.from('pedidos')
-      .select('items')
-      .gte('creado_en', hace28Dias)
-      .in('estado', ['procesando', 'completado']),
-    // Productos con stock bajo
-    supabase.from('productos')
-      .select('id, nombre, slug, stock')
-      .eq('esta_activo', true)
-      .not('stock', 'is', null)
-      .lte('stock', 5)
-      .order('stock', { ascending: true })
-      .limit(8),
-    // Email: config y conteos
+    supabase.from('mensajes_admin').select('*').order('creado_en', { ascending: false }).limit(3),
+    supabase.from('configuracion_tienda').select('*').single(),
+    supabase.from('pedidos').select('total, estado, creado_en').gte('creado_en', inicioMes).in('estado', ['procesando', 'completado']),
+    supabase.from('pedidos').select('id').eq('estado', 'pendiente_pago'),
+    supabase.from('pedidos').select('id, numero_orden, nombres, total, estado, creado_en, tipo').order('creado_en', { ascending: false }).limit(6),
+    // Datos para el gráfico cartesiano (pedidos diarios de los últimos 28 días)
+    supabase.from('pedidos').select('creado_en, total').gte('creado_en', hace28Dias).in('estado', ['procesando', 'completado']),
+    supabase.from('pedidos').select('items').gte('creado_en', hace28Dias).in('estado', ['procesando', 'completado']),
+    supabase.from('productos').select('id, nombre, stock').eq('esta_activo', true).not('stock', 'is', null).lte('stock', 5).order('stock', { ascending: true }).limit(5),
     supabase.from('configuracion_email').select('proveedor, activo').maybeSingle(),
     supabase.from('facturas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', hoy),
     supabase.from('facturas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', inicioMes),
   ])
 
-  const mensajesNoLeidos  = (mensajes as MensajeAdmin[] | null)?.filter(m => !m.leido).length ?? 0
-  const emailActivo       = cfgEmail?.activo && cfgEmail?.proveedor
-  const enviosEmailHoy    = countEmailHoy ?? 0
-  const enviosEmailMes    = countEmailMes ?? 0
+  const ingresosMes = pedidosMes?.reduce((s, p) => s + Number(p.total ?? 0), 0) ?? 0
   const tiendaActiva = config?.esta_activa ?? true
 
-  // Métricas del mes
-  const ingresosMes = pedidosMes?.reduce((s, p) => s + Number(p.total ?? 0), 0) ?? 0
-  const cantidadPedidosMes = pedidosMes?.length ?? 0
-  const cantidadPendientes = pedidosPendientes?.length ?? 0
-
-  // Gráfico de barras — últimas 4 semanas
-  const semanas = [3, 2, 1, 0].map(i => {
-    const inicioSem = new Date(ahora.getTime() - (i + 1) * 7 * 24 * 60 * 60 * 1000)
-    const finSem    = new Date(ahora.getTime() - i * 7 * 24 * 60 * 60 * 1000)
-    const pedsSem   = pedidosSemanas?.filter(p => {
-      const f = new Date(p.creado_en)
-      return f >= inicioSem && f < finSem
-    }) ?? []
-    const labels = ['Hace 4 sem', 'Hace 3 sem', 'Hace 2 sem', 'Esta sem.']
-    return {
-      etiqueta: labels[3 - i],
-      cantidad: pedsSem.length,
-      total: pedsSem.reduce((s, p) => s + Number(p.total ?? 0), 0),
+  // Procesar datos para el gráfico (agrupar por día)
+  const datosGrafico = useMemo(() => {
+    const dias: Record<string, number> = {}
+    for (let i = 27; i >= 0; i--) {
+      const d = new Date(ahora.getTime() - i * 24 * 60 * 60 * 1000)
+      dias[d.toISOString().split('T')[0]] = 0
     }
-  })
-  const maxCantidadSem = Math.max(...semanas.map(s => s.cantidad), 1)
+    pedidosDiarios?.forEach(p => {
+      const fecha = p.creado_en.split('T')[0]
+      if (dias[fecha] !== undefined) dias[fecha] += Number(p.total || 0)
+    })
+    return Object.entries(dias).map(([fecha, valor]) => {
+      const d = new Date(fecha)
+      return {
+        etiqueta: d.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' }),
+        valor
+      }
+    })
+  }, [pedidosDiarios])
 
-  // Top 5 productos más pedidos
+  // Top productos
   const conteoProductos: Record<string, { nombre: string; cantidad: number }> = {}
   pedidosItems?.forEach(p => {
     if (!Array.isArray(p.items)) return
     ;(p.items as ItemPedido[]).forEach(item => {
-      if (!conteoProductos[item.producto_id]) {
-        conteoProductos[item.producto_id] = { nombre: item.nombre, cantidad: 0 }
-      }
+      if (!conteoProductos[item.producto_id]) conteoProductos[item.producto_id] = { nombre: item.nombre, cantidad: 0 }
       conteoProductos[item.producto_id].cantidad += item.cantidad
     })
   })
-  const topProductos = Object.values(conteoProductos)
-    .sort((a, b) => b.cantidad - a.cantidad)
-    .slice(0, 5)
-  const maxTopCantidad = Math.max(...topProductos.map(p => p.cantidad), 1)
-
-  const stats = [
-    {
-      etiqueta: 'Productos activos',
-      valor: productosActivos ?? 0,
-      total: totalProductos ?? 0,
-      icono: <Package className="w-5 h-5" />,
-      color: 'text-blue-500',
-      bg: 'bg-blue-500/10',
-      href: '/admin/dashboard/productos',
-    },
-    {
-      etiqueta: 'Categorías',
-      valor: totalCategorias ?? 0,
-      total: null,
-      icono: <Tag className="w-5 h-5" />,
-      color: 'text-violet-500',
-      bg: 'bg-violet-500/10',
-      href: '/admin/dashboard/categorias',
-    },
-    {
-      etiqueta: 'Cupones activos',
-      valor: totalCupones ?? 0,
-      total: null,
-      icono: <Ticket className="w-5 h-5" />,
-      color: 'text-success',
-      bg: 'bg-success/10',
-      href: '/admin/dashboard/cupones',
-    },
-    {
-      etiqueta: 'Pedidos totales',
-      valor: totalPedidos ?? 0,
-      total: null,
-      icono: <ClipboardList className="w-5 h-5" />,
-      color: 'text-warning',
-      bg: 'bg-warning/10',
-      href: '/admin/dashboard/pedidos',
-    },
-  ]
+  const topProductos = Object.values(conteoProductos).sort((a, b) => b.cantidad - a.cantidad).slice(0, 4)
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8 pb-10">
+      
+      {/* ══ CABECERA DE BIENVENIDA ══ */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0 shadow-inner">
+            <LayoutDashboard className="w-7 h-7 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-foreground tracking-tight">Panel de Control</h1>
+            <p className="text-sm text-foreground-muted font-medium flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+              {config?.nombre_tienda || 'Administración'} · {perfil?.nombre || 'Admin'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link href="/" target="_blank" className="flex items-center gap-2 h-10 px-5 rounded-xl border border-border bg-card text-xs font-bold hover:bg-background-subtle transition-all">
+            <ExternalLink className="w-4 h-4" /> Ver Tienda
+          </Link>
+          <button className="relative w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-background-subtle transition-all">
+            <Bell className="w-5 h-5 text-foreground-muted" />
+            <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-card" />
+          </button>
+        </div>
+      </div>
 
-      {/* Mensajes del superadmin en la parte superior */}
-      {mensajesNoLeidos > 0 && (
-        <div className="rounded-2xl bg-primary/10 border border-primary/20 p-4 flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-primary flex-shrink-0" />
-            <p className="text-sm font-bold text-primary">Tienes {mensajesNoLeidos} mensaje{mensajesNoLeidos > 1 ? 's' : ''} nuevo{mensajesNoLeidos > 1 ? 's' : ''}</p>
-          </div>
-          <div className="flex flex-col gap-2">
-            {(mensajes as MensajeAdmin[]).filter(m => !m.leido).map((msg) => (
-              <div key={msg.id} className="bg-card/50 rounded-xl p-3 border border-primary/10">
-                {msg.asunto && <p className="text-xs font-bold text-foreground">{msg.asunto}</p>}
-                <p className="text-xs text-foreground-muted mt-0.5">{msg.cuerpo}</p>
-                <p className="text-[10px] text-foreground-muted mt-1.5 opacity-70">
-                  {new Date(msg.creado_en).toLocaleDateString('es-ES', {
-                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-                  })}
-                </p>
-              </div>
-            ))}
-          </div>
+      {/* ══ ALERTAS CRÍTICAS ══ */}
+      {(!tiendaActiva || (mensajes?.filter(m => !m.leido).length ?? 0) > 0) && (
+        <div className="flex flex-col gap-3">
+          {!tiendaActiva && (
+            <div className="p-4 rounded-2xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-700 animate-in fade-in slide-in-from-top-2">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+              <p className="text-xs font-bold uppercase tracking-wide">Tienda Suspendida: {config?.mensaje_suspension}</p>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Alerta si tienda suspendida */}
-      {!tiendaActiva && (
-        <div className="rounded-2xl bg-danger/10 border border-danger/20 p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-danger flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-danger">Tienda suspendida</p>
-            <p className="text-xs text-foreground-muted mt-0.5">{config?.mensaje_suspension}</p>
-            {config?.info_pago && (
-              <p className="text-xs text-foreground mt-2 font-medium">{config.info_pago}</p>
-            )}
+      {/* ══ GRID DE MÉTRICAS PRINCIPALES (BENTO) ══ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        
+        {/* Gráfico Principal (8 columnas) */}
+        <div className="lg:col-span-8 flex flex-col gap-4">
+          <GraficoVentasPremium 
+            datos={datosGrafico} 
+            titulo="Ingresos Diarios" 
+            subtitulo="Rendimiento de los últimos 28 días"
+          />
+          
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-card border border-card-border p-5 rounded-3xl shadow-sm">
+              <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest mb-1">Ventas Mes</p>
+              <p className="text-xl font-black text-foreground">{pedidosMes?.length || 0}</p>
+            </div>
+            <div className="bg-card border border-card-border p-5 rounded-3xl shadow-sm">
+              <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest mb-1">Ingresos</p>
+              <p className="text-xl font-black text-primary">{formatearPrecio(ingresosMes)}</p>
+            </div>
+            <div className="bg-card border border-card-border p-5 rounded-3xl shadow-sm">
+              <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest mb-1">Pendientes</p>
+              <p className="text-xl font-black text-amber-600">{pedidosPendientes?.length || 0}</p>
+            </div>
+            <div className="bg-card border border-card-border p-5 rounded-3xl shadow-sm">
+              <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest mb-1">Clientes</p>
+              <p className="text-xl font-black text-indigo-600">{totalClientes || 0}</p>
+            </div>
           </div>
         </div>
-      )}
 
-      {/* Bienvenida */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">
-            Hola, {perfil?.nombre?.split(' ')[0]} 👋
-          </h1>
-          <p className="text-sm text-foreground-muted mt-0.5">
-            {config?.nombre_tienda ?? 'Tu tienda'} —{' '}
-            {tiendaActiva ? (
-              <span className="text-success font-medium">Tienda activa</span>
-            ) : (
-              <span className="text-danger font-medium">Tienda suspendida</span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/10 text-primary flex-shrink-0">
-          {tiendaActiva
-            ? <><CheckCircle2 className="w-3.5 h-3.5" /> En línea</>
-            : <><Power className="w-3.5 h-3.5" /> Suspendida</>
-          }
-        </div>
-      </div>
-
-      {/* Botón Ver tienda */}
-      <Link
-        href="/"
-        target="_blank"
-        className="flex items-center justify-center gap-2.5 w-full h-12 rounded-2xl bg-primary text-white font-bold text-sm shadow-md shadow-primary/30 hover:bg-primary/90 active:scale-[0.98] transition-all"
-      >
-        <ExternalLink className="w-4 h-4" />
-        VER TIENDA ONLINE
-      </Link>
-
-      {/* ── Métricas del mes ──────────────────────────── */}
-      <div>
-        <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-          <BarChart2 className="w-4 h-4 text-primary" />
-          Este mes
-        </h2>
-        <div className="grid grid-cols-3 gap-3">
-          {/* Pedidos del mes */}
-          <div className="rounded-2xl bg-card border border-card-border p-4 flex flex-col gap-1">
-            <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center mb-2">
-              <ClipboardList className="w-4 h-4 text-primary" />
-            </div>
-            <p className="text-2xl font-bold text-foreground">{cantidadPedidosMes}</p>
-            <p className="text-[11px] text-foreground-muted leading-tight">Pedidos del mes</p>
-          </div>
-
-          {/* Ingresos del mes → enlace al módulo */}
-          <Link
-            href="/admin/dashboard/ingresos"
-            className="rounded-2xl bg-card border border-card-border p-4 flex flex-col gap-1 hover:border-success/40 hover:shadow-sm transition-all active:scale-[0.98]"
-          >
-            <div className="w-8 h-8 rounded-xl bg-success/10 flex items-center justify-center mb-2">
-              <DollarSign className="w-4 h-4 text-success" />
-            </div>
-            <p className="text-xl font-bold text-foreground leading-tight">{formatearPrecio(ingresosMes)}</p>
-            <p className="text-[11px] text-foreground-muted leading-tight">Ingresos del mes</p>
-          </Link>
-
-          {/* Pendientes */}
-          <Link
-            href="/admin/dashboard/pedidos"
-            className={`rounded-2xl border p-4 flex flex-col gap-1 transition-all active:scale-[0.98] hover:shadow-sm ${
-              cantidadPendientes > 0 ? 'bg-warning/10 border-warning/30' : 'bg-card border-card-border'
-            }`}
-          >
-            <div className={`w-8 h-8 rounded-xl flex items-center justify-center mb-2 ${cantidadPendientes > 0 ? 'bg-warning/20' : 'bg-warning/10'}`}>
-              <Clock className="w-4 h-4 text-warning" />
-            </div>
-            <p className="text-2xl font-bold text-foreground">{cantidadPendientes}</p>
-            <p className="text-[11px] text-foreground-muted leading-tight">Pendientes</p>
-          </Link>
-        </div>
-      </div>
-
-      {/* ── Gráfico de barras semanal ─────────────────── */}
-      <div className="rounded-2xl bg-card border border-card-border p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-foreground">Pedidos por semana</h2>
-          <span className="text-[10px] text-foreground-muted">Últimas 4 semanas</span>
-        </div>
-        <div className="flex items-end gap-3 h-28">
-          {semanas.map((sem, idx) => (
-            <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-              {/* Valor */}
-              <span className="text-xs font-bold text-foreground">{sem.cantidad}</span>
-              {/* Barra */}
-              <div className="w-full rounded-t-lg bg-primary/10 flex items-end overflow-hidden" style={{ height: '72px' }}>
-                <div
-                  className="w-full rounded-t-lg bg-primary transition-all duration-500"
-                  style={{ height: `${(sem.cantidad / maxCantidadSem) * 100}%`, minHeight: sem.cantidad > 0 ? '4px' : '0' }}
-                />
-              </div>
-              {/* Etiqueta */}
-              <span className="text-[10px] text-foreground-muted text-center leading-tight">{sem.etiqueta}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Tarjetas de estadísticas totales */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {stats.map((stat) => (
-          <Link
-            key={stat.href}
-            href={stat.href}
-            className="rounded-2xl bg-card border border-card-border p-4 hover:border-border-strong hover:shadow-sm transition-all duration-200 active:scale-[0.98]"
-          >
-            <div className={`w-9 h-9 rounded-xl ${stat.bg} flex items-center justify-center mb-3`}>
-              <span className={stat.color}>{stat.icono}</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{stat.valor}</p>
-            <p className="text-xs text-foreground-muted mt-0.5">{stat.etiqueta}</p>
-            {stat.total !== null && (
-              <p className="text-[10px] text-foreground-muted mt-1">
-                de {stat.total} en total
-              </p>
-            )}
-          </Link>
-        ))}
-      </div>
-
-      {/* ── Top 5 productos más pedidos ──────────────── */}
-      {topProductos.length > 0 && (
-        <div className="rounded-2xl bg-card border border-card-border p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Star className="w-4 h-4 text-star fill-star" />
-              Top productos (28 días)
-            </h2>
-          </div>
-          <div className="flex flex-col gap-3">
-            {topProductos.map((prod, idx) => (
-              <div key={idx} className="flex items-center gap-3">
-                <span className="w-5 text-xs font-bold text-foreground-muted text-center flex-shrink-0">
-                  {idx + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-foreground truncate">{prod.nombre}</p>
-                  <div className="mt-1 h-1.5 rounded-full bg-background-subtle overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-500"
-                      style={{ width: `${(prod.cantidad / maxTopCantidad) * 100}%` }}
-                    />
+        {/* Panel Lateral (4 columnas) */}
+        <div className="lg:col-span-4 flex flex-col gap-4">
+          {/* Top Productos */}
+          <div className="bg-card border border-card-border rounded-3xl p-6 shadow-sm">
+            <h3 className="text-xs font-black text-foreground-muted uppercase tracking-widest mb-5 flex items-center gap-2">
+              <Star className="w-4 h-4 text-amber-500 fill-amber-500" /> Top Productos
+            </h3>
+            <div className="flex flex-col gap-4">
+              {topProductos.map((p, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-background-subtle flex items-center justify-center text-xs font-black text-foreground-muted">
+                    {i + 1}
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-foreground truncate">{p.nombre}</p>
+                    <div className="mt-1.5 h-1.5 rounded-full bg-background-subtle overflow-hidden">
+                      <div className="h-full bg-primary rounded-full" style={{ width: `${(p.cantidad / topProductos[0].cantidad) * 100}%` }} />
+                    </div>
+                  </div>
+                  <span className="text-xs font-black text-primary">{p.cantidad}</span>
                 </div>
-                <span className="text-xs font-bold text-primary flex-shrink-0">{prod.cantidad} uds.</span>
-              </div>
-            ))}
+              ))}
+            </div>
+          </div>
+
+          {/* Accesos Rápidos */}
+          <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-200">
+            <h3 className="text-xs font-black opacity-60 uppercase tracking-widest mb-4">Gestión Rápida</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <Link href="/admin/dashboard/productos/nuevo" className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-white/10 hover:bg-white/20 transition-all">
+                <Package className="w-5 h-5" />
+                <span className="text-[10px] font-bold">Nuevo Item</span>
+              </Link>
+              <Link href="/admin/dashboard/pedidos" className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-white/10 hover:bg-white/20 transition-all">
+                <ShoppingBag className="w-5 h-5" />
+                <span className="text-[10px] font-bold">Pedidos</span>
+              </Link>
+              <Link href="/admin/dashboard/clientes" className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-white/10 hover:bg-white/20 transition-all">
+                <Users className="w-5 h-5" />
+                <span className="text-[10px] font-bold">Clientes</span>
+              </Link>
+              <Link href="/admin/dashboard/promociones" className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-white/10 hover:bg-white/20 transition-all">
+                <Zap className="w-5 h-5" />
+                <span className="text-[10px] font-bold">Campañas</span>
+              </Link>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* ── Últimos 5 pedidos ────────────────────────── */}
-      {(pedidosRecientes?.length ?? 0) > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <ClipboardList className="w-4 h-4" />
-              Últimos pedidos
+      {/* ══ SECCIÓN INFERIOR ══ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Últimos Pedidos */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2">
+              <ClipboardList className="w-4 h-4 text-primary" /> Actividad Reciente
             </h2>
-            <Link href="/admin/dashboard/pedidos" className="text-xs text-primary hover:underline flex items-center gap-1">
-              Ver todos <ArrowRight className="w-3 h-3" />
-            </Link>
+            <Link href="/admin/dashboard/pedidos" className="text-xs font-bold text-primary hover:underline">Ver todo</Link>
           </div>
-          <div className="flex flex-col gap-2">
-            {pedidosRecientes!.map(p => (
-              <Link
-                key={p.id}
-                href="/admin/dashboard/pedidos"
-                className="flex items-center gap-3 p-3 rounded-xl bg-card border border-card-border hover:border-border-strong transition-all active:scale-[0.98]"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-foreground font-mono">#{p.numero_orden}</span>
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${COLORES_ESTADO[p.estado] ?? 'bg-card text-foreground-muted'}`}>
-                      {ETIQUETAS_ESTADO[p.estado] ?? p.estado}
+          <div className="bg-card border border-card-border rounded-3xl overflow-hidden shadow-sm">
+            <div className="divide-y divide-border">
+              {pedidosRecientes?.map(p => (
+                <Link key={p.id} href="/admin/dashboard/pedidos" className="flex items-center gap-4 p-4 hover:bg-background-subtle/50 transition-colors">
+                  <div className={cn("w-2 h-2 rounded-full", p.estado === 'pendiente_pago' ? 'bg-amber-500' : 'bg-emerald-500')} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-foreground font-mono">#{p.numero_orden} · {p.nombres}</p>
+                    <p className="text-[10px] text-foreground-muted mt-0.5">{new Date(p.creado_en).toLocaleString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-foreground">{formatearPrecio(p.total)}</p>
+                    <span className={cn("text-[9px] font-black px-2 py-0.5 rounded-full border uppercase", COLORES_ESTADO[p.estado])}>
+                      {p.estado.replace('_', ' ')}
                     </span>
                   </div>
-                  <p className="text-xs text-foreground-muted mt-0.5 truncate">{p.nombres}</p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-bold text-foreground">{formatearPrecio(p.total)}</p>
-                  <p className="text-[10px] text-foreground-muted">
-                    {new Date(p.creado_en).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
-                  </p>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
-      )}
 
-      {/* ── Stock bajo ───────────────────────────────── */}
-      {(productosStockBajo?.length ?? 0) > 0 && (
-        <div className="rounded-2xl bg-warning/5 border border-warning/20 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-warning flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" />
-              Stock bajo
-            </h2>
-            <Link href="/admin/dashboard/productos" className="text-xs text-primary hover:underline">
-              Ver productos
-            </Link>
-          </div>
-          <div className="flex flex-col gap-2">
-            {productosStockBajo!.map(prod => (
-              <div key={prod.id} className="flex items-center justify-between gap-3">
-                <p className="text-xs text-foreground truncate">{prod.nombre}</p>
-                <span className={`text-xs font-bold flex-shrink-0 ${(prod.stock ?? 0) <= 2 ? 'text-danger' : 'text-warning'}`}>
-                  {prod.stock} uds.
-                </span>
+        {/* Stock y Alertas */}
+        <div className="space-y-4">
+          <h2 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-500" /> Alertas de Stock
+          </h2>
+          <div className="bg-card border border-card-border rounded-3xl p-5 shadow-sm">
+            {productosStockBajo?.length === 0 ? (
+              <div className="py-6 text-center opacity-40">
+                <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-emerald-500" />
+                <p className="text-xs font-bold">Todo en orden con el inventario</p>
               </div>
-            ))}
+            ) : (
+              <div className="space-y-4">
+                {productosStockBajo?.map(prod => (
+                  <div key={prod.id} className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-foreground truncate">{prod.nombre}</p>
+                      <div className="mt-1.5 h-1 rounded-full bg-background-subtle">
+                        <div className="h-full bg-amber-500 rounded-full" style={{ width: `${(prod.stock || 0) * 20}%` }} />
+                      </div>
+                    </div>
+                    <span className="text-xs font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">
+                      {prod.stock} uds
+                    </span>
+                  </div>
+                ))}
+                <Link href="/admin/dashboard/productos" className="block text-center text-[10px] font-black text-primary uppercase tracking-widest pt-2 hover:underline">Gestionar Inventario</Link>
+              </div>
+            )}
           </div>
-        </div>
-      )}
 
-      {/* Accesos rápidos */}
-      <div>
-        <h2 className="text-sm font-semibold text-foreground mb-3">Accesos rápidos</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {[
-            { href: '/admin/dashboard/productos/nuevo', etiqueta: 'Nuevo producto', icono: <Package className="w-4 h-4" />, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-            { href: '/admin/dashboard/categorias',      etiqueta: 'Categorías',     icono: <Tag className="w-4 h-4" />,     color: 'text-violet-500', bg: 'bg-violet-500/10' },
-            { href: '/admin/dashboard/cupones',         etiqueta: 'Cupones',        icono: <Ticket className="w-4 h-4" />,  color: 'text-success', bg: 'bg-success/10' },
-            { href: '/admin/dashboard/promociones',     etiqueta: 'Promociones',    icono: <TrendingUp className="w-4 h-4" />, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-            { href: '/admin/dashboard/pedidos',         etiqueta: 'Ver pedidos',    icono: <ClipboardList className="w-4 h-4" />, color: 'text-warning', bg: 'bg-warning/10' },
-            { href: '/admin/dashboard/perfil',          etiqueta: 'Perfil tienda',  icono: <ShoppingBag className="w-4 h-4" />, color: 'text-primary', bg: 'bg-primary/10' },
-          ].map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-3 p-3 rounded-xl bg-card border border-card-border hover:border-border-strong hover:shadow-sm transition-all duration-200 active:scale-[0.98]"
-            >
-              <div className={`w-8 h-8 rounded-lg ${item.bg} flex items-center justify-center flex-shrink-0`}>
-                <span className={item.color}>{item.icono}</span>
+          {/* Estado de Servicios */}
+          <div className="bg-emerald-600 rounded-3xl p-5 text-white shadow-lg shadow-emerald-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                <Send className="w-5 h-5" />
               </div>
-              <span className="text-sm font-medium text-foreground">{item.etiqueta}</span>
-            </Link>
-          ))}
+              <div>
+                <p className="text-[10px] font-black opacity-60 uppercase tracking-widest">Facturación/Email</p>
+                <p className="text-sm font-bold">Sistema Operativo</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-
-      {/* Contador de uso de email — visible para admin y superadmin */}
-      {emailActivo && (
-        <ContadorEmails
-          proveedor={cfgEmail!.proveedor as ProveedorEmail}
-          enviosHoy={enviosEmailHoy}
-          enviosMes={enviosEmailMes}
-          compacto
-        />
-      )}
-
-      {/* Contador de pago — solo admin (no superadmin) */}
-      {!esSuperadmin && config?.cobro_activo && config?.fecha_inicio_sistema && (
-        <ContadorPago
-          fechaInicio={config.fecha_inicio_sistema}
-          diasPago={config.dias_pago ?? 30}
-          compacto
-        />
-      )}
-
-      {/* Panel exclusivo superadmin */}
+      {/* Panel Exclusivo Superadmin */}
       {esSuperadmin && config && (
-        <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-4">
+        <div className="rounded-3xl border-2 border-primary/20 bg-primary/5 p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <ShieldCheck className="w-5 h-5 text-primary" />
+            <h2 className="text-sm font-black text-primary uppercase tracking-widest">Control del Sistema</h2>
+          </div>
           <PanelSuperadmin config={{
             id: config.id!,
             esta_activa: config.esta_activa ?? true,
