@@ -502,9 +502,13 @@ export interface Egreso {
 export interface Proveedor {
   id: string
   nombre: string
+  razon_social: string | null
+  ruc: string | null
   contacto: string | null
   telefono: string | null
   email: string | null
+  pais: string | null
+  ciudad: string | null
   direccion: string | null
   notas: string | null
   saldo_pendiente: number

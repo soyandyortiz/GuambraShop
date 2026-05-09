@@ -30,18 +30,22 @@ export function ListaProveedores({ proveedores: init }: Props) {
 
   // Estados de formulario
   const [formProv, setFormProv] = useState<Omit<Proveedor, 'id' | 'creado_en' | 'actualizado_en' | 'saldo_pendiente'>>({
-    nombre: '', contacto: '', telefono: '', email: '', direccion: '', notas: ''
+    nombre: '', razon_social: '', ruc: '', contacto: '', telefono: '', email: '', pais: 'Ecuador', ciudad: '', direccion: '', notas: ''
   })
   const [montoAccion, setMontoAccion] = useState<string>('')
   const [metodoPago, setMetodoPago] = useState<'efectivo' | 'transferencia' | 'tarjeta'>('efectivo')
   const [notasAccion, setNotasAccion] = useState('')
 
   const filtrados = useMemo(() => {
-    return proveedores.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase()))
+    return proveedores.filter(p => 
+      p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+      p.ruc?.includes(busqueda) ||
+      p.razon_social?.toLowerCase().includes(busqueda.toLowerCase())
+    )
   }, [proveedores, busqueda])
 
   const resetForm = () => {
-    setFormProv({ nombre: '', contacto: '', telefono: '', email: '', direccion: '', notas: '' })
+    setFormProv({ nombre: '', razon_social: '', ruc: '', contacto: '', telefono: '', email: '', pais: 'Ecuador', ciudad: '', direccion: '', notas: '' })
     setMontoAccion('')
     setMetodoPago('efectivo')
     setNotasAccion('')
@@ -58,12 +62,12 @@ export function ListaProveedores({ proveedores: init }: Props) {
       const { data, error } = await supabase.from('proveedores').insert([formProv]).select().single()
       if (error) { toast.error('Error al crear'); setGuardando(false); return }
       setProveedores([data, ...proveedores])
-      toast.success('Proveedor creado')
+      toast.success('Proveedor creado exitosamente')
     } else if (modal === 'editar' && seleccionado) {
       const { error } = await supabase.from('proveedores').update(formProv).eq('id', seleccionado.id)
       if (error) { toast.error('Error al actualizar'); setGuardando(false); return }
       setProveedores(proveedores.map(p => p.id === seleccionado.id ? { ...p, ...formProv } : p))
-      toast.success('Proveedor actualizado')
+      toast.success('Información del proveedor actualizada')
     }
     
     resetForm()
@@ -208,24 +212,44 @@ export function ListaProveedores({ proveedores: init }: Props) {
               <h3 className="text-lg font-bold text-foreground">{modal === 'nuevo' ? 'Nuevo Proveedor' : 'Editar Proveedor'}</h3>
               <button onClick={resetForm} className="p-2 hover:bg-background rounded-xl transition-colors"><X className="w-6 h-6 text-foreground-muted" /></button>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Nombre de la Empresa</label>
-                <input type="text" value={formProv.nombre} onChange={e => setFormProv({...formProv, nombre: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-input-border bg-background-subtle text-sm focus:outline-none" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Nombre Comercial</label>
+                  <input type="text" value={formProv.nombre} onChange={e => setFormProv({...formProv, nombre: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-input-border bg-background-subtle text-sm focus:outline-none" placeholder="Nombre para el sistema" />
+                </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Contacto</label>
-                  <input type="text" value={formProv.contacto || ''} onChange={e => setFormProv({...formProv, contacto: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-input-border bg-background-subtle text-sm focus:outline-none" />
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Razón Social</label>
+                  <input type="text" value={formProv.razon_social || ''} onChange={e => setFormProv({...formProv, razon_social: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-input-border bg-background-subtle text-sm focus:outline-none" placeholder="Nombre legal" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">RUC / Cédula</label>
+                  <input type="text" value={formProv.ruc || ''} onChange={e => setFormProv({...formProv, ruc: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-input-border bg-background-subtle text-sm focus:outline-none" placeholder="1712345678001" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">País</label>
+                  <input type="text" value={formProv.pais || ''} onChange={e => setFormProv({...formProv, pais: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-input-border bg-background-subtle text-sm focus:outline-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Ciudad</label>
+                  <input type="text" value={formProv.ciudad || ''} onChange={e => setFormProv({...formProv, ciudad: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-input-border bg-background-subtle text-sm focus:outline-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Persona de Contacto</label>
+                  <input type="text" value={formProv.contacto || ''} onChange={e => setFormProv({...formProv, contacto: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-input-border bg-background-subtle text-sm focus:outline-none" placeholder="Nombre del vendedor" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Teléfono</label>
                   <input type="text" value={formProv.telefono || ''} onChange={e => setFormProv({...formProv, telefono: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-input-border bg-background-subtle text-sm focus:outline-none" />
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Email</label>
-                <input type="email" value={formProv.email || ''} onChange={e => setFormProv({...formProv, email: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-input-border bg-background-subtle text-sm focus:outline-none" />
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Email</label>
+                  <input type="email" value={formProv.email || ''} onChange={e => setFormProv({...formProv, email: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-input-border bg-background-subtle text-sm focus:outline-none" />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Dirección Completa</label>
+                  <input type="text" value={formProv.direccion || ''} onChange={e => setFormProv({...formProv, direccion: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-input-border bg-background-subtle text-sm focus:outline-none" />
+                </div>
               </div>
               <button onClick={guardarProveedor} disabled={guardando} className="w-full h-12 rounded-2xl bg-primary text-white font-black text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
                 {guardando ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />} {modal === 'nuevo' ? 'CREAR PROVEEDOR' : 'GUARDAR CAMBIOS'}
