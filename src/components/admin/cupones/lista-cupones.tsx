@@ -183,7 +183,7 @@ export function ListaCuponesAdmin({ cupones: alqInit }: Props) {
                         <div className="flex items-center gap-3">
                           <div className={cn(
                             'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors',
-                            cupon.esta_activa ? 'bg-primary/10 text-primary' : 'bg-background-subtle text-foreground-muted'
+                            cupon.esta_activo ? 'bg-primary/10 text-primary' : 'bg-background-subtle text-foreground-muted'
                           )}>
                             <Tag className="w-5 h-5" />
                           </div>
@@ -255,7 +255,7 @@ export function ListaCuponesAdmin({ cupones: alqInit }: Props) {
                             clase
                           )}
                         >
-                          {actualizando === cupon.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : cupon.esta_activa ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
+                          {actualizando === cupon.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : cupon.esta_activo ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
                           {label}
                         </button>
                       </td>
