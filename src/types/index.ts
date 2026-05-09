@@ -498,3 +498,28 @@ export interface Egreso {
   creado_por: string | null
   creado_en: string
 }
+
+export interface Proveedor {
+  id: string
+  nombre: string
+  contacto: string | null
+  telefono: string | null
+  email: string | null
+  direccion: string | null
+  notas: string | null
+  saldo_pendiente: number
+  creado_en: string
+  actualizado_en: string
+}
+
+export interface PagoProveedor {
+  id: string
+  proveedor_id: string
+  egreso_id: string | null
+  monto: number
+  metodo_pago: 'efectivo' | 'transferencia' | 'tarjeta'
+  fecha: string
+  notas: string | null
+  creado_por: string | null
+  creado_en: string
+}

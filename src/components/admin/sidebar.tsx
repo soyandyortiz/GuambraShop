@@ -55,14 +55,15 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
         { href: '/admin/dashboard/venta-nueva', icono: <Receipt className="w-4 h-4" />,      etiqueta: 'Nueva Venta',  badge: null },
         { href: '/admin/dashboard/pedidos',     icono: <ClipboardList className="w-4 h-4" />, etiqueta: 'Pedidos',      badge: 'pedidos' },
         { href: '/admin/dashboard/clientes',    icono: <Users className="w-4 h-4" />,         etiqueta: 'Clientes',     badge: null },
-        { href: '/admin/dashboard/ingresos',    icono: <TrendingUp className="w-4 h-4" />,    etiqueta: 'Ingresos',     badge: null },
       ],
     },
     {
       titulo: 'Finanzas',
       items: [
-        { href: '/admin/dashboard/cierres-caja', icono: <Calculator className="w-4 h-4" />, etiqueta: 'Cierre de Caja', badge: null },
-        { href: '/admin/dashboard/egresos',      icono: <TrendingUp className="w-4 h-4" />,    etiqueta: 'Egresos',        badge: null },
+        { href: '/admin/dashboard/ingresos',     icono: <TrendingUp className="w-4 h-4" />,    etiqueta: 'Ingresos',       badge: null },
+        { href: '/admin/dashboard/cierres-caja', icono: <Calculator className="w-4 h-4" />,   etiqueta: 'Cierre de Caja', badge: null },
+        { href: '/admin/dashboard/egresos',      icono: <TrendingDown className="w-4 h-4" />, etiqueta: 'Egresos',        badge: null },
+        { href: '/admin/dashboard/proveedores',  icono: <Truck className="w-4 h-4" />,        etiqueta: 'Proveedores',    badge: null },
       ],
     },
     {
