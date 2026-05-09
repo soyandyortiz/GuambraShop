@@ -24,14 +24,13 @@ export default async function PáginaClientes() {
       .from('pedidos')
       .select('cliente_id, numero_orden, total, estado, creado_en, tipo')
       .not('cliente_id', 'is', null)
-      .neq('estado', 'cancelado'),   // excluir cancelados del historial
+      .neq('estado', 'cancelado'),
     supabase
       .from('configuracion_tienda')
       .select('simbolo_moneda, pais')
       .single(),
   ])
 
-  // Agrupar pedidos por cliente_id
   const pedidosPorCliente = new Map<string, PedidoResumen[]>()
   for (const p of pedidos ?? []) {
     if (!p.cliente_id) continue
@@ -48,8 +47,6 @@ export default async function PáginaClientes() {
 
   const clientesConPedidos: ClienteConPedidos[] = (clientes ?? []).map(c => {
     const listaPedidos = pedidosPorCliente.get(c.id) ?? []
-
-    // Solo suman al total los pedidos en estados confirmados (no pendiente, no cancelado)
     const totalGastado = listaPedidos
       .filter(p => (ESTADOS_CONFIRMADOS as string[]).includes(p.estado))
       .reduce((s, p) => s + p.total, 0)
@@ -67,45 +64,49 @@ export default async function PáginaClientes() {
     }
   })
 
-  // "Con pedidos" = clientes con al menos un pedido confirmado (dinero real)
   const conPedidosConfirmados = clientesConPedidos.filter(c => c.total_gastado > 0).length
   const totalFacturado        = clientesConPedidos.reduce((s, c) => s + c.total_gastado, 0)
   const simbolo               = config?.simbolo_moneda ?? '$'
   const pais                  = config?.pais ?? 'EC'
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Clientes</h1>
-        <p className="text-xs text-foreground-muted mt-0.5">
-          Base de datos de clientes — datos listos para facturación electrónica
-        </p>
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-2xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
+          <Users className="w-5 h-5 text-indigo-600" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Base de Datos de Clientes</h1>
+          <p className="text-sm text-foreground-muted mt-0.5">
+            Gestión de perfiles, historial de compras y facturación
+          </p>
+        </div>
       </div>
 
-      {/* Resumen */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-2xl bg-card border border-card-border p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Users className="w-4 h-4 text-foreground-muted" />
+      {/* Resumen de Métricas */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-card border border-card-border p-5 rounded-2xl shadow-sm">
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center mb-3">
+            <Users className="w-4 h-4 text-indigo-600" />
           </div>
-          <p className="text-2xl font-bold text-foreground">{clientesConPedidos.length}</p>
-          <p className="text-xs text-foreground-muted mt-0.5">Clientes registrados</p>
+          <p className="text-2xl font-black text-foreground">{clientesConPedidos.length}</p>
+          <p className="text-xs font-bold text-foreground-muted uppercase tracking-wider">Clientes Registrados</p>
         </div>
-        <div className="rounded-2xl bg-card border border-card-border p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <UserCheck className="w-4 h-4 text-foreground-muted" />
+        <div className="bg-card border border-card-border p-5 rounded-2xl shadow-sm">
+          <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center mb-3">
+            <UserCheck className="w-4 h-4 text-emerald-600" />
           </div>
-          <p className="text-2xl font-bold text-foreground">{conPedidosConfirmados}</p>
-          <p className="text-xs text-foreground-muted mt-0.5">Con compras confirmadas</p>
+          <p className="text-2xl font-black text-foreground">{conPedidosConfirmados}</p>
+          <p className="text-xs font-bold text-foreground-muted uppercase tracking-wider">Con Compras Activas</p>
         </div>
-        <div className="rounded-2xl bg-card border border-card-border p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <TrendingUp className="w-4 h-4 text-foreground-muted" />
+        <div className="bg-card border border-card-border p-5 rounded-2xl shadow-sm">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
+            <TrendingUp className="w-4 h-4 text-primary" />
           </div>
-          <p className="text-2xl font-bold text-primary">
-            {simbolo}{totalFacturado.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <p className="text-2xl font-black text-primary">
+            {simbolo}{totalFacturado.toLocaleString('es-EC', { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-xs text-foreground-muted mt-0.5">Total facturado</p>
+          <p className="text-xs font-bold text-foreground-muted uppercase tracking-wider">Total Facturado</p>
         </div>
       </div>
 
