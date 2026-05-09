@@ -1,12 +1,17 @@
 'use client'
 
 import { useMemo } from 'react'
-import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react'
+import { TrendingUp, TrendingDown } from 'lucide-react'
 import { cn, formatearPrecio } from '@/lib/utils'
 
 interface DataPoint {
   etiqueta: string
   valor: number
+}
+
+interface Punto {
+  x: number
+  y: number
 }
 
 interface Props {
@@ -24,9 +29,9 @@ export function GraficoVentasPremium({ datos, titulo, subtitulo, color = '#6366f
 
   const maxValor = useMemo(() => Math.max(...datos.map(d => d.valor), 100) * 1.2, [datos])
   
-  // Generar puntos para el SVG
-  const puntos = useMemo(() => {
-    if (datos.length === 0) return ''
+  // Generar puntos para el SVG - CORRECCIÓN: Devolver [] en lugar de ''
+  const puntos = useMemo<Punto[]>(() => {
+    if (datos.length < 2) return []
     return datos.map((d, i) => {
       const x = (i / (datos.length - 1)) * (width - padding * 2) + padding
       const y = height - ((d.valor / maxValor) * (height - padding * 2) + padding)
@@ -35,12 +40,12 @@ export function GraficoVentasPremium({ datos, titulo, subtitulo, color = '#6366f
   }, [datos, maxValor])
 
   const pathD = useMemo(() => {
-    if (puntos.length === 0) return ''
+    if (puntos.length < 2) return ''
     return `M ${puntos[0].x} ${puntos[0].y} ` + puntos.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ')
   }, [puntos])
 
   const areaD = useMemo(() => {
-    if (puntos.length === 0) return ''
+    if (puntos.length < 2) return ''
     return `${pathD} L ${puntos[puntos.length - 1].x} ${height} L ${puntos[0].x} ${height} Z`
   }, [pathD, puntos])
 
@@ -75,59 +80,65 @@ export function GraficoVentasPremium({ datos, titulo, subtitulo, color = '#6366f
       </div>
 
       <div className="relative h-[200px] w-full">
-        <svg 
-          viewBox={`0 0 ${width} ${height}`} 
-          className="w-full h-full overflow-visible drop-shadow-xl"
-          preserveAspectRatio="none"
-        >
-          {/* Rejilla "Cartesiana" */}
-          {[0, 0.25, 0.5, 0.75, 1].map((p) => (
-            <line
-              key={p}
-              x1={padding}
-              y1={padding + p * (height - padding * 2)}
-              x2={width - padding}
-              y2={padding + p * (height - padding * 2)}
-              stroke="currentColor"
-              strokeDasharray="4 4"
-              className="text-border opacity-30"
-            />
-          ))}
+        {puntos.length >= 2 ? (
+          <svg 
+            viewBox={`0 0 ${width} ${height}`} 
+            className="w-full h-full overflow-visible drop-shadow-xl"
+            preserveAspectRatio="none"
+          >
+            {/* Rejilla "Cartesiana" */}
+            {[0, 0.25, 0.5, 0.75, 1].map((p) => (
+              <line
+                key={p}
+                x1={padding}
+                y1={padding + p * (height - padding * 2)}
+                x2={width - padding}
+                y2={padding + p * (height - padding * 2)}
+                stroke="currentColor"
+                strokeDasharray="4 4"
+                className="text-border opacity-30"
+              />
+            ))}
 
-          {/* Área con Gradiente */}
-          <defs>
-            <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-              <stop offset="100%" stopColor={color} stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path d={areaD} fill="url(#areaGradient)" className="animate-in fade-in duration-1000" />
+            {/* Área con Gradiente */}
+            <defs>
+              <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+                <stop offset="100%" stopColor={color} stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path d={areaD} fill="url(#areaGradient)" className="animate-in fade-in duration-1000" />
 
-          {/* Línea Principal */}
-          <path
-            d={pathD}
-            fill="none"
-            stroke={color}
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="animate-in slide-in-from-left-full duration-1000"
-          />
-
-          {/* Puntos de Datos */}
-          {puntos.map((p, i) => (
-            <circle
-              key={i}
-              cx={p.x}
-              cy={p.y}
-              r="4"
-              fill="white"
+            {/* Línea Principal */}
+            <path
+              d={pathD}
+              fill="none"
               stroke={color}
-              strokeWidth="2"
-              className="opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="animate-in slide-in-from-left-full duration-1000"
             />
-          ))}
-        </svg>
+
+            {/* Puntos de Datos */}
+            {puntos.map((p, i) => (
+              <circle
+                key={i}
+                cx={p.x}
+                cy={p.y}
+                r="4"
+                fill="white"
+                stroke={color}
+                strokeWidth="2"
+                className="opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+              />
+            ))}
+          </svg>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center border-2 border-dashed border-border rounded-2xl opacity-30">
+            <p className="text-xs font-bold uppercase tracking-widest">Datos insuficientes para graficar</p>
+          </div>
+        )}
       </div>
 
       {/* Etiquetas de Tiempo */}
