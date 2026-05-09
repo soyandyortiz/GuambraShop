@@ -469,3 +469,19 @@ export interface Factura {
   creado_en: string
   actualizado_en: string
 }
+
+export interface CierreCaja {
+  id: string
+  fecha: string
+  total_efectivo: number
+  total_transferencia: number
+  total_tarjeta: number
+  total_otros: number
+  total_sistema: number
+  total_real: number
+  diferencia: number
+  estado: 'cerrado' | 'atrasado'
+  notas: string | null
+  creado_por: string | null
+  creado_en: string
+}
