@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Package, Tag, Ticket, Megaphone,
   Settings, MessageSquare, Star,
   ClipboardList, CalendarDays, Truck, PartyPopper, TrendingUp,
-  Users, KeyRound, FileText, Mail, Receipt, Printer
+  Users, KeyRound, FileText, Mail, Receipt, Printer, Calculator
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usarConteosAdmin } from '@/hooks/usar-conteos-admin'
@@ -56,6 +56,12 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
         { href: '/admin/dashboard/pedidos',     icono: <ClipboardList className="w-4 h-4" />, etiqueta: 'Pedidos',      badge: 'pedidos' },
         { href: '/admin/dashboard/clientes',    icono: <Users className="w-4 h-4" />,         etiqueta: 'Clientes',     badge: null },
         { href: '/admin/dashboard/ingresos',    icono: <TrendingUp className="w-4 h-4" />,    etiqueta: 'Ingresos',     badge: null },
+      ],
+    },
+    {
+      titulo: 'Finanzas',
+      items: [
+        { href: '/admin/dashboard/cierres-caja', icono: <Calculator className="w-4 h-4" />, etiqueta: 'Cierre de Caja', badge: null },
       ],
     },
     {
