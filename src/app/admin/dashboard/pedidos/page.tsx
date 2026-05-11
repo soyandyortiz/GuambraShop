@@ -10,7 +10,7 @@ export default async function PáginaPedidos() {
   const [{ data: pedidos }, { data: config }] = await Promise.all([
     supabase
       .from('pedidos')
-      .select('*, datos_facturacion')
+      .select('*, datos_facturacion, comprobante_url, comprobante_eliminar_en')
       .order('creado_en', { ascending: false }),
     supabase
       .from('configuracion_tienda')

@@ -262,7 +262,7 @@ export interface TallaProducto {
   stock?: number | null
 }
 
-export type EstadoPedido = 'pendiente_pago' | 'procesando' | 'en_espera' | 'completado' | 'cancelado' | 'reembolsado' | 'fallido'
+export type EstadoPedido = 'pendiente_pago' | 'pendiente_validacion' | 'procesando' | 'en_espera' | 'completado' | 'cancelado' | 'reembolsado' | 'fallido'
 export type TipoPedido = 'delivery' | 'local'
 
 export interface ItemPedido {
@@ -323,6 +323,8 @@ export interface Pedido {
     direccion?: string | null
     telefono?: string | null
   } | null
+  comprobante_url: string | null
+  comprobante_eliminar_en: string | null
   creado_en: string
   actualizado_en: string
 }

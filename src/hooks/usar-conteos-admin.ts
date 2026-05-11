@@ -27,7 +27,7 @@ export function usarConteosAdmin(): ConteosAdmin {
       supabase
         .from('pedidos')
         .select('*', { count: 'exact', head: true })
-        .eq('estado', 'pendiente_pago'),
+        .in('estado', ['pendiente_pago', 'pendiente_validacion']),
       supabase
         .from('citas')
         .select('*', { count: 'exact', head: true })

@@ -6,7 +6,7 @@ import {
   Package, Phone, Mail, MapPin, Download, ShoppingBag,
   Calendar, MessageCircle, X, Clock, CheckCircle2,
   RotateCcw, XCircle, Send, ArrowUpDown, FileText, Loader2,
-  RefreshCw, AlertCircle, BadgeCheck, ExternalLink, Receipt, Printer, Users, Pause, MoreHorizontal, Eye, Trash2, Check,
+  RefreshCw, AlertCircle, BadgeCheck, ExternalLink, Receipt, Printer, Users, Pause, MoreHorizontal, Eye, Trash2, Check, Upload,
 } from 'lucide-react'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
@@ -16,8 +16,9 @@ import { imprimirTicket, type ConfigTicket } from '@/lib/ticket'
 import type { Pedido, EstadoPedido } from '@/types'
 
 const ESTADOS: Record<EstadoPedido, { etiqueta: string; color: string; icono: React.ReactNode }> = {
-  pendiente_pago: { etiqueta: 'Pendiente de pago', color: 'bg-gray-100 text-gray-600 border-gray-200', icono: <Clock className="w-3 h-3" /> },
-  procesando:     { etiqueta: 'Procesando',        color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icono: <RotateCcw className="w-3 h-3" /> },
+  pendiente_pago:        { etiqueta: 'Pendiente de pago',    color: 'bg-gray-100 text-gray-600 border-gray-200',     icono: <Clock className="w-3 h-3" /> },
+  pendiente_validacion:  { etiqueta: 'Validando comprobante', color: 'bg-amber-50 text-amber-700 border-amber-200',  icono: <Upload className="w-3 h-3" /> },
+  procesando:            { etiqueta: 'Procesando',           color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icono: <RotateCcw className="w-3 h-3" /> },
   en_espera:      { etiqueta: 'En espera',         color: 'bg-amber-50 text-amber-700 border-amber-200', icono: <Pause className="w-3 h-3" /> },
   completado:     { etiqueta: 'Completado',        color: 'bg-blue-50 text-blue-700 border-blue-200', icono: <CheckCircle2 className="w-3 h-3" /> },
   cancelado:      { etiqueta: 'Cancelado',         color: 'bg-red-50 text-red-700 border-red-200', icono: <XCircle className="w-3 h-3" /> },
@@ -169,6 +170,7 @@ export function TablaPedidos({ pedidos: pedidosInic, configTicket }: Props) {
   const counts = useMemo(() => {
     return {
       todos: pedidos.length,
+      pendiente_validacion: pedidos.filter(p => p.estado === 'pendiente_validacion').length,
       procesando: pedidos.filter(p => p.estado === 'procesando').length,
       en_espera: pedidos.filter(p => p.estado === 'en_espera').length,
       completado: pedidos.filter(p => p.estado === 'completado').length,
@@ -183,6 +185,12 @@ export function TablaPedidos({ pedidos: pedidosInic, configTicket }: Props) {
     if (nuevoEstado === 'procesando') {
       const { error: rpcError } = await supabase.rpc('confirmar_pedido', { p_pedido_id: id })
       error = rpcError
+      if (!error) {
+        const pedido = pedidos.find(p => p.id === id)
+        if (pedido?.comprobante_url) {
+          await supabase.rpc('marcar_comprobante_para_eliminar', { p_pedido_id: id })
+        }
+      }
     } else {
       const { error: updateError } = await supabase.from('pedidos').update({ estado: nuevoEstado }).eq('id', id)
       error = updateError
@@ -237,11 +245,12 @@ export function TablaPedidos({ pedidos: pedidosInic, configTicket }: Props) {
       {/* ══ PESTAÑAS DE ESTADO (Estilo WooCommerce) ══ */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs border-b border-border pb-1">
         {[
-          { id: 'todos', label: 'Todos', count: counts.todos },
-          { id: 'procesando', label: 'Procesando', count: counts.procesando },
-          { id: 'en_espera', label: 'En espera', count: counts.en_espera },
-          { id: 'completado', label: 'Completados', count: counts.completado },
-          { id: 'cancelado', label: 'Cancelados', count: counts.cancelado },
+          { id: 'todos',                label: 'Todos',               count: counts.todos },
+          { id: 'pendiente_validacion', label: 'Por validar',         count: counts.pendiente_validacion },
+          { id: 'procesando',           label: 'Procesando',          count: counts.procesando },
+          { id: 'en_espera',            label: 'En espera',           count: counts.en_espera },
+          { id: 'completado',           label: 'Completados',         count: counts.completado },
+          { id: 'cancelado',            label: 'Cancelados',          count: counts.cancelado },
         ].map(tab => (
           <button
             key={tab.id}
@@ -347,7 +356,10 @@ export function TablaPedidos({ pedidos: pedidosInic, configTicket }: Props) {
                   const est = ESTADOS[pedido.estado] || ESTADOS.procesando
                   const fac = facturasEmitidas[pedido.id]
                   return (
-                    <tr key={pedido.id} className="hover:bg-background-subtle/30 transition-colors group">
+                    <tr key={pedido.id} className={cn(
+                      'hover:bg-background-subtle/30 transition-colors group',
+                      pedido.estado === 'pendiente_validacion' && 'bg-amber-50/40'
+                    )}>
                       <td className="px-4 py-4">
                         <input
                           type="checkbox"

@@ -46,33 +46,36 @@ const ETIQUETAS_TIPO = {
 }
 
 const COLORES_ESTADO: Record<EstadoPedido, string> = {
-  pendiente_pago: 'bg-gray-100 text-gray-600',
-  procesando:     'bg-emerald-50 text-emerald-700',
-  en_espera:      'bg-amber-50 text-amber-700',
-  completado:     'bg-blue-50 text-blue-700',
-  cancelado:      'bg-red-50 text-red-700',
-  reembolsado:    'bg-gray-100 text-gray-500',
-  fallido:        'bg-red-100 text-red-800',
+  pendiente_pago:       'bg-gray-100 text-gray-600',
+  pendiente_validacion: 'bg-amber-50 text-amber-700',
+  procesando:           'bg-emerald-50 text-emerald-700',
+  en_espera:            'bg-amber-50 text-amber-700',
+  completado:           'bg-blue-50 text-blue-700',
+  cancelado:            'bg-red-50 text-red-700',
+  reembolsado:          'bg-gray-100 text-gray-500',
+  fallido:              'bg-red-100 text-red-800',
 }
 
 const ICONOS_ESTADO: Record<EstadoPedido, React.ReactNode> = {
-  pendiente_pago: <Clock className="w-2.5 h-2.5" />,
-  procesando:     <RotateCcw className="w-2.5 h-2.5" />,
-  en_espera:      <RotateCcw className="w-2.5 h-2.5" />,
-  completado:     <CheckCircle2 className="w-2.5 h-2.5" />,
-  cancelado:      <XCircle className="w-2.5 h-2.5" />,
-  reembolsado:    <RotateCcw className="w-2.5 h-2.5" />,
-  fallido:        <XCircle className="w-2.5 h-2.5" />,
+  pendiente_pago:       <Clock className="w-2.5 h-2.5" />,
+  pendiente_validacion: <Clock className="w-2.5 h-2.5" />,
+  procesando:           <RotateCcw className="w-2.5 h-2.5" />,
+  en_espera:            <RotateCcw className="w-2.5 h-2.5" />,
+  completado:           <CheckCircle2 className="w-2.5 h-2.5" />,
+  cancelado:            <XCircle className="w-2.5 h-2.5" />,
+  reembolsado:          <RotateCcw className="w-2.5 h-2.5" />,
+  fallido:              <XCircle className="w-2.5 h-2.5" />,
 }
 
 const ETIQUETAS_ESTADO: Record<EstadoPedido, string> = {
-  pendiente_pago: 'Pendiente',
-  procesando:     'Procesando',
-  en_espera:      'Espera',
-  completado:     'Completado',
-  cancelado:      'Cancelado',
-  reembolsado:    'Reembolsado',
-  fallido:        'Fallido',
+  pendiente_pago:       'Pendiente',
+  pendiente_validacion: 'Validando',
+  procesando:           'Procesando',
+  en_espera:            'Espera',
+  completado:           'Completado',
+  cancelado:            'Cancelado',
+  reembolsado:          'Reembolsado',
+  fallido:              'Fallido',
 }
 
 export function TablaClientes({ clientes, simboloMoneda, pais = 'EC' }: Props) {
