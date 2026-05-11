@@ -5,10 +5,9 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Package, Truck, Store, Clock, Upload,
-  RotateCcw, CheckCircle2, XCircle, Pause, AlertCircle,
-  User, Mail, Phone, MapPin, FileText, Download, Image as ImageIcon,
-  AlertTriangle, Calendar, Landmark,
+  ArrowLeft, Package, Truck, Store, Upload,
+  User, Mail, Phone, FileText, Download, Image as ImageIcon,
+  AlertTriangle, Calendar,
 } from 'lucide-react'
 import { cn, formatearPrecio } from '@/lib/utils'
 import { AccionesComprobante } from '@/components/admin/pedidos/acciones-comprobante'
@@ -58,10 +57,11 @@ export default async function PáginaPedidoDetalle({ params }: { params: { id: s
     : false
 
   const estadoInfo = ESTADOS[pedido.estado as EstadoPedido] ?? ESTADOS.procesando
-  const items = (pedido.items ?? []) as any[]
+  const items = (pedido.items ?? []) as { nombre: string; imagen_url?: string | null; variante?: string; talla?: string; cantidad: number; subtotal: number; cita?: { fecha: string; hora_inicio: string }; alquiler?: { fecha_inicio: string; fecha_fin: string; dias: number } }[]
 
+  const ahora = new Date()
   const horasParaEliminar = pedido.comprobante_eliminar_en
-    ? Math.max(0, Math.ceil((new Date(pedido.comprobante_eliminar_en).getTime() - Date.now()) / 3600000))
+    ? Math.max(0, Math.ceil((new Date(pedido.comprobante_eliminar_en).getTime() - ahora.getTime()) / 3600000))
     : null
 
   return (
@@ -185,7 +185,7 @@ export default async function PáginaPedidoDetalle({ params }: { params: { id: s
           </p>
         </div>
         <div className="divide-y divide-border">
-          {items.map((item: any, i: number) => (
+          {items.map((item, i) => (
             <div key={i} className="px-4 py-3 flex items-start gap-3">
               <div className="w-12 h-12 rounded-lg overflow-hidden bg-background-subtle border border-border flex-shrink-0">
                 {item.imagen_url ? (

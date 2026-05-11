@@ -22,7 +22,7 @@ Abrir el archivo `supabase/schema.sql` → copiar todo el contenido → pegarlo 
 
 Ejecutar `supabase/seed/01_datos_iniciales.sql` — crea la fila base en `configuracion_tienda` con valores genéricos para que la tienda arranque sin errores.
 
-> **Nota para futuras migraciones:** si se crean nuevas migraciones en `supabase/migrations/` con número mayor al `_050`, deben ejecutarse manualmente después del schema **y** luego incorporarse al `schema.sql` para mantenerlo actualizado.
+> **Nota para futuras migraciones:** si se crean nuevas migraciones en `supabase/migrations/` con número mayor al `_051`, deben ejecutarse manualmente después del schema **y** luego incorporarse al `schema.sql` para mantenerlo actualizado.
 
 ## 3. Usuarios administradores
 
@@ -324,6 +324,51 @@ Control financiero completo del negocio. Accesible desde la sección **Finanzas*
 - **Abonar**: registra el pago parcial o total — crea automáticamente un egreso vinculado para que el cierre de caja sea exacto
 - El saldo pendiente se actualiza en tiempo real; se muestra en rojo si hay deuda, verde si está saldado
 - Historial de abonos recientes visible en el panel lateral
+
+#### Comprobantes de Pago (Transferencia Bancaria)
+
+Flujo completo para ventas online con validación manual del pago por el admin.
+
+**Flujo del cliente (carrito — 4 pasos):**
+1. Carrito → Entrega → Mis datos → **Pago**
+2. En el paso 4, el cliente ve las cuentas bancarias y tiene **15 minutos** para subir el comprobante (JPG, PNG, WEBP o PDF, máx. 10 MB)
+3. Si el tiempo expira sin subir el comprobante, el pedido temporal se cancela automáticamente
+4. Al subir el comprobante se crea el pedido real con estado `pendiente_validacion`
+
+**Estados de pedido (flujo WooCommerce):**
+| Estado | Descripción |
+|--------|-------------|
+| `pendiente_pago` | Pedido registrado, sin pago |
+| `pendiente_validacion` | Comprobante subido, esperando revisión admin |
+| `procesando` | Pago confirmado, en preparación |
+| `en_espera` | En espera de stock u otra condición |
+| `completado` | Entregado/finalizado |
+| `cancelado` | Cancelado por admin o cliente |
+| `reembolsado` | Pago reembolsado |
+| `fallido` | Pago fallido |
+
+**Panel admin (`/admin/dashboard/pedidos`):**
+- Badge en el sidebar cuenta `pendiente_pago` + `pendiente_validacion` juntos
+- Tab "Por validar" filtra pedidos con comprobante pendiente (fila en amarillo)
+- Al hacer clic en el ojo → página de detalle `/admin/dashboard/pedidos/[id]`
+  - Muestra el comprobante inline (imagen) o enlace de descarga (PDF)
+  - Banner amarillo con botones **Confirmar pago** y **Rechazar**
+  - Advertencia naranja con cuenta regresiva si el comprobante está próximo a eliminarse
+- **Confirmar pago**: llama RPC `confirmar_pedido()` (descuenta stock) + `marcar_comprobante_para_eliminar()` (timer 48h)
+- **Rechazar**: cambia estado a `cancelado`
+
+**Eliminación automática de comprobantes:**
+- Al confirmar el pago, el comprobante se marca para eliminarse en 48 horas
+- El cron job `/api/pedidos/limpiar-expirados` (cada 5 min) elimina el archivo de Storage y limpia las columnas
+- Configurado en `vercel.json` — requiere plan Vercel Pro para el cron de 5 min
+
+**Variables de entorno requeridas:**
+```
+SUPABASE_SERVICE_ROLE_KEY   # Para subir/eliminar comprobantes desde la API
+CRON_SECRET                 # Vercel lo inyecta automáticamente en Pro
+```
+
+**Storage bucket:** `comprobantes` (privado, 10 MB máx.). Se crea automáticamente al ejecutar el schema.
 
 ---
 
