@@ -6,7 +6,7 @@ import {
   ShoppingCart, Trash2, Plus, Minus, Tag, Truck,
   Store, ChevronRight, Loader2, MessageCircle, Package,
   CheckCircle2, User, Mail, Phone, MapPin, ChevronDown, Calendar, Landmark,
-  FileText, ChevronUp, Copy
+  FileText, Copy, Upload, Clock,
 } from 'lucide-react'
 import { usarCarrito } from '@/hooks/usar-carrito'
 import { crearClienteSupabase } from '@/lib/supabase/cliente'
@@ -43,12 +43,17 @@ interface Cupon {
   vence_en: string | null
 }
 
-interface PedidoCreado {
+interface PedidoTemporal {
+  numero_temporal: string
+  expira_en: string
+}
+
+interface PedidoConfirmado {
   numero_orden: string
   whatsappUrl: string
 }
 
-type Paso = 'carrito' | 'envio' | 'datos'
+type Paso = 'carrito' | 'envio' | 'datos' | 'pago'
 
 const INPUT_BASE =
   'w-full h-11 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all'
@@ -66,7 +71,10 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
   const [tipoEnvio, setTipoEnvio] = useState<'tienda' | 'envio' | null>(null)
   const [paso, setPaso] = useState<Paso>('carrito')
   const [creandoPedido, setCreandoPedido] = useState(false)
-  const [pedidoCreado, setPedidoCreado] = useState<PedidoCreado | null>(null)
+  const [pedidoTemporal, setPedidoTemporal] = useState<PedidoTemporal | null>(null)
+  const [pedidoConfirmado, setPedidoConfirmado] = useState<PedidoConfirmado | null>(null)
+  const [archivoComprobante, setArchivoComprobante] = useState<File | null>(null)
+  const [subiendoComprobante, setSubiendoComprobante] = useState(false)
 
   // Datos del cliente
   const [nombres, setNombres] = useState('')
@@ -184,7 +192,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
     toast.success('Datos de contacto copiados')
   }
 
-  // --- Crear pedido ---
+  // --- Confirmar pedido: valida y crea el pedido temporal ---
   async function confirmarPedido() {
     if (!validarFormulario()) return
     setCreandoPedido(true)
@@ -198,11 +206,11 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
       if (item.variante_id) {
         const { data } = await supabase
           .from('variantes_producto')
-          .select('stock')
+          .select('stock_variante')
           .eq('id', item.variante_id)
           .single()
-        if (data && data.stock !== null && data.stock < item.cantidad) {
-          const stockDisp = data.stock
+        if (data && data.stock_variante !== null && data.stock_variante < item.cantidad) {
+          const stockDisp = data.stock_variante
           toast.error(
             stockDisp === 0
               ? `"${item.nombre}" está agotado`
@@ -246,14 +254,13 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
         }
       }
     }
+
     // Verificar disponibilidad de citas antes de crear el pedido
     for (const item of items.filter(i => i.tipo_producto === 'servicio' && i.cita)) {
       const empleadoId = item.cita?.empleado_id
-
       let citaOcupada = false
 
       if (empleadoId) {
-        // Empleado específico: verificar que ese empleado no tenga ese slot
         const { data } = await supabase
           .from('citas')
           .select('id')
@@ -264,7 +271,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
           .maybeSingle()
         citaOcupada = !!data
       } else {
-        // Sin empleado específico: contar vs capacidad configurada
         const { data: configData } = await supabase
           .from('configuracion_tienda')
           .select('capacidad_citas_simultaneas, seleccion_empleado')
@@ -275,7 +281,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
           .eq('fecha', item.cita!.fecha)
           .eq('hora_inicio', item.cita!.hora_inicio)
           .in('estado', ['reservada', 'confirmada'])
-        // Si hay selección de empleado activa, capacidad = número de empleados activos
         let capacidad = configData?.capacidad_citas_simultaneas ?? 1
         if (configData?.seleccion_empleado) {
           const { count: totalEmpleados } = await supabase
@@ -325,9 +330,10 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
 
     const whatsappCompleto = codigoPais + telefono.replace(/\D/g, '')
 
-    const { data, error } = await supabase
-      .from('pedidos')
-      .insert({
+    const res = await fetch('/api/pedidos/crear-temporal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         tipo: tipoEnvio === 'tienda' ? 'local' : 'delivery',
         nombres: nombres.trim(),
         email: email.trim().toLowerCase(),
@@ -337,25 +343,26 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
         direccion: tipoEnvio === 'envio' ? direccion.trim() : null,
         detalles_direccion: tipoEnvio === 'envio' && detallesDir.trim() ? detallesDir.trim() : null,
         items: items.map(i => ({
-          producto_id: i.producto_id,
-          nombre: i.nombre,
-          slug: i.slug,
+          producto_id:   i.producto_id,
+          nombre:        i.nombre,
+          slug:          i.slug,
           tipo_producto: i.tipo_producto,
-          imagen_url: i.imagen_url,
-          precio: i.precio,
-          variante: i.nombre_variante ?? null,
-          talla: i.talla ?? null,
-          cantidad: i.cantidad,
-          subtotal: +(i.precio * (i.alquiler?.dias ?? 1) * i.cantidad).toFixed(2),
-          cita: i.cita,
-          alquiler: i.alquiler,
+          imagen_url:    i.imagen_url,
+          precio:        i.precio,
+          variante:      i.nombre_variante ?? null,
+          variante_id:   i.variante_id ?? null,
+          talla:         i.talla ?? null,
+          cantidad:      i.cantidad,
+          subtotal:      +(i.precio * (i.alquiler?.dias ?? 1) * i.cantidad).toFixed(2),
+          cita:          i.cita ?? null,
+          alquiler:      i.alquiler ?? null,
         })),
-        simbolo_moneda: simboloMoneda,
-        subtotal: +subtotal.toFixed(2),
-        descuento_cupon: +descuentoCupon.toFixed(2),
-        cupon_codigo: cupon?.codigo ?? null,
-        costo_envio: tipoEnvio === 'envio' && costoEnvio !== null ? +costoEnvio.toFixed(2) : 0,
-        total: +total.toFixed(2),
+        simbolo_moneda:   simboloMoneda,
+        subtotal:         +subtotal.toFixed(2),
+        descuento_cupon:  +descuentoCupon.toFixed(2),
+        cupon_codigo:     cupon?.codigo ?? null,
+        costo_envio:      tipoEnvio === 'envio' && costoEnvio !== null ? +costoEnvio.toFixed(2) : 0,
+        total:            +total.toFixed(2),
         datos_facturacion: quiereFactura ? {
           tipo_identificacion: tipoIdFactura,
           identificacion:      tipoIdFactura === '07' ? '9999999999999' : idFactura.replace(/\D/g,''),
@@ -364,162 +371,60 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
           direccion:           direccionFactura.trim() || null,
           telefono:            telefonoFactura.trim() || null,
         } : null,
-      })
-      .select('id, numero_orden')
-      .single()
+      }),
+    })
 
     setCreandoPedido(false)
 
-    if (error || !data) {
-      toast.error('Error al crear el pedido. Intenta nuevamente.')
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      toast.error(err.error || 'Error al preparar el pedido. Intenta nuevamente.')
       return
     }
 
-    const serviciosParaCita = items.filter(i => i.tipo_producto === 'servicio' && i.cita)
-    if (serviciosParaCita.length > 0) {
-      const citasPayload = serviciosParaCita.map(i => ({
-        pedido_id: data.id,
-        producto_id: i.producto_id,
-        fecha: i.cita!.fecha,
-        hora_inicio: i.cita!.hora_inicio,
-        hora_fin: i.cita!.hora_fin,
-        empleado_id: i.cita?.empleado_id ?? null,
-        estado: 'reservada'
-      }))
-      await supabase.from('citas').insert(citasPayload)
-    }
+    const data = await res.json()
+    setPedidoTemporal({ numero_temporal: data.numero_temporal, expira_en: data.expira_en })
+    setPaso('pago')
+  }
 
-    // Registrar alquileres
-    const alquileresItems = items.filter(i => i.tipo_producto === 'alquiler' && i.alquiler)
-    if (alquileresItems.length > 0) {
-      const alqPayload = alquileresItems.map(i => {
-        const al = i.alquiler!
-        return {
-          pedido_id: data.id,
-          producto_id: i.producto_id,
-          fecha_inicio: al.fecha_inicio,
-          fecha_fin: al.fecha_fin,
-          dias: al.dias,
-          cantidad: i.cantidad,
-          hora_recogida: al.hora_recogida ?? null,
-          estado: 'reservado',
-        }
-      })
-      await supabase.from('alquileres').insert(alqPayload)
-    }
+  // --- Subir comprobante y confirmar pedido ---
+  async function subirComprobante() {
+    if (!archivoComprobante || !pedidoTemporal) return
+    setSubiendoComprobante(true)
 
-    // Email de confirmación al cliente (fire-and-forget)
-    fetch('/api/email/confirmacion-pedido', {
+    const form = new FormData()
+    form.append('numero_temporal', pedidoTemporal.numero_temporal)
+    form.append('archivo', archivoComprobante)
+
+    const res = await fetch('/api/pedidos/subir-comprobante', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pedidoId: data.id }),
-    }).catch(() => {})
+      body: form,
+    })
 
-    // Incrementar uso del cupón
-    if (cupon) {
-      supabase
-        .from('cupones')
-        .update({ usos_actuales: cupon.usos_actuales + 1 })
-        .eq('codigo', cupon.codigo)
-        .then(() => {})
+    setSubiendoComprobante(false)
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      toast.error(err.error || 'Error al subir el comprobante. Intenta nuevamente.')
+      return
     }
 
-    // Notificación Telegram (fire-and-forget, no bloquea el flujo)
-    fetch('/api/telegram/notificar-pedido', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        numero_orden: data.numero_orden,
-        nombres: nombres.trim(),
-        whatsapp: whatsappCompleto,
-        tipo: tipoEnvio === 'tienda' ? 'local' : 'delivery',
-        ciudad: tipoEnvio === 'envio' ? ciudad : null,
-        provincia: tipoEnvio === 'envio' ? provincia : null,
-        items: items.map(i => ({
-          nombre: i.nombre,
-          cantidad: i.cantidad,
-          subtotal: +(i.precio * (i.alquiler?.dias ?? 1) * i.cantidad).toFixed(2),
-          variante: i.nombre_variante ?? null,
-          talla: i.talla ?? null,
-          tipo_producto: i.tipo_producto,
-          cita: i.cita ? {
-            fecha: i.cita.fecha,
-            hora_inicio: i.cita.hora_inicio,
-            empleado_nombre: i.cita.empleado_nombre,
-          } : null,
-          alquiler: i.alquiler ?? null,
-        })),
-        subtotal: +subtotal.toFixed(2),
-        descuento_cupon: +descuentoCupon.toFixed(2),
-        cupon_codigo: cupon?.codigo ?? null,
-        costo_envio: tipoEnvio === 'envio' && costoEnvio !== null ? +costoEnvio.toFixed(2) : 0,
-        total: +total.toFixed(2),
-        simbolo_moneda: simboloMoneda,
-      }),
-    }).catch(() => {/* silencioso si falla */})
+    const data = await res.json()
 
-    // Notificación Telegram: stock bajo (fire-and-forget)
-    ;(async () => {
-      const itemsConStockBajo: { nombre: string; stock: number }[] = []
-      for (const item of items) {
-        if (item.tipo_producto === 'servicio') continue
-        let stockActual: number | null = null
-        if (item.variante_id) {
-          const { data } = await supabase
-            .from('variantes_producto')
-            .select('stock')
-            .eq('id', item.variante_id)
-            .single()
-          stockActual = data?.stock ?? null
-        } else if (item.talla) {
-          const { data } = await supabase
-            .from('tallas_producto')
-            .select('stock')
-            .eq('producto_id', item.producto_id)
-            .eq('talla', item.talla)
-            .single()
-          stockActual = data?.stock ?? null
-        } else {
-          const { data } = await supabase
-            .from('productos')
-            .select('stock')
-            .eq('id', item.producto_id)
-            .single()
-          stockActual = data?.stock ?? null
-        }
-        if (stockActual !== null && stockActual > 0 && stockActual <= 5) {
-          const etiqueta = item.talla
-            ? `${item.nombre} (Talla: ${item.talla})`
-            : item.nombre_variante
-              ? `${item.nombre} (${item.nombre_variante})`
-              : item.nombre
-          itemsConStockBajo.push({ nombre: etiqueta, stock: stockActual })
-        }
-      }
-      if (itemsConStockBajo.length > 0) {
-        fetch('/api/telegram/notificar-stock-bajo', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: itemsConStockBajo }),
-        }).catch(() => {})
-      }
-    })()
-
-    // Generar mensaje WhatsApp con número de pedido
     const msg = generarMensajeWhatsApp({
       numeroPedido: data.numero_orden,
       nombreTienda,
-        items: items.map(i => ({
-          nombre: i.nombre,
-          variante: i.nombre_variante,
-          talla: i.talla,
-          cantidad: i.cantidad,
-          precio: i.precio,
-          slug: i.slug,
-          tipo_producto: i.tipo_producto,
-          cita: i.cita,
-          alquiler: i.alquiler ?? undefined,
-        })),
+      items: items.map(i => ({
+        nombre:        i.nombre,
+        variante:      i.nombre_variante,
+        talla:         i.talla,
+        cantidad:      i.cantidad,
+        precio:        i.precio,
+        slug:          i.slug,
+        tipo_producto: i.tipo_producto,
+        cita:          i.cita,
+        alquiler:      i.alquiler ?? undefined,
+      })),
       cupon: cupon ? { codigo: cupon.codigo, descuento: descuentoCupon } : undefined,
       envio: tipoEnvio === 'tienda'
         ? { tipo: 'tienda' }
@@ -537,7 +442,8 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
     const urlWhatsApp = generarEnlaceWhatsApp(whatsapp, msg)
     limpiar()
     setCupon(null)
-    setPedidoCreado({ numero_orden: data.numero_orden, whatsappUrl: urlWhatsApp })
+    setPedidoTemporal(null)
+    setPedidoConfirmado({ numero_orden: data.numero_orden, whatsappUrl: urlWhatsApp })
   }
 
   // --- Loading / carrito vacío ---
@@ -549,7 +455,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
     )
   }
 
-  if (items.length === 0 && !pedidoCreado) {
+  if (items.length === 0 && !pedidoConfirmado) {
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
         <div className="w-20 h-20 rounded-3xl bg-background-subtle flex items-center justify-center mx-auto mb-4">
@@ -568,7 +474,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
   return (
     <div className="max-w-lg mx-auto px-4 py-4">
       {/* Header */}
-      {!pedidoCreado && (
+      {!pedidoConfirmado && (
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-lg font-bold text-foreground">
             Mi carrito <span className="text-primary">({items.length})</span>
@@ -579,9 +485,9 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
               Vaciar
             </button>
           )}
-          {paso !== 'carrito' && (
+          {paso !== 'carrito' && paso !== 'pago' && (
             <button
-              onClick={() => setPaso(paso === 'datos' ? 'envio' : 'carrito')}
+              onClick={() => setPaso(paso === 'datos' ? (soloServicios ? 'carrito' : 'envio') : 'carrito')}
               className="text-xs text-primary hover:underline">
               ← Volver
             </button>
@@ -590,27 +496,31 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
       )}
 
       {/* Indicador de pasos */}
-      {!pedidoCreado && (
+      {!pedidoConfirmado && (
         <div className="flex items-center gap-1.5 mb-5">
-          {(['carrito', 'envio', 'datos'] as Paso[]).map((p, i) => (
-            <div key={p} className="flex items-center gap-1.5 flex-1">
-              <div className={cn(
-                'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0',
-                paso === p ? 'bg-primary text-white' :
-                (['carrito', 'envio', 'datos'].indexOf(paso) > i) ? 'bg-primary/20 text-primary' :
-                'bg-background-subtle text-foreground-muted'
-              )}>
-                {(['carrito', 'envio', 'datos'].indexOf(paso) > i) ? '✓' : i + 1}
+          {(['carrito', 'envio', 'datos', 'pago'] as Paso[]).map((p, i) => {
+            const pasosList = ['carrito', 'envio', 'datos', 'pago']
+            const currentIndex = pasosList.indexOf(paso)
+            return (
+              <div key={p} className="flex items-center gap-1.5 flex-1">
+                <div className={cn(
+                  'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0',
+                  paso === p ? 'bg-primary text-white' :
+                  currentIndex > i ? 'bg-primary/20 text-primary' :
+                  'bg-background-subtle text-foreground-muted'
+                )}>
+                  {currentIndex > i ? '✓' : i + 1}
+                </div>
+                <span className={cn(
+                  'text-[11px] font-medium',
+                  paso === p ? 'text-foreground' : 'text-foreground-muted'
+                )}>
+                  {p === 'carrito' ? 'Carrito' : p === 'envio' ? 'Entrega' : p === 'datos' ? 'Mis datos' : 'Pago'}
+                </span>
+                {i < 3 && <div className="flex-1 h-px bg-border" />}
               </div>
-              <span className={cn(
-                'text-[11px] font-medium',
-                paso === p ? 'text-foreground' : 'text-foreground-muted'
-              )}>
-                {p === 'carrito' ? 'Carrito' : p === 'envio' ? 'Entrega' : 'Mis datos'}
-              </span>
-              {i < 2 && <div className="flex-1 h-px bg-border" />}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -647,7 +557,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                       Talla: {item.talla}
                     </span>
                   )}
-                  {(item as any).extras?.map((ex: { id: string; nombre: string; precio: number }) => (
+                  {((item as { extras?: { id: string; nombre: string; precio: number }[] }).extras ?? []).map((ex) => (
                     <span key={ex.id} className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-md font-medium">
                       +{ex.nombre}
                     </span>
@@ -885,7 +795,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                 <MapPin className="w-3.5 h-3.5 text-primary" /> Dirección de entrega
               </p>
 
-              {/* Provincia / Departamento */}
               <div>
                 <label className="block text-xs font-medium text-foreground-muted mb-1">{infoPais.etiquetaRegion} *</label>
                 <div className="relative">
@@ -903,7 +812,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                 </div>
               </div>
 
-              {/* Ciudad / Municipio */}
               <div>
                 <label className="block text-xs font-medium text-foreground-muted mb-1">{infoPais.etiquetaCiudad} *</label>
                 <div className="relative">
@@ -922,7 +830,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                 </div>
               </div>
 
-              {/* Dirección */}
               <div>
                 <label className="block text-xs font-medium text-foreground-muted mb-1">Dirección domicilio *</label>
                 <input
@@ -933,7 +840,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                 />
               </div>
 
-              {/* Detalles */}
               <div>
                 <label className="block text-xs font-medium text-foreground-muted mb-1">Detalles (piso, referencia…)</label>
                 <input
@@ -952,7 +858,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
               <User className="w-3.5 h-3.5 text-primary" /> Datos personales
             </p>
 
-            {/* Nombre */}
             <div>
               <label className="block text-xs font-medium text-foreground-muted mb-1">Nombres completos *</label>
               <input
@@ -963,7 +868,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
               />
             </div>
 
-            {/* Email */}
             <div>
               <label className="block text-xs font-medium text-foreground-muted mb-1 flex items-center gap-1">
                 <Mail className="w-3 h-3" /> Email *
@@ -977,7 +881,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
               />
             </div>
 
-            {/* WhatsApp con código de país */}
             <div>
               <label className="block text-xs font-medium text-foreground-muted mb-1 flex items-center gap-1">
                 <Phone className="w-3 h-3" /> WhatsApp *
@@ -1010,7 +913,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
 
           {/* ── Datos de facturación (opcionales) ── */}
           <div className="bg-card border border-card-border rounded-2xl overflow-hidden">
-            {/* Toggle */}
             <button
               type="button"
               onClick={() => setQuiereFactura(v => !v)}
@@ -1039,10 +941,8 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
               </div>
             </button>
 
-            {/* Formulario expandible */}
             {quiereFactura && (
               <div className="border-t border-border px-4 pb-4 pt-3 flex flex-col gap-3">
-                {/* Tipo de identificación */}
                 <div>
                   <p className="text-xs font-medium text-foreground-muted mb-2">Tipo de identificación</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -1072,7 +972,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
 
                 {tipoIdFactura !== '07' && (
                   <>
-                    {/* Botón copiar mis datos */}
                     <button
                       type="button"
                       onClick={copiarDatosContacto}
@@ -1083,7 +982,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                       Usar mis datos de contacto
                     </button>
 
-                    {/* Número de identificación */}
                     <div>
                       <label className="block text-xs font-medium text-foreground-muted mb-1">
                         {tipoIdFactura === '04' ? 'RUC *' : tipoIdFactura === '05' ? 'Cédula *' : 'Número de pasaporte *'}
@@ -1098,7 +996,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                       />
                     </div>
 
-                    {/* Razón social */}
                     <div>
                       <label className="block text-xs font-medium text-foreground-muted mb-1">
                         {tipoIdFactura === '04' ? 'Razón social *' : 'Nombres y apellidos *'}
@@ -1112,7 +1009,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                       />
                     </div>
 
-                    {/* Email factura */}
                     <div>
                       <label className="block text-xs font-medium text-foreground-muted mb-1">
                         Email <span className="text-foreground-muted/60">(para recibir el RIDE)</span>
@@ -1126,7 +1022,6 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                       />
                     </div>
 
-                    {/* Dirección factura */}
                     <div>
                       <label className="block text-xs font-medium text-foreground-muted mb-1">
                         Dirección <span className="text-foreground-muted/60">(opcional)</span>
@@ -1203,17 +1098,142 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
             disabled={creandoPedido}
             className="w-full h-13 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm shadow-primary/30 py-4">
             {creandoPedido
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Creando pedido…</>
-              : <><CheckCircle2 className="w-4 h-4" /> Confirmar pedido</>
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Preparando pedido…</>
+              : <><ChevronRight className="w-4 h-4" /> Continuar al pago</>
             }
           </button>
         </div>
       )}
 
       {/* ═══════════════════════════════════════════════════════ */}
-      {/* MODAL: Pedido creado exitosamente                       */}
+      {/* PASO 4: Subir comprobante de pago                       */}
       {/* ═══════════════════════════════════════════════════════ */}
-      {pedidoCreado && (
+      {paso === 'pago' && pedidoTemporal && (
+        <div className="flex flex-col gap-4">
+          <h2 className="text-base font-bold text-foreground">Completa tu pago</h2>
+
+          {/* Temporizador */}
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">Tiempo para subir tu comprobante</p>
+            </div>
+            <ContadorRegresivo
+              fechaFin={pedidoTemporal.expira_en}
+              className="text-2xl font-black text-amber-700 tabular-nums"
+              onExpirado={() => {
+                toast.error('El tiempo expiró. Tu reserva fue liberada. Inicia el proceso nuevamente.', { duration: 8000 })
+                setPedidoTemporal(null)
+                setPaso('carrito')
+              }}
+            />
+            <p className="text-xs text-amber-700 mt-1.5">
+              Tu reserva se liberará automáticamente si no subes el comprobante a tiempo.
+            </p>
+          </div>
+
+          {/* Total a pagar */}
+          <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-foreground-muted uppercase tracking-wide font-semibold mb-0.5">Total a pagar</p>
+              <p className="text-2xl font-black text-primary">{formatearPrecio(total, simboloMoneda)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] text-foreground-muted uppercase tracking-wide">Pedido</p>
+              <p className="text-sm font-bold text-foreground font-mono">{pedidoTemporal.numero_temporal}</p>
+            </div>
+          </div>
+
+          {/* Cuentas bancarias */}
+          {metodosPago.length > 0 && (
+            <div className="bg-card border border-card-border rounded-2xl overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border bg-background-subtle">
+                <Landmark className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                <p className="text-xs font-bold text-foreground uppercase tracking-wide">Realiza tu transferencia a</p>
+              </div>
+              <div className="divide-y divide-border">
+                {metodosPago.map(mp => (
+                  <div key={mp.id} className="px-3 py-2.5 flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-bold text-foreground">{mp.banco}</p>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">{mp.tipo_cuenta}</span>
+                    </div>
+                    <p className="text-xs text-foreground-muted">
+                      Cuenta: <span className="font-mono font-semibold text-foreground">{mp.numero_cuenta}</span>
+                    </p>
+                    <p className="text-xs text-foreground-muted">
+                      Titular: <span className="font-semibold text-foreground">{mp.nombre_titular}</span>
+                    </p>
+                    <p className="text-xs text-foreground-muted">
+                      Cédula: <span className="font-mono text-foreground">{mp.cedula_titular}</span>
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Subir comprobante */}
+          <div className="bg-card border border-card-border rounded-2xl p-4 flex flex-col gap-3">
+            <p className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wide">
+              <Upload className="w-3.5 h-3.5 text-primary" /> Sube tu comprobante de pago
+            </p>
+            <p className="text-xs text-foreground-muted">
+              Captura o foto del comprobante de transferencia. Formatos permitidos: JPG, PNG, WEBP o PDF (máx. 10 MB).
+            </p>
+
+            <label className={cn(
+              'relative flex flex-col items-center justify-center gap-2 h-28 rounded-xl border-2 border-dashed cursor-pointer transition-all',
+              archivoComprobante
+                ? 'border-success bg-success/5'
+                : 'border-border hover:border-primary/60 bg-background-subtle'
+            )}>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                onChange={e => {
+                  const file = e.target.files?.[0] ?? null
+                  if (file && file.size > 10 * 1024 * 1024) {
+                    toast.error('El archivo es demasiado grande. Máximo 10 MB.')
+                    return
+                  }
+                  setArchivoComprobante(file)
+                }}
+              />
+              {archivoComprobante ? (
+                <>
+                  <CheckCircle2 className="w-7 h-7 text-success" />
+                  <p className="text-xs font-semibold text-success text-center px-4 truncate max-w-full">{archivoComprobante.name}</p>
+                  <p className="text-[10px] text-foreground-muted">Toca para cambiar</p>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-7 h-7 text-foreground-muted/40" />
+                  <p className="text-xs text-foreground-muted text-center">
+                    Toca aquí para seleccionar<br />el comprobante
+                  </p>
+                </>
+              )}
+            </label>
+          </div>
+
+          <button
+            onClick={subirComprobante}
+            disabled={!archivoComprobante || subiendoComprobante}
+            className="w-full h-13 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm shadow-primary/30 py-4">
+            {subiendoComprobante
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando comprobante…</>
+              : <><Upload className="w-4 h-4" /> Enviar comprobante</>
+            }
+          </button>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* PANTALLA: Comprobante enviado exitosamente              */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      {pedidoConfirmado && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative w-full max-w-sm bg-card rounded-3xl shadow-2xl overflow-hidden">
@@ -1222,50 +1242,21 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
               <div className="w-16 h-16 rounded-2xl bg-success/20 flex items-center justify-center mx-auto mb-3">
                 <CheckCircle2 className="w-8 h-8 text-success" />
               </div>
-              <h2 className="text-lg font-bold text-foreground">¡Pedido registrado!</h2>
-              <p className="text-sm text-foreground-muted mt-1">Tu número de orden es:</p>
+              <h2 className="text-lg font-bold text-foreground">¡Comprobante enviado!</h2>
+              <p className="text-sm text-foreground-muted mt-1">Pedido pendiente de validación</p>
               <div className="mt-3 px-5 py-2.5 bg-card border-2 border-primary/30 rounded-2xl inline-block">
-                <p className="text-2xl font-black text-primary tracking-wider">{pedidoCreado.numero_orden}</p>
+                <p className="text-2xl font-black text-primary tracking-wider">{pedidoConfirmado.numero_orden}</p>
               </div>
             </div>
 
             {/* Cuerpo */}
             <div className="px-5 py-4">
               <p className="text-sm text-foreground-muted text-center mb-4">
-                Ahora comunícate con nuestro equipo de ventas por WhatsApp para confirmar y coordinar tu pedido.
+                Un administrador revisará tu comprobante y confirmará tu pedido en breve. Te notificaremos por email.
               </p>
 
-              {/* Métodos de pago */}
-              {metodosPago.length > 0 && (
-                <div className="mb-4 rounded-2xl border border-border bg-background-subtle overflow-hidden">
-                  <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card">
-                    <Landmark className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                    <p className="text-xs font-bold text-foreground uppercase tracking-wide">Puedes pagar por transferencia</p>
-                  </div>
-                  <div className="divide-y divide-border">
-                    {metodosPago.map(mp => (
-                      <div key={mp.id} className="px-3 py-2.5 flex flex-col gap-0.5">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-bold text-foreground">{mp.banco}</p>
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">{mp.tipo_cuenta}</span>
-                        </div>
-                        <p className="text-xs text-foreground-muted">
-                          Cuenta: <span className="font-mono font-semibold text-foreground">{mp.numero_cuenta}</span>
-                        </p>
-                        <p className="text-xs text-foreground-muted">
-                          Titular: <span className="font-semibold text-foreground">{mp.nombre_titular}</span>
-                        </p>
-                        <p className="text-xs text-foreground-muted">
-                          Cédula: <span className="font-mono text-foreground">{mp.cedula_titular}</span>
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               <a
-                href={pedidoCreado.whatsappUrl}
+                href={pedidoConfirmado.whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2.5 w-full h-12 rounded-2xl bg-[#25D366] text-white text-sm font-bold hover:bg-[#22c55e] active:scale-[0.98] transition-all shadow-md"
@@ -1275,7 +1266,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
               </a>
 
               <Link
-                href={`/pedido/${pedidoCreado.numero_orden}`}
+                href={`/pedido/${pedidoConfirmado.numero_orden}`}
                 className="flex items-center justify-center gap-2 w-full h-11 mt-3 rounded-2xl border border-primary/30 bg-primary/5 text-sm font-semibold text-primary hover:bg-primary/10 transition-all"
               >
                 <Package className="w-4 h-4" />
