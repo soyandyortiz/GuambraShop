@@ -16,13 +16,13 @@ En **SQL Editor** de Supabase ejecutar en este orden exacto:
 
 Abrir el archivo `supabase/schema.sql` → copiar todo el contenido → pegarlo en SQL Editor → **Run**.
 
-> Este archivo es el schema unificado y cubre **todas** las tablas, funciones, políticas RLS, triggers y módulos del sistema (incluyendo Facturación SRI, Email, Clientes, POS, Alquileres). No requiere ejecutar migraciones adicionales.
+> Este archivo es el schema unificado y cubre **todas** las tablas, funciones, políticas RLS, triggers y módulos del sistema (incluyendo Facturación SRI, Email, Clientes, POS, Alquileres, Finanzas). No requiere ejecutar migraciones adicionales.
 
 ### Paso 2 — Datos iniciales
 
 Ejecutar `supabase/seed/01_datos_iniciales.sql` — crea la fila base en `configuracion_tienda` con valores genéricos para que la tienda arranque sin errores.
 
-> **Nota para futuras migraciones:** si se crean nuevas migraciones en `supabase/migrations/` con número mayor al `_044`, deben ejecutarse manualmente después del schema **y** luego incorporarse al `schema.sql` para mantenerlo actualizado.
+> **Nota para futuras migraciones:** si se crean nuevas migraciones en `supabase/migrations/` con número mayor al `_050`, deben ejecutarse manualmente después del schema **y** luego incorporarse al `schema.sql` para mantenerlo actualizado.
 
 ## 3. Usuarios administradores
 
@@ -215,7 +215,7 @@ Base de datos de clientes con campos listos para facturación SRI.
 
 - **Importación automática**: el botón **Importar desde pedidos** en `/admin/dashboard/clientes` recorre todos los pedidos sin `cliente_id`, agrupa por email, crea un registro por cliente y los vincula. Los datos reales (cédula/RUC) siempre tienen prioridad sobre Consumidor Final.
 - **Vinculación con POS**: al seleccionar un cliente en el Punto de Venta, el pedido queda vinculado automáticamente y sus datos de facturación se pre-llenan.
-- **Total facturado**: solo suma pedidos en estado `confirmado`, `en_proceso`, `enviado` o `entregado` — excluye pendientes y cancelados.
+- **Total facturado**: solo suma pedidos en estado `procesando` o `completado` — excluye pendientes, en espera y cancelados.
 
 ---
 
@@ -285,6 +285,45 @@ TELEGRAM_CHAT_ID     → id del grupo (número negativo, con el - incluido)
 ```
 
 Hacer **redeploy** después de agregar las variables. Crear un pedido de prueba para verificar que llega la notificación.
+
+---
+
+### Módulo Finanzas
+
+Control financiero completo del negocio. Accesible desde la sección **Finanzas** del panel admin.
+
+#### Ingresos
+
+`/admin/dashboard/ingresos` — resumen de ingresos por período con desglose por forma de pago (efectivo, transferencia, tarjeta). Filtra por rango de fechas y muestra todos los pedidos en estado `procesando` o `completado`.
+
+#### Cierre de Caja
+
+`/admin/dashboard/cierres-caja` — cierre diario de caja.
+
+- Calcula automáticamente los totales del día sumando pedidos en estado `procesando` o `completado`
+- Resta los egresos en efectivo del día para mostrar el efectivo real esperado en caja
+- El admin ingresa el efectivo físico contado; el sistema detecta y muestra la diferencia (descuadre)
+- Queda registrado históricamente — no se puede cerrar dos veces el mismo día
+- **Estados:** Caja Abierta (sin cierre) / Caja Cerrada (ya registrado)
+
+#### Egresos
+
+`/admin/dashboard/egresos` — registro de gastos y pagos.
+
+- Categorías: **Proveedores**, **Servicios**, **Nómina**, **Alquiler**, **Otros**
+- Métodos de pago: efectivo, transferencia, tarjeta
+- Los egresos en efectivo afectan directamente el cierre de caja del día
+- Los abonos a proveedores generan un egreso automáticamente (no hay que registrarlo por separado)
+
+#### Proveedores
+
+`/admin/dashboard/proveedores` — control de deudas con proveedores.
+
+- CRUD de proveedores con RUC, contacto, email y ciudad
+- **Registrar Deuda**: incrementa el saldo pendiente del proveedor (compra realizada a crédito)
+- **Abonar**: registra el pago parcial o total — crea automáticamente un egreso vinculado para que el cierre de caja sea exacto
+- El saldo pendiente se actualiza en tiempo real; se muestra en rojo si hay deuda, verde si está saldado
+- Historial de abonos recientes visible en el panel lateral
 
 ---
 

@@ -84,11 +84,11 @@ export function ListaProveedores({ proveedores: init }: Props) {
     const supabase = crearClienteSupabase()
 
     if (modal === 'deuda') {
-      // Incrementar deuda
-      const { error } = await supabase.from('proveedores').update({ saldo_pendiente: seleccionado.saldo_pendiente + montoNum }).eq('id', seleccionado.id)
+      const { error } = await supabase.rpc('incrementar_saldo_proveedor', { id_prov: seleccionado.id, monto: montoNum })
       if (error) { toast.error('Error al registrar deuda'); setGuardando(false); return }
+      setProveedores(proveedores.map(p => p.id === seleccionado.id ? { ...p, saldo_pendiente: p.saldo_pendiente + montoNum } : p))
       toast.success('Deuda registrada')
-    } 
+    }
     else if (modal === 'abono') {
       // 1. Registrar el pago en pagos_proveedores
       const { error: errPago } = await supabase.from('pagos_proveedores').insert([{
@@ -276,7 +276,7 @@ export function ListaProveedores({ proveedores: init }: Props) {
               </div>
               
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Monto a {modal === 'abono' ? 'Pagar' : 'Debat'}</label>
+                <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Monto a {modal === 'abono' ? 'Pagar' : 'Registrar'}</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-black text-primary">$</span>
                   <input type="number" step="0.01" value={montoAccion} onChange={e => setMontoAccion(e.target.value)} autoFocus className="w-full h-14 pl-10 pr-4 rounded-xl border border-input-border bg-background-subtle text-2xl font-black focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-center" />
