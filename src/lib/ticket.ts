@@ -49,6 +49,7 @@ const FORMA_PAGO: Record<string, string> = {
   efectivo:      'Efectivo',
   transferencia: 'Transferencia',
   tarjeta:       'Tarjeta',
+  paypal:        'PayPal',
   otro:          'Otro',
 }
 

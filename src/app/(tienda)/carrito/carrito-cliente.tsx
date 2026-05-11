@@ -16,6 +16,7 @@ import { generarMensajeWhatsApp, generarEnlaceWhatsApp } from '@/lib/whatsapp'
 import { CODIGOS_PAIS } from '@/lib/ecuador'
 import { obtenerNombresRegiones, obtenerCiudades, obtenerInfoPais } from '@/lib/locales'
 import { ContadorRegresivo } from '@/components/ui/contador-regresivo'
+import { PayPalBotones } from '@/components/tienda/paypal-botones'
 
 interface MetodoPago {
   id: string
@@ -32,6 +33,8 @@ interface Props {
   simboloMoneda: string
   pais?: string
   metodosPago: MetodoPago[]
+  paypalActivo?: boolean
+  paypalClientId?: string
 }
 
 interface Cupon {
@@ -51,6 +54,7 @@ interface PedidoTemporal {
 interface PedidoConfirmado {
   numero_orden: string
   whatsappUrl: string
+  formaPago: 'transferencia' | 'paypal'
 }
 
 type Paso = 'carrito' | 'envio' | 'datos' | 'pago'
@@ -58,7 +62,7 @@ type Paso = 'carrito' | 'envio' | 'datos' | 'pago'
 const INPUT_BASE =
   'w-full h-11 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all'
 
-export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = 'EC', metodosPago }: Props) {
+export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = 'EC', metodosPago, paypalActivo = false, paypalClientId = '' }: Props) {
   const { items, quitar, actualizarCantidad, limpiar, subtotal, hidratado } = usarCarrito()
 
   const soloServicios  = items.length > 0 && items.every(i => i.tipo_producto === 'servicio')
@@ -75,6 +79,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
   const [pedidoConfirmado, setPedidoConfirmado] = useState<PedidoConfirmado | null>(null)
   const [archivoComprobante, setArchivoComprobante] = useState<File | null>(null)
   const [subiendoComprobante, setSubiendoComprobante] = useState(false)
+  const [metodoPago, setMetodoPago] = useState<'transferencia' | 'paypal'>('transferencia')
 
   // Datos del cliente
   const [nombres, setNombres] = useState('')
@@ -443,7 +448,37 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
     limpiar()
     setCupon(null)
     setPedidoTemporal(null)
-    setPedidoConfirmado({ numero_orden: data.numero_orden, whatsappUrl: urlWhatsApp })
+    setPedidoConfirmado({ numero_orden: data.numero_orden, whatsappUrl: urlWhatsApp, formaPago: 'transferencia' })
+  }
+
+  // --- Pago PayPal aprobado ---
+  function handlePayPalSuccess(data: { numero_orden: string }) {
+    const msg = generarMensajeWhatsApp({
+      numeroPedido: data.numero_orden,
+      nombreTienda,
+      items: items.map(i => ({
+        nombre:        i.nombre,
+        variante:      i.nombre_variante,
+        talla:         i.talla,
+        cantidad:      i.cantidad,
+        precio:        i.precio,
+        slug:          i.slug,
+        tipo_producto: i.tipo_producto,
+        cita:          i.cita,
+        alquiler:      i.alquiler ?? undefined,
+      })),
+      cupon: cupon ? { codigo: cupon.codigo, descuento: descuentoCupon } : undefined,
+      envio: tipoEnvio === 'tienda'
+        ? { tipo: 'tienda' }
+        : { tipo: 'envio', provincia, ciudad, direccion: direccion.trim(), detallesDireccion: detallesDir.trim() || undefined },
+      siteUrl: window.location.origin,
+      simboloMoneda,
+    })
+    const urlWhatsApp = generarEnlaceWhatsApp(whatsapp, msg)
+    limpiar()
+    setCupon(null)
+    setPedidoTemporal(null)
+    setPedidoConfirmado({ numero_orden: data.numero_orden, whatsappUrl: urlWhatsApp, formaPago: 'paypal' })
   }
 
   // --- Loading / carrito vacío ---
@@ -1144,89 +1179,141 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
             </div>
           </div>
 
-          {/* Cuentas bancarias */}
-          {metodosPago.length > 0 && (
-            <div className="bg-card border border-card-border rounded-2xl overflow-hidden">
-              <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border bg-background-subtle">
-                <Landmark className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                <p className="text-xs font-bold text-foreground uppercase tracking-wide">Realiza tu transferencia a</p>
-              </div>
-              <div className="divide-y divide-border">
-                {metodosPago.map(mp => (
-                  <div key={mp.id} className="px-3 py-2.5 flex flex-col gap-0.5">
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-bold text-foreground">{mp.banco}</p>
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">{mp.tipo_cuenta}</span>
-                    </div>
-                    <p className="text-xs text-foreground-muted">
-                      Cuenta: <span className="font-mono font-semibold text-foreground">{mp.numero_cuenta}</span>
-                    </p>
-                    <p className="text-xs text-foreground-muted">
-                      Titular: <span className="font-semibold text-foreground">{mp.nombre_titular}</span>
-                    </p>
-                    <p className="text-xs text-foreground-muted">
-                      Cédula: <span className="font-mono text-foreground">{mp.cedula_titular}</span>
-                    </p>
-                  </div>
-                ))}
-              </div>
+          {/* Selector de método de pago */}
+          {paypalActivo && paypalClientId && (
+            <div className="flex rounded-2xl border border-border overflow-hidden">
+              <button
+                onClick={() => setMetodoPago('transferencia')}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-2 py-3 text-xs font-semibold transition-all',
+                  metodoPago === 'transferencia'
+                    ? 'bg-primary text-white'
+                    : 'bg-card text-foreground-muted hover:text-foreground'
+                )}>
+                <Landmark className="w-3.5 h-3.5" /> Transferencia
+              </button>
+              <button
+                onClick={() => setMetodoPago('paypal')}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-2 py-3 text-xs font-semibold transition-all border-l border-border',
+                  metodoPago === 'paypal'
+                    ? 'bg-[#0070ba] text-white'
+                    : 'bg-card text-foreground-muted hover:text-foreground'
+                )}>
+                <svg className="w-14 h-5" viewBox="0 0 101 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="PayPal">
+                  <path d="M12.237 2.347H6.433c-.393 0-.728.285-.79.673L3.378 19.047c-.046.29.178.554.473.554h2.847c.393 0 .728-.285.79-.673l.63-3.982c.062-.388.396-.673.79-.673h1.813c3.77 0 5.947-1.823 6.52-5.44.256-1.582.01-2.826-.73-3.697-.813-.96-2.256-1.489-4.274-1.489zm.66 5.363c-.313 1.978-1.882 1.978-3.401 1.978h-.864l.606-3.832c.036-.228.235-.396.466-.396h.396c1.033 0 2.01 0 2.512.589.301.352.393.874.285 1.661zM29.89 7.633h-2.856c-.231 0-.43.168-.466.396l-.12.757-.19-.275c-.587-.852-1.895-1.137-3.202-1.137-2.997 0-5.557 2.27-6.057 5.455-.26 1.59.11 3.11 1.013 4.169.829.972 2.014 1.377 3.426 1.377 2.415 0 3.754-1.552 3.754-1.552l-.121.75c-.046.29.178.554.473.554h2.572c.393 0 .728-.285.79-.673l1.543-9.773c.046-.288-.178-.548-.559-.048zm-3.983 5.278c-.262 1.552-1.49 2.594-3.06 2.594-.786 0-1.415-.252-1.82-.73-.4-.473-.552-1.148-.425-1.898.245-1.538 1.49-2.614 3.037-2.614.768 0 1.393.256 1.806.738.415.487.581 1.165.462 1.91zM45.634 7.633H42.76c-.259 0-.503.128-.648.341l-3.741 5.508-1.586-5.296c-.099-.33-.401-.553-.744-.553h-2.808c-.327 0-.555.321-.448.628l2.987 8.768-2.81 3.964c-.224.316 0 .754.384.754h2.872c.256 0 .498-.126.644-.337l9.024-13.024c.219-.316-.006-.753-.252-.753z" fill={metodoPago === 'paypal' ? 'white' : '#253B80'}/>
+                  <path d="M53.512 2.347h-5.804c-.393 0-.728.285-.79.673L44.653 19.047c-.046.29.178.554.473.554h3.057c.275 0 .509-.2.552-.472l.658-4.183c.062-.388.396-.673.79-.673h1.812c3.77 0 5.947-1.823 6.52-5.44.256-1.582.01-2.826-.73-3.697-.812-.96-2.254-1.489-4.273-1.489zm.659 5.363c-.313 1.978-1.882 1.978-3.4 1.978h-.865l.606-3.832c.036-.228.235-.396.466-.396h.397c1.032 0 2.009 0 2.511.589.302.352.394.874.285 1.661zM71.164 7.633H68.31c-.231 0-.43.168-.466.396l-.12.757-.19-.275c-.587-.852-1.895-1.137-3.201-1.137-2.997 0-5.557 2.27-6.057 5.455-.26 1.59.109 3.11 1.013 4.169.828.972 2.013 1.377 3.425 1.377 2.415 0 3.754-1.552 3.754-1.552l-.121.75c-.046.29.178.554.473.554h2.572c.393 0 .728-.285.79-.673l1.543-9.773c.045-.288-.18-.548-.561-.048zm-3.983 5.278c-.262 1.552-1.49 2.594-3.06 2.594-.786 0-1.415-.252-1.82-.73-.4-.473-.552-1.148-.425-1.898.245-1.538 1.49-2.614 3.037-2.614.768 0 1.392.256 1.806.738.415.487.581 1.165.462 1.91zM74.734 2.711l-2.293 14.593c-.046.29.178.554.473.554h2.459c.393 0 .728-.285.79-.673L78.428 2.16c.046-.29-.178-.554-.473-.554h-2.748a.476.476 0 00-.473.405v.7z" fill={metodoPago === 'paypal' ? 'white' : '#179BD7'}/>
+                </svg>
+              </button>
             </div>
           )}
 
-          {/* Subir comprobante */}
-          <div className="bg-card border border-card-border rounded-2xl p-4 flex flex-col gap-3">
-            <p className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wide">
-              <Upload className="w-3.5 h-3.5 text-primary" /> Sube tu comprobante de pago
-            </p>
-            <p className="text-xs text-foreground-muted">
-              Captura o foto del comprobante de transferencia. Formatos permitidos: JPG, PNG, WEBP o PDF (máx. 10 MB).
-            </p>
-
-            <label className={cn(
-              'relative flex flex-col items-center justify-center gap-2 h-28 rounded-xl border-2 border-dashed cursor-pointer transition-all',
-              archivoComprobante
-                ? 'border-success bg-success/5'
-                : 'border-border hover:border-primary/60 bg-background-subtle'
-            )}>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,application/pdf"
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                onChange={e => {
-                  const file = e.target.files?.[0] ?? null
-                  if (file && file.size > 10 * 1024 * 1024) {
-                    toast.error('El archivo es demasiado grande. Máximo 10 MB.')
-                    return
-                  }
-                  setArchivoComprobante(file)
-                }}
-              />
-              {archivoComprobante ? (
-                <>
-                  <CheckCircle2 className="w-7 h-7 text-success" />
-                  <p className="text-xs font-semibold text-success text-center px-4 truncate max-w-full">{archivoComprobante.name}</p>
-                  <p className="text-[10px] text-foreground-muted">Toca para cambiar</p>
-                </>
-              ) : (
-                <>
-                  <Upload className="w-7 h-7 text-foreground-muted/40" />
-                  <p className="text-xs text-foreground-muted text-center">
-                    Toca aquí para seleccionar<br />el comprobante
-                  </p>
-                </>
+          {/* ── OPCIÓN A: Transferencia bancaria ── */}
+          {metodoPago === 'transferencia' && (
+            <>
+              {metodosPago.length > 0 && (
+                <div className="bg-card border border-card-border rounded-2xl overflow-hidden">
+                  <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border bg-background-subtle">
+                    <Landmark className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                    <p className="text-xs font-bold text-foreground uppercase tracking-wide">Realiza tu transferencia a</p>
+                  </div>
+                  <div className="divide-y divide-border">
+                    {metodosPago.map(mp => (
+                      <div key={mp.id} className="px-3 py-2.5 flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-bold text-foreground">{mp.banco}</p>
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">{mp.tipo_cuenta}</span>
+                        </div>
+                        <p className="text-xs text-foreground-muted">
+                          Cuenta: <span className="font-mono font-semibold text-foreground">{mp.numero_cuenta}</span>
+                        </p>
+                        <p className="text-xs text-foreground-muted">
+                          Titular: <span className="font-semibold text-foreground">{mp.nombre_titular}</span>
+                        </p>
+                        <p className="text-xs text-foreground-muted">
+                          Cédula: <span className="font-mono text-foreground">{mp.cedula_titular}</span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
-            </label>
-          </div>
 
-          <button
-            onClick={subirComprobante}
-            disabled={!archivoComprobante || subiendoComprobante}
-            className="w-full h-13 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm shadow-primary/30 py-4">
-            {subiendoComprobante
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando comprobante…</>
-              : <><Upload className="w-4 h-4" /> Enviar comprobante</>
-            }
-          </button>
+              {/* Subir comprobante */}
+              <div className="bg-card border border-card-border rounded-2xl p-4 flex flex-col gap-3">
+                <p className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wide">
+                  <Upload className="w-3.5 h-3.5 text-primary" /> Sube tu comprobante de pago
+                </p>
+                <p className="text-xs text-foreground-muted">
+                  Captura o foto del comprobante de transferencia. Formatos permitidos: JPG, PNG, WEBP o PDF (máx. 10 MB).
+                </p>
+
+                <label className={cn(
+                  'relative flex flex-col items-center justify-center gap-2 h-28 rounded-xl border-2 border-dashed cursor-pointer transition-all',
+                  archivoComprobante
+                    ? 'border-success bg-success/5'
+                    : 'border-border hover:border-primary/60 bg-background-subtle'
+                )}>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={e => {
+                      const file = e.target.files?.[0] ?? null
+                      if (file && file.size > 10 * 1024 * 1024) {
+                        toast.error('El archivo es demasiado grande. Máximo 10 MB.')
+                        return
+                      }
+                      setArchivoComprobante(file)
+                    }}
+                  />
+                  {archivoComprobante ? (
+                    <>
+                      <CheckCircle2 className="w-7 h-7 text-success" />
+                      <p className="text-xs font-semibold text-success text-center px-4 truncate max-w-full">{archivoComprobante.name}</p>
+                      <p className="text-[10px] text-foreground-muted">Toca para cambiar</p>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-7 h-7 text-foreground-muted/40" />
+                      <p className="text-xs text-foreground-muted text-center">
+                        Toca aquí para seleccionar<br />el comprobante
+                      </p>
+                    </>
+                  )}
+                </label>
+              </div>
+
+              <button
+                onClick={subirComprobante}
+                disabled={!archivoComprobante || subiendoComprobante}
+                className="w-full h-13 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm shadow-primary/30 py-4">
+                {subiendoComprobante
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando comprobante…</>
+                  : <><Upload className="w-4 h-4" /> Enviar comprobante</>
+                }
+              </button>
+            </>
+          )}
+
+          {/* ── OPCIÓN B: PayPal ── */}
+          {metodoPago === 'paypal' && paypalActivo && paypalClientId && pedidoTemporal && (
+            <div className="bg-card border border-card-border rounded-2xl p-4 flex flex-col gap-3">
+              <p className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wide">
+                Pagar con PayPal
+              </p>
+              <p className="text-xs text-foreground-muted">
+                Al hacer clic en el botón serás redirigido a PayPal para completar tu pago de forma segura.
+              </p>
+              <PayPalBotones
+                clientId={paypalClientId}
+                currency={obtenerInfoPais(pais).moneda ?? 'USD'}
+                numeroTemporal={pedidoTemporal.numero_temporal}
+                onSuccess={handlePayPalSuccess}
+                onError={msg => toast.error(msg, { duration: 6000 })}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -1237,13 +1324,28 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative w-full max-w-sm bg-card rounded-3xl shadow-2xl overflow-hidden">
-            {/* Header verde */}
-            <div className="bg-success/10 border-b border-success/20 px-5 pt-6 pb-5 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-success/20 flex items-center justify-center mx-auto mb-3">
-                <CheckCircle2 className="w-8 h-8 text-success" />
+            {/* Header */}
+            <div className={cn(
+              'border-b px-5 pt-6 pb-5 text-center',
+              pedidoConfirmado.formaPago === 'paypal'
+                ? 'bg-blue-50 border-blue-100'
+                : 'bg-success/10 border-success/20'
+            )}>
+              <div className={cn(
+                'w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3',
+                pedidoConfirmado.formaPago === 'paypal' ? 'bg-blue-100' : 'bg-success/20'
+              )}>
+                <CheckCircle2 className={cn(
+                  'w-8 h-8',
+                  pedidoConfirmado.formaPago === 'paypal' ? 'text-[#0070ba]' : 'text-success'
+                )} />
               </div>
-              <h2 className="text-lg font-bold text-foreground">¡Comprobante enviado!</h2>
-              <p className="text-sm text-foreground-muted mt-1">Pedido pendiente de validación</p>
+              <h2 className="text-lg font-bold text-foreground">
+                {pedidoConfirmado.formaPago === 'paypal' ? '¡Pago confirmado!' : '¡Comprobante enviado!'}
+              </h2>
+              <p className="text-sm text-foreground-muted mt-1">
+                {pedidoConfirmado.formaPago === 'paypal' ? 'Tu pedido está en procesamiento' : 'Pedido pendiente de validación'}
+              </p>
               <div className="mt-3 px-5 py-2.5 bg-card border-2 border-primary/30 rounded-2xl inline-block">
                 <p className="text-2xl font-black text-primary tracking-wider">{pedidoConfirmado.numero_orden}</p>
               </div>
@@ -1252,7 +1354,10 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
             {/* Cuerpo */}
             <div className="px-5 py-4">
               <p className="text-sm text-foreground-muted text-center mb-4">
-                Un administrador revisará tu comprobante y confirmará tu pedido en breve. Te notificaremos por email.
+                {pedidoConfirmado.formaPago === 'paypal'
+                  ? 'Tu pago fue procesado exitosamente. Recibirás un email de confirmación en breve.'
+                  : 'Un administrador revisará tu comprobante y confirmará tu pedido en breve. Te notificaremos por email.'
+                }
               </p>
 
               <a

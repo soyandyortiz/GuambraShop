@@ -76,6 +76,7 @@ export function IngresosCliente({ pedidos, desde, hasta, simboloMoneda }: Props)
     efectivo:     'Efectivo',
     transferencia:'Transferencia',
     tarjeta:      'Tarjeta',
+    paypal:       'PayPal',
     otro:         'Otro',
   }
   const porPago = pedidos.reduce<Record<string, { monto: number; cant: number }>>((acc, p) => {
@@ -253,7 +254,7 @@ export function IngresosCliente({ pedidos, desde, hasta, simboloMoneda }: Props)
         <div className="rounded-2xl bg-card border border-card-border p-4 flex flex-col gap-3">
           <p className="text-xs font-bold text-foreground-muted uppercase tracking-wide">Forma de pago</p>
           <div className="flex flex-col gap-2">
-            {(['efectivo', 'transferencia', 'tarjeta', 'otro', 'sin_dato'] as const)
+            {(['efectivo', 'transferencia', 'tarjeta', 'paypal', 'otro', 'sin_dato'] as const)
               .filter(k => porPago[k]?.cant > 0)
               .map(key => {
                 const item = porPago[key]
@@ -262,6 +263,7 @@ export function IngresosCliente({ pedidos, desde, hasta, simboloMoneda }: Props)
                   efectivo:     <Banknote className="w-3.5 h-3.5 text-success" />,
                   transferencia:<ArrowLeftRight className="w-3.5 h-3.5 text-blue-500" />,
                   tarjeta:      <CreditCard className="w-3.5 h-3.5 text-violet-500" />,
+                  paypal:       <Globe className="w-3.5 h-3.5 text-[#0070ba]" />,
                   otro:         <MoreHorizontal className="w-3.5 h-3.5 text-foreground-muted" />,
                   sin_dato:     <Globe className="w-3.5 h-3.5 text-blue-400" />,
                 }
@@ -283,10 +285,11 @@ export function IngresosCliente({ pedidos, desde, hasta, simboloMoneda }: Props)
                       <div className="h-1.5 rounded-full bg-background-subtle overflow-hidden">
                         <div
                           className={cn('h-full rounded-full transition-all', {
-                            'bg-success':     key === 'efectivo',
-                            'bg-blue-500':    key === 'transferencia' || key === 'sin_dato',
-                            'bg-violet-500':  key === 'tarjeta',
-                            'bg-foreground-muted': key === 'otro',
+                            'bg-success':         key === 'efectivo',
+                            'bg-blue-500':        key === 'transferencia' || key === 'sin_dato',
+                            'bg-violet-500':      key === 'tarjeta',
+                            'bg-[#0070ba]':       key === 'paypal',
+                            'bg-foreground-muted':key === 'otro',
                           })}
                           style={{ width: `${pct}%` }}
                         />

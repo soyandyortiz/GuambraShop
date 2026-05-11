@@ -370,6 +370,87 @@ CRON_SECRET                 # Vercel lo inyecta automáticamente en Pro
 
 **Storage bucket:** `comprobantes` (privado, 10 MB máx.). Se crea automáticamente al ejecutar el schema.
 
+#### Pago con PayPal
+
+Módulo opcional que permite al comprador pagar en línea con PayPal sin salir del carrito. Se activa por tienda: cada cliente tiene sus propias credenciales PayPal y los cobros van directamente a su cuenta — GuambraWeb solo configura técnicamente pero no recibe dinero.
+
+---
+
+**¿Cómo funciona el modelo de cuentas?**
+
+```
+Comprador  ──paga──▶  PayPal del CLIENTE (negocio)
+                           ▲
+            Andy (GuambraWeb / superadmin) configuró las credenciales
+```
+
+- El **cliente** (dueño del negocio) abre su propia cuenta **PayPal Business** y crea una app en el portal de desarrolladores de PayPal.
+- La app entrega un **Client ID** y un **Secret** — son las llaves que identifican la cuenta del cliente ante PayPal.
+- **Andy (superadmin)** entra al panel del cliente y registra esas credenciales en la sección PayPal.
+- Desde ese momento, cada pago va directo a la cuenta PayPal del cliente. GuambraWeb no tiene acceso a esos fondos.
+
+---
+
+**Pasos para activar PayPal en un cliente:**
+
+1. El cliente crea cuenta en [paypal.com/business](https://www.paypal.com/business) (debe ser cuenta Business, no personal)
+2. El cliente entra a [developer.paypal.com](https://developer.paypal.com) → **Apps & Credentials**
+3. Crea una nueva App en modo **Live** (producción) — el nombre no importa, p.ej. "Mi Tienda"
+4. La app muestra el **Client ID** y el **Secret** — el cliente los comparte con Andy
+5. Andy entra al panel del cliente: **Perfil → pestaña Métodos de pago → sección PayPal**
+6. Ingresa Client ID, Secret, cambia el modo a `Producción` y activa el toggle
+
+> **Sandbox (pruebas):** Para probar sin dinero real, usa las credenciales Sandbox del mismo portal y deja el modo en `sandbox`. Las tarjetas de prueba de PayPal funcionan automáticamente.
+
+---
+
+**Flujo del comprador (carrito — paso 4):**
+
+Cuando PayPal está activo, el paso "Pago" muestra dos pestañas:
+
+| Pestaña | Qué hace |
+|---------|----------|
+| **Transferencia** | Flujo anterior: muestra cuentas bancarias + subida de comprobante |
+| **PayPal** | Carga los botones oficiales de PayPal inline — el comprador paga sin salir de la tienda |
+
+Al aprobar el pago en PayPal:
+1. El servidor captura el pago vía API de PayPal
+2. Se crea el pedido con `forma_pago = 'paypal'` y se llama automáticamente a `confirmar_pedido()` → descuenta stock, confirma citas
+3. El pedido queda en estado `procesando` directamente (sin necesitar validación manual)
+4. Se envía email de confirmación al comprador y notificación Telegram al admin
+
+**El admin no necesita hacer nada** — los pedidos PayPal llegan ya confirmados.
+
+---
+
+**Diferencia clave entre los dos flujos:**
+
+| | Transferencia | PayPal |
+|---|---|---|
+| Requiere acción del admin | Sí (revisar comprobante) | No (automático) |
+| Estado inicial del pedido | `pendiente_validacion` | `procesando` |
+| Stock descontado | Al confirmar manualmente | Automático al pagar |
+| Confirmación al comprador | Tras validación admin | Inmediata |
+
+---
+
+**Tablas/columnas involucradas:**
+
+```sql
+-- configuracion_tienda
+paypal_activo     BOOLEAN  DEFAULT false
+paypal_client_id  TEXT
+paypal_secret     TEXT
+paypal_modo       TEXT     DEFAULT 'sandbox'  -- 'sandbox' | 'production'
+
+-- pedidos
+paypal_order_id   TEXT     -- capture ID de PayPal para trazabilidad
+```
+
+**Migración:** `supabase/migrations/20260511000052_paypal_config.sql`
+
+**Variables de entorno:** ninguna adicional — las credenciales se guardan en la base de datos del cliente, no en el entorno de Vercel.
+
 ---
 
 ## Personalización visual

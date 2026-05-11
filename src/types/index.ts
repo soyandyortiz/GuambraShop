@@ -291,7 +291,7 @@ export interface ItemPedido {
   }
 }
 
-export type FormaPago = 'efectivo' | 'transferencia' | 'tarjeta' | 'otro'
+export type FormaPago = 'efectivo' | 'transferencia' | 'tarjeta' | 'paypal' | 'otro'
 
 export interface Pedido {
   id: string
@@ -325,6 +325,7 @@ export interface Pedido {
   } | null
   comprobante_url: string | null
   comprobante_eliminar_en: string | null
+  paypal_order_id: string | null
   creado_en: string
   actualizado_en: string
 }
