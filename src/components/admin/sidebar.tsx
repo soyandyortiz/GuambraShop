@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Package, Tag, Ticket, Megaphone,
   Settings, MessageSquare, Star,
   ClipboardList, CalendarDays, Truck, PartyPopper, TrendingUp, TrendingDown,
-  Users, KeyRound, FileText, Mail, Receipt, Printer, Calculator
+  Users, KeyRound, FileText, Mail, Receipt, Printer, Calculator, HardDrive
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usarConteosAdmin } from '@/hooks/usar-conteos-admin'
@@ -17,6 +17,7 @@ interface PropsSidebar {
   nombre: string
   fotoPerfil?: string | null
   faviconUrl?: string | null  // reservado para uso futuro
+  footer?: React.ReactNode
 }
 
 interface ItemNav {
@@ -43,7 +44,7 @@ function BadgeConteo({ count, activo }: { count: number; activo: boolean }) {
   )
 }
 
-export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, faviconUrl: _faviconUrl }: PropsSidebar) {
+export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, faviconUrl: _faviconUrl, footer }: PropsSidebar) {
   const pathname = usePathname()
   const esSuperadmin = rol === 'superadmin'
   const { pedidosPendientes, citasPendientes, solicitudesNuevas, alquileresVencidos } = usarConteosAdmin()
@@ -95,6 +96,7 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
           { href: '/admin/dashboard/impresion',     icono: <Printer className="w-4 h-4" />,       etiqueta: 'Impresión', badge: null },
           { href: '/admin/dashboard/perfil?tab=pagos', icono: <KeyRound className="w-4 h-4" />,   etiqueta: 'Pagos / PayPal', badge: null },
         ] : []),
+        { href: '/admin/dashboard/almacenamiento', icono: <HardDrive className="w-4 h-4" />, etiqueta: 'Almacenamiento', badge: null },
         { href: '/admin/dashboard/perfil',      icono: <Settings className="w-4 h-4" />,  etiqueta: 'Configuración', badge: null },
       ],
     },
@@ -131,7 +133,7 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
       </div>
 
       {/* Secciones */}
-      <nav className="px-2 pb-3 mt-1">
+      <nav className="px-2 pb-1 mt-1 flex-1 overflow-y-auto">
         {secciones.map(seccion => (
           <div key={seccion.titulo} className="mb-2">
             <p className="px-3 py-1 text-[9px] font-bold text-foreground-muted/50 uppercase tracking-widest">
@@ -162,6 +164,9 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
           </div>
         ))}
       </nav>
+
+      {/* Widget de almacenamiento (Server Component pasado como prop) */}
+      {footer}
 
     </aside>
   )

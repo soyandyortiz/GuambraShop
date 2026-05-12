@@ -44,7 +44,7 @@ yarn-error.log*
 next-env.d.ts
 
 # Supabase (schema y migraciones — solo local)
-supabase/
+/supabase/
 
 # sensitive files
 *.p12
