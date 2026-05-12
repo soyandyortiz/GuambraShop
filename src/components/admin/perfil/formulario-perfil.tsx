@@ -101,6 +101,7 @@ interface Props {
   rol: string
   metodosPago: MetodoPago[]
   empleados: EmpleadoCita[]
+  tabInicial?: string
 }
 
 // ─── Schemas ─────────────────────────────────────────────────
@@ -177,8 +178,8 @@ const HORARIO_DEFAULT: HorarioDia[] = [
 ]
 
 // ─── Componente principal ─────────────────────────────────────
-export function FormularioPerfil({ config, direcciones: dirInic, redes: redesInic, perfil, rol, metodosPago: metodosPagoInic, empleados: empleadosInic }: Props) {
-  const [tab, setTab] = useState('general')
+export function FormularioPerfil({ config, direcciones: dirInic, redes: redesInic, perfil, rol, metodosPago: metodosPagoInic, empleados: empleadosInic, tabInicial }: Props) {
+  const [tab, setTab] = useState(tabInicial ?? 'general')
 
   return (
     <div className="flex flex-col gap-4">

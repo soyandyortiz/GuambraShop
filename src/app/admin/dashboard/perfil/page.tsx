@@ -2,7 +2,8 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { FormularioPerfil } from '@/components/admin/perfil/formulario-perfil'
 import { redirect } from 'next/navigation'
 
-export default async function PáginaPerfil() {
+export default async function PáginaPerfil({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const { tab: tabInicial } = await searchParams
   const supabase = await crearClienteServidor()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -41,6 +42,7 @@ export default async function PáginaPerfil() {
       rol={perfil?.rol ?? 'admin'}
       metodosPago={(metodosPago as any) ?? []}
       empleados={(empleados as any) ?? []}
+      tabInicial={tabInicial}
     />
   )
 }

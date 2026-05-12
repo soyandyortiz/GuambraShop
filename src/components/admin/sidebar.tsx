@@ -90,9 +90,10 @@ export function Sidebar({ rol, nombre: _nombre, fotoPerfil: _fotoPerfil, favicon
         { href: '/admin/dashboard/facturacion', icono: <FileText className="w-4 h-4" />, etiqueta: 'Facturación', badge: null },
         { href: '/admin/dashboard/resenas',     icono: <Star className="w-4 h-4" />,     etiqueta: 'Reseñas',     badge: null },
         ...(esSuperadmin ? [
-          { href: '/admin/dashboard/mensajes',  icono: <MessageSquare className="w-4 h-4" />, etiqueta: 'Mensajes',  badge: null },
-          { href: '/admin/dashboard/email',     icono: <Mail className="w-4 h-4" />,          etiqueta: 'Email',     badge: null },
-          { href: '/admin/dashboard/impresion', icono: <Printer className="w-4 h-4" />,       etiqueta: 'Impresión', badge: null },
+          { href: '/admin/dashboard/mensajes',      icono: <MessageSquare className="w-4 h-4" />, etiqueta: 'Mensajes',  badge: null },
+          { href: '/admin/dashboard/email',         icono: <Mail className="w-4 h-4" />,          etiqueta: 'Email',     badge: null },
+          { href: '/admin/dashboard/impresion',     icono: <Printer className="w-4 h-4" />,       etiqueta: 'Impresión', badge: null },
+          { href: '/admin/dashboard/perfil?tab=pagos', icono: <KeyRound className="w-4 h-4" />,   etiqueta: 'Pagos / PayPal', badge: null },
         ] : []),
         { href: '/admin/dashboard/perfil',      icono: <Settings className="w-4 h-4" />,  etiqueta: 'Configuración', badge: null },
       ],
