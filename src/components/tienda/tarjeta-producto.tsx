@@ -273,7 +273,7 @@ export function TarjetaProducto({
                 ? 'bg-purple-600 text-white hover:bg-purple-700'
                 : agregando && tipo_producto !== 'servicio'
                   ? 'bg-green-600 text-white'
-                  : (agotado || (varianteSeleccionada?.stock === 0)) && tipo_producto !== 'servicio'
+                  : (agotado || (varianteSeleccionada?.stock_variante === 0)) && tipo_producto !== 'servicio'
                     ? 'bg-gray-400 text-white hover:opacity-90'
                     : 'bg-primary text-white hover:opacity-90'
             )}
@@ -293,7 +293,7 @@ export function TarjetaProducto({
                 ? '¡Listo!'
                 : tipo_producto === 'servicio'
                   ? 'Agendar'
-                  : (agotado || (varianteSeleccionada?.stock === 0))
+                  : (agotado || (varianteSeleccionada?.stock_variante === 0))
                     ? 'Sin stock'
                     : 'Agregar'}
           </button>

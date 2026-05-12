@@ -27,7 +27,7 @@ export default function PáginaFavoritos() {
     const supabase = crearClienteSupabase()
     supabase
       .from('productos')
-      .select('id, nombre, slug, precio, precio_descuento, etiquetas, tipo_producto, stock, imagenes_producto(url, orden), variantes_producto(id, nombre, precio_variante, stock, esta_activa, orden, tipo_precio)')
+      .select('id, nombre, slug, precio, precio_descuento, etiquetas, tipo_producto, stock, imagenes_producto(url, orden), variantes_producto(id, nombre, precio_variante, stock_variante, esta_activa, orden, tipo_precio)')
       .in('id', favoritos)
       .eq('esta_activo', true)
       .then(({ data }) => {

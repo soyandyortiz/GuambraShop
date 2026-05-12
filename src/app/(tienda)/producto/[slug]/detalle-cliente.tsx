@@ -33,7 +33,7 @@ interface Producto {
 interface Imagen { id: string; url: string; orden: number }
 interface Variante {
   id: string; nombre: string; descripcion: string | null; precio_variante: number | null
-  imagen_url?: string | null; stock?: number | null; orden: number
+  imagen_url?: string | null; stock_variante?: number | null; orden: number
   tipo_precio?: string | null  // 'reemplaza' | 'suma'
 }
 interface Talla { id: string; talla: string; disponible: boolean; stock?: number | null; orden: number }
@@ -250,7 +250,7 @@ export function DetalleProductoCliente({ producto, imagenes, variantes, tallas, 
     if (producto.tipo_producto === 'alquiler') return alquilerStockDisponible
     if (varianteId) {
       const v = variantesReemplaza.find(v => v.id === varianteId)
-      if (v && v.stock !== undefined) return v.stock ?? null
+      if (v && v.stock_variante !== undefined) return v.stock_variante ?? null
     }
     if (producto.requiere_tallas && talla) {
       const t = tallas.find(t => t.talla === talla)
