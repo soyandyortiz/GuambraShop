@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { HardDrive, ExternalLink, ArrowUpRight, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
 import { obtenerUsoStorage, formatearBytes, LIMITE_STORAGE_BYTES } from '@/lib/storage-uso'
 import { cn } from '@/lib/utils'
+import { BotonMigrarImagenes } from '@/components/admin/boton-migrar-imagenes'
 
 export default async function PáginaAlmacenamiento() {
   const uso = await obtenerUsoStorage()
@@ -126,6 +127,9 @@ export default async function PáginaAlmacenamiento() {
       </div>
 
       {/* Guía de consumo estimado */}
+      {/* Herramienta de optimización */}
+      <BotonMigrarImagenes />
+
       <div>
         <h2 className="text-sm font-black text-foreground uppercase tracking-widest mb-4">
           Referencia de capacidad
