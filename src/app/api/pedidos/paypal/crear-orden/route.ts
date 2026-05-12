@@ -70,7 +70,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ paypal_order_id: orden.id })
   } catch (err) {
-    console.error('[paypal/crear-orden]', err)
-    return NextResponse.json({ error: 'Error al crear la orden en PayPal.' }, { status: 500 })
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[paypal/crear-orden]', msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
