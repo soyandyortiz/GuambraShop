@@ -42,6 +42,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Formato no permitido. Usa JPG, PNG, WEBP o PDF.' }, { status: 400 })
     }
 
+    // Validar tamaño máximo 3 MB
+    if (archivo.size > 3 * 1024 * 1024) {
+      return NextResponse.json({ error: 'El archivo no debe superar 3 MB.' }, { status: 400 })
+    }
+
     const admin = crearAdmin()
 
     // 1. Buscar el pedido temporal
