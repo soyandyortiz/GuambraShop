@@ -34,6 +34,7 @@ export default async function PaginaCierresCaja() {
     .limit(10)
 
   // 3. Obtener pedidos del día actual y egresos para el cálculo en tiempo real
+  // Ecuador = UTC-5, se usa offset explícito para que Supabase compare en la zona correcta
   const [
     { data: pedidosHoy },
     { data: dataEgresos }
@@ -41,8 +42,8 @@ export default async function PaginaCierresCaja() {
     supabase
       .from('pedidos')
       .select('total, forma_pago, creado_en')
-      .gte('creado_en', `${hoy}T00:00:00`)
-      .lte('creado_en', `${hoy}T23:59:59`)
+      .gte('creado_en', `${hoy}T00:00:00-05:00`)
+      .lte('creado_en', `${hoy}T23:59:59-05:00`)
       .in('estado', ['procesando', 'completado']),
     supabase
       .from('egresos')
@@ -58,7 +59,8 @@ export default async function PaginaCierresCaja() {
     efectivo:      (pedidosHoy?.filter(p => p.forma_pago === 'efectivo').reduce((s, p) => s + Number(p.total), 0) ?? 0) - totalEgresosHoy,
     transferencia: pedidosHoy?.filter(p => p.forma_pago === 'transferencia').reduce((s, p) => s + Number(p.total), 0) ?? 0,
     tarjeta:       pedidosHoy?.filter(p => p.forma_pago === 'tarjeta').reduce((s, p) => s + Number(p.total), 0) ?? 0,
-    otros:         pedidosHoy?.filter(p => !['efectivo', 'transferencia', 'tarjeta'].includes(p.forma_pago || '')).reduce((s, p) => s + Number(p.total), 0) ?? 0,
+    paypal:        pedidosHoy?.filter(p => p.forma_pago === 'paypal').reduce((s, p) => s + Number(p.total), 0) ?? 0,
+    otros:         pedidosHoy?.filter(p => !['efectivo', 'transferencia', 'tarjeta', 'paypal'].includes(p.forma_pago || '')).reduce((s, p) => s + Number(p.total), 0) ?? 0,
     total:         (pedidosHoy?.reduce((s, p) => s + Number(p.total), 0) ?? 0) - totalEgresosHoy,
     egresos:       totalEgresosHoy
   }

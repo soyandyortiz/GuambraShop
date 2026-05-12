@@ -16,6 +16,7 @@ interface Totales {
   efectivo: number
   transferencia: number
   tarjeta: number
+  paypal: number
   otros: number
   total: number
   egresos?: number
@@ -55,9 +56,9 @@ export function PanelCierreCaja({ totalesSistema, fecha, yaCerrado, cierreExiste
       total_efectivo: totalesSistema.efectivo,
       total_transferencia: totalesSistema.transferencia,
       total_tarjeta: totalesSistema.tarjeta,
-      total_otros: totalesSistema.otros,
+      total_otros: totalesSistema.otros + totalesSistema.paypal,
       total_sistema: totalesSistema.total,
-      total_real: realNum + totalesSistema.transferencia + totalesSistema.tarjeta + totalesSistema.otros,
+      total_real: realNum + totalesSistema.transferencia + totalesSistema.tarjeta + totalesSistema.paypal + totalesSistema.otros,
       diferencia: diferencia,
       notas: notas.trim() || null,
       estado: 'cerrado'
@@ -170,6 +171,15 @@ export function PanelCierreCaja({ totalesSistema, fecha, yaCerrado, cierreExiste
           </div>
           <p className="text-xl font-black text-foreground">{formatearPrecio(totalesSistema.tarjeta)}</p>
         </div>
+        {totalesSistema.paypal > 0 && (
+          <div className="p-4 rounded-2xl bg-[#0070ba]/5 border border-[#0070ba]/20 group hover:border-[#0070ba]/40 transition-all md:col-span-3">
+            <div className="flex items-center gap-2 text-[#0070ba] mb-2">
+              <CreditCard className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">PayPal (online)</span>
+            </div>
+            <p className="text-xl font-black text-foreground">{formatearPrecio(totalesSistema.paypal)}</p>
+          </div>
+        )}
       </div>
 
       {/* Input de Realidad */}
