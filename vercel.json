@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/pedidos/limpiar-expirados",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 7 * * *"
     }
   ]
 }
