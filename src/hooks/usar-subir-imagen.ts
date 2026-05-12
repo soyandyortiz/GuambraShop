@@ -5,8 +5,8 @@ import { crearClienteSupabase } from '@/lib/supabase/cliente'
 
 const MAX_MB    = 3
 const MAX_BYTES = MAX_MB * 1024 * 1024
-const MAX_PX    = 1500  // lado máximo en píxeles
-const CALIDAD   = 0.82  // 82% calidad WebP — buen balance tamaño/nitidez
+const MAX_PX    = 1200  // lado máximo en píxeles
+const CALIDAD   = 0.72  // 72% calidad WebP — compresión profesional agresiva
 
 // Convierte cualquier imagen a WebP redimensionada usando Canvas API (sin dependencias)
 function convertirAWebP(archivo: File): Promise<File> {

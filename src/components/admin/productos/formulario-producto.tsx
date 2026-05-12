@@ -615,7 +615,7 @@ export function FormularioProducto({ categorias, producto, productosExistentes =
       </Sección>
 
       {/* Sección: Imágenes */}
-      <Sección titulo="Imágenes" descripcion="Máximo 5 imágenes · 5MB por imagen · La primera es la imagen principal">
+      <Sección titulo="Imágenes" descripcion="Máximo 5 imágenes · 3 MB por imagen · Se comprimen a WebP automáticamente · La primera es la imagen principal">
         <SubidorImagenes
           imagenes={imagenes}
           onCambio={setImagenes}

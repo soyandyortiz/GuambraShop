@@ -86,7 +86,7 @@ export function SubidorImagenes({
                   Haz clic o arrastra imágenes aquí
                 </p>
                 <p className="text-xs text-foreground-muted mt-0.5">
-                  JPG, PNG, WebP — máx. 5MB por imagen
+                  JPG, PNG, WebP — máx. 3 MB · se convierte a WebP automáticamente
                   ({imagenes.length}/{maxImagenes} subidas)
                 </p>
               </div>

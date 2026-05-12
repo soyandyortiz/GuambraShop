@@ -1246,7 +1246,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                   <Upload className="w-3.5 h-3.5 text-primary" /> Sube tu comprobante de pago
                 </p>
                 <p className="text-xs text-foreground-muted">
-                  Captura o foto del comprobante de transferencia. Formatos: JPG, PNG, WEBP o PDF (máx. 10 MB).
+                  Captura o foto del comprobante de transferencia. Formatos: JPG, PNG, WEBP o PDF (máx. 3 MB).
                 </p>
                 <label className={cn(
                   'relative flex flex-col items-center justify-center gap-2 h-28 rounded-xl border-2 border-dashed cursor-pointer transition-all',
