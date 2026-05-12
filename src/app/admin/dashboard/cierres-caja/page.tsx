@@ -16,8 +16,13 @@ export default async function PaginaCierresCaja() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/admin')
 
-  // Obtener fecha local (Ecuador)
+  // Obtener fecha local (Ecuador UTC-5, sin DST)
   const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Guayaquil' })
+
+  // Calcular límites UTC del día Ecuador: medianoche EC = 05:00Z, fin de día EC = +1día 04:59:59Z
+  const [y, mo, d] = hoy.split('-').map(Number)
+  const inicioUtc = new Date(Date.UTC(y, mo - 1, d, 5, 0, 0)).toISOString()
+  const finUtc    = new Date(Date.UTC(y, mo - 1, d + 1, 4, 59, 59)).toISOString()
 
   // 1. Verificar si ya existe un cierre para hoy
   const { data: cierreHoy } = await supabase
@@ -34,7 +39,6 @@ export default async function PaginaCierresCaja() {
     .limit(10)
 
   // 3. Obtener pedidos del día actual y egresos para el cálculo en tiempo real
-  // Ecuador = UTC-5, se usa offset explícito para que Supabase compare en la zona correcta
   const [
     { data: pedidosHoy },
     { data: dataEgresos }
@@ -42,8 +46,8 @@ export default async function PaginaCierresCaja() {
     supabase
       .from('pedidos')
       .select('total, forma_pago, creado_en')
-      .gte('creado_en', `${hoy}T00:00:00-05:00`)
-      .lte('creado_en', `${hoy}T23:59:59-05:00`)
+      .gte('creado_en', inicioUtc)
+      .lte('creado_en', finUtc)
       .in('estado', ['procesando', 'completado']),
     supabase
       .from('egresos')
