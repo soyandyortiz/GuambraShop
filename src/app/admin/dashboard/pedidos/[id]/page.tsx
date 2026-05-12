@@ -31,13 +31,14 @@ function crearAdmin() {
   )
 }
 
-export default async function PáginaPedidoDetalle({ params }: { params: { id: string } }) {
+export default async function PáginaPedidoDetalle({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await crearClienteServidor()
 
   const { data: pedido } = await supabase
     .from('pedidos')
     .select('*, datos_facturacion, comprobante_url, comprobante_eliminar_en')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (!pedido) notFound()
