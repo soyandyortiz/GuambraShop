@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Zap, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Zap, CheckCircle2, AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
 
 type Estado = 'idle' | 'contando' | 'procesando' | 'listo' | 'error'
 
@@ -14,6 +15,7 @@ interface Progreso {
 const LOTE = 10 // imágenes por request
 
 export function BotonMigrarImagenes() {
+  const router = useRouter()
   const [estado, setEstado]     = useState<Estado>('idle')
   const [progreso, setProgreso] = useState<Progreso>({ procesadas: 0, total: 0, errores: [] })
   const [mensaje, setMensaje]   = useState('')
@@ -63,11 +65,15 @@ export function BotonMigrarImagenes() {
       }))
     }
 
+    // Invalidar caché de storage y refrescar la página
+    await fetch('/api/admin/revalidar-storage', { method: 'POST' })
+    router.refresh()
+
     setEstado('listo')
     setMensaje(
       erroresAcumulados.length > 0
-        ? `Listo con ${erroresAcumulados.length} error(es). Recarga la página para ver el nuevo uso.`
-        : 'Todas las imágenes fueron optimizadas. Recarga la página para ver el ahorro.'
+        ? `Listo con ${erroresAcumulados.length} error(es). Los datos se actualizaron.`
+        : 'Todas las imágenes fueron optimizadas. Los datos se actualizaron.'
     )
   }
 

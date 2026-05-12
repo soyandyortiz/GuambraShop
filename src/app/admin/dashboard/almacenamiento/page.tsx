@@ -4,6 +4,7 @@ import { HardDrive, ExternalLink, ArrowUpRight, CheckCircle2, AlertTriangle, XCi
 import { obtenerUsoStorage, formatearBytes, LIMITE_STORAGE_BYTES } from '@/lib/storage-uso'
 import { cn } from '@/lib/utils'
 import { BotonMigrarImagenes } from '@/components/admin/boton-migrar-imagenes'
+import { BotonActualizarStorage } from '@/components/admin/boton-actualizar-storage'
 
 export default async function PáginaAlmacenamiento() {
   const uso = await obtenerUsoStorage()
@@ -172,9 +173,11 @@ export default async function PáginaAlmacenamiento() {
         </div>
       )}
 
-      {/* Nota sobre actualización de datos */}
+      {/* Actualizar datos manualmente */}
+      <BotonActualizarStorage />
+
       <p className="text-xs text-foreground-muted text-center">
-        Los datos se actualizan cada hora. Última medición aproximada.{' '}
+        Los datos se cachean 1 hora. Usa el botón de arriba para ver los números en tiempo real.{' '}
         <ExternalLink className="w-3 h-3 inline" />
       </p>
     </div>
