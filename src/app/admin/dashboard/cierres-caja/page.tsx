@@ -58,15 +58,28 @@ export default async function PaginaCierresCaja() {
 
   const totalEgresosHoy = (dataEgresos as { monto: number }[] | null)?.reduce((s, e) => s + Number(e.monto), 0) ?? 0
 
-  // Calcular totales por forma de pago
+  // Calcular totales por forma de pago (ingresos brutos, sin descontar egresos)
+  const ingEfectivo      = pedidosHoy?.filter(p => p.forma_pago === 'efectivo').reduce((s, p) => s + Number(p.total), 0) ?? 0
+  const ingTransferencia = pedidosHoy?.filter(p => p.forma_pago === 'transferencia').reduce((s, p) => s + Number(p.total), 0) ?? 0
+  const ingTarjeta       = pedidosHoy?.filter(p => p.forma_pago === 'tarjeta').reduce((s, p) => s + Number(p.total), 0) ?? 0
+  const ingPaypal        = pedidosHoy?.filter(p => p.forma_pago === 'paypal').reduce((s, p) => s + Number(p.total), 0) ?? 0
+  const ingOtros         = pedidosHoy?.filter(p => !['efectivo', 'transferencia', 'tarjeta', 'paypal'].includes(p.forma_pago || '')).reduce((s, p) => s + Number(p.total), 0) ?? 0
+  const ingTotal         = ingEfectivo + ingTransferencia + ingTarjeta + ingPaypal + ingOtros
+
   const totales = {
-    efectivo:      (pedidosHoy?.filter(p => p.forma_pago === 'efectivo').reduce((s, p) => s + Number(p.total), 0) ?? 0) - totalEgresosHoy,
-    transferencia: pedidosHoy?.filter(p => p.forma_pago === 'transferencia').reduce((s, p) => s + Number(p.total), 0) ?? 0,
-    tarjeta:       pedidosHoy?.filter(p => p.forma_pago === 'tarjeta').reduce((s, p) => s + Number(p.total), 0) ?? 0,
-    paypal:        pedidosHoy?.filter(p => p.forma_pago === 'paypal').reduce((s, p) => s + Number(p.total), 0) ?? 0,
-    otros:         pedidosHoy?.filter(p => !['efectivo', 'transferencia', 'tarjeta', 'paypal'].includes(p.forma_pago || '')).reduce((s, p) => s + Number(p.total), 0) ?? 0,
-    total:         (pedidosHoy?.reduce((s, p) => s + Number(p.total), 0) ?? 0) - totalEgresosHoy,
-    egresos:       totalEgresosHoy
+    ingresos: {
+      efectivo:      ingEfectivo,
+      transferencia: ingTransferencia,
+      tarjeta:       ingTarjeta,
+      paypal:        ingPaypal,
+      otros:         ingOtros,
+      total:         ingTotal,
+    },
+    egresos:        totalEgresosHoy,
+    efectivo_neto:  ingEfectivo - totalEgresosHoy,
+    total:          ingTotal - totalEgresosHoy,
+    // campos para guardar en DB (compatibles con schema actual)
+    efectivo:       ingEfectivo - totalEgresosHoy
   }
 
   return (
