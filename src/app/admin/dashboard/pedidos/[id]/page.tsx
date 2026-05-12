@@ -89,7 +89,7 @@ export default async function PáginaPedidoDetalle({ params }: { params: Promise
             )}
           </div>
           <p className="text-xs text-foreground-muted mt-0.5">
-            {new Date(pedido.creado_en).toLocaleString('es-EC', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            {new Date(pedido.creado_en).toLocaleString('es-EC', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Guayaquil' })}
             {' · '}
             {pedido.tipo === 'delivery' ? 'Envío a domicilio' : 'Retiro en local'}
           </p>
@@ -138,7 +138,7 @@ export default async function PáginaPedidoDetalle({ params }: { params: Promise
               <p className="text-xs text-orange-700">
                 {horasParaEliminar <= 0
                   ? 'Este comprobante está siendo eliminado por el cron job.'
-                  : `Este comprobante será eliminado automáticamente en ${horasParaEliminar} hora${horasParaEliminar !== 1 ? 's' : ''} · ${new Date(pedido.comprobante_eliminar_en).toLocaleString('es-EC', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                  : `Este comprobante será eliminado automáticamente en ${horasParaEliminar} hora${horasParaEliminar !== 1 ? 's' : ''} · ${new Date(pedido.comprobante_eliminar_en).toLocaleString('es-EC', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Guayaquil' })}`
                 }
               </p>
             </div>

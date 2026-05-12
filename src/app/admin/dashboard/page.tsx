@@ -232,7 +232,7 @@ export default async function PáginaDashboard() {
                   <div className={cn("w-2 h-2 rounded-full", p.estado === 'pendiente_pago' ? 'bg-amber-500' : 'bg-emerald-500')} />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-black text-foreground font-mono">#{p.numero_orden} · {p.nombres}</p>
-                    <p className="text-[10px] text-foreground-muted mt-0.5">{new Date(p.creado_en).toLocaleString()}</p>
+                    <p className="text-[10px] text-foreground-muted mt-0.5">{new Date(p.creado_en).toLocaleString('es-EC', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Guayaquil' })}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-black text-foreground">{formatearPrecio(p.total)}</p>
