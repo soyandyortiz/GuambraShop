@@ -79,6 +79,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
   const [pedidoConfirmado, setPedidoConfirmado] = useState<PedidoConfirmado | null>(null)
   const [archivoComprobante, setArchivoComprobante] = useState<File | null>(null)
   const [subiendoComprobante, setSubiendoComprobante] = useState(false)
+  const [iniciandoTransferencia, setIniciandoTransferencia] = useState(false)
   const [metodoPago, setMetodoPago] = useState<'transferencia' | 'paypal'>('transferencia')
 
   // Datos del cliente
@@ -197,14 +198,54 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
     toast.success('Datos de contacto copiados')
   }
 
-  // --- Confirmar pedido: valida y crea el pedido temporal ---
-  async function confirmarPedido() {
-    if (!validarFormulario()) return
-    setCreandoPedido(true)
+  // --- Construir payload común del pedido (usado por transferencia y PayPal) ---
+  function buildDatosPedido() {
+    const whatsappCompleto = codigoPais + telefono.replace(/\D/g, '')
+    return {
+      tipo:               tipoEnvio === 'tienda' ? 'local' : 'delivery',
+      nombres:            nombres.trim(),
+      email:              email.trim().toLowerCase(),
+      whatsapp:           whatsappCompleto,
+      provincia:          tipoEnvio === 'envio' ? provincia : null,
+      ciudad:             tipoEnvio === 'envio' ? ciudad : null,
+      direccion:          tipoEnvio === 'envio' ? direccion.trim() : null,
+      detalles_direccion: tipoEnvio === 'envio' && detallesDir.trim() ? detallesDir.trim() : null,
+      items: items.map(i => ({
+        producto_id:   i.producto_id,
+        nombre:        i.nombre,
+        slug:          i.slug,
+        tipo_producto: i.tipo_producto,
+        imagen_url:    i.imagen_url,
+        precio:        i.precio,
+        variante:      i.nombre_variante ?? null,
+        variante_id:   i.variante_id ?? null,
+        talla:         i.talla ?? null,
+        cantidad:      i.cantidad,
+        subtotal:      +(i.precio * (i.alquiler?.dias ?? 1) * i.cantidad).toFixed(2),
+        cita:          i.cita ?? null,
+        alquiler:      i.alquiler ?? null,
+      })),
+      simbolo_moneda:    simboloMoneda,
+      subtotal:          +subtotal.toFixed(2),
+      descuento_cupon:   +descuentoCupon.toFixed(2),
+      cupon_codigo:      cupon?.codigo ?? null,
+      costo_envio:       tipoEnvio === 'envio' && costoEnvio !== null ? +costoEnvio.toFixed(2) : 0,
+      total:             +total.toFixed(2),
+      datos_facturacion: quiereFactura ? {
+        tipo_identificacion: tipoIdFactura,
+        identificacion:      tipoIdFactura === '07' ? '9999999999999' : idFactura.replace(/\D/g,''),
+        razon_social:        tipoIdFactura === '07' ? 'CONSUMIDOR FINAL' : razonSocialFactura.trim().toUpperCase(),
+        email:               emailFactura.trim() || null,
+        direccion:           direccionFactura.trim() || null,
+        telefono:            telefonoFactura.trim() || null,
+      } : null,
+    }
+  }
 
+  // --- Validar stock y disponibilidad ---
+  async function validarDisponibilidad(): Promise<boolean> {
     const supabase = crearClienteSupabase()
 
-    // Validar stock antes de crear el pedido
     for (const item of items) {
       if (item.tipo_producto === 'servicio') continue
 
@@ -215,14 +256,9 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
           .eq('id', item.variante_id)
           .single()
         if (data && data.stock_variante !== null && data.stock_variante < item.cantidad) {
-          const stockDisp = data.stock_variante
-          toast.error(
-            stockDisp === 0
-              ? `"${item.nombre}" está agotado`
-              : `"${item.nombre}" solo tiene ${stockDisp} unidad${stockDisp !== 1 ? 'es' : ''} disponible${stockDisp !== 1 ? 's' : ''}`
-          )
-          setCreandoPedido(false)
-          return
+          const s = data.stock_variante
+          toast.error(s === 0 ? `"${item.nombre}" está agotado` : `"${item.nombre}" solo tiene ${s} unidad${s !== 1 ? 'es' : ''} disponible${s !== 1 ? 's' : ''}`)
+          return false
         }
       } else if (item.talla) {
         const { data } = await supabase
@@ -232,14 +268,9 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
           .eq('talla', item.talla)
           .single()
         if (data && data.stock !== null && data.stock < item.cantidad) {
-          const stockDisp = data.stock
-          toast.error(
-            stockDisp === 0
-              ? `"${item.nombre}" talla ${item.talla} está agotada`
-              : `"${item.nombre}" talla ${item.talla} solo tiene ${stockDisp} unidad${stockDisp !== 1 ? 'es' : ''}`
-          )
-          setCreandoPedido(false)
-          return
+          const s = data.stock
+          toast.error(s === 0 ? `"${item.nombre}" talla ${item.talla} está agotada` : `"${item.nombre}" talla ${item.talla} solo tiene ${s} unidad${s !== 1 ? 'es' : ''}`)
+          return false
         }
       } else {
         const { data } = await supabase
@@ -248,19 +279,13 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
           .eq('id', item.producto_id)
           .single()
         if (data && data.stock !== null && data.stock < item.cantidad) {
-          const stockDisp = data.stock
-          toast.error(
-            stockDisp === 0
-              ? `"${item.nombre}" está agotado`
-              : `"${item.nombre}" solo tiene ${stockDisp} unidad${stockDisp !== 1 ? 'es' : ''} disponible${stockDisp !== 1 ? 's' : ''}`
-          )
-          setCreandoPedido(false)
-          return
+          const s = data.stock
+          toast.error(s === 0 ? `"${item.nombre}" está agotado` : `"${item.nombre}" solo tiene ${s} unidad${s !== 1 ? 'es' : ''} disponible${s !== 1 ? 's' : ''}`)
+          return false
         }
       }
     }
 
-    // Verificar disponibilidad de citas antes de crear el pedido
     for (const item of items.filter(i => i.tipo_producto === 'servicio' && i.cita)) {
       const empleadoId = item.cita?.empleado_id
       let citaOcupada = false
@@ -298,20 +323,13 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
       }
 
       if (citaOcupada) {
-        const fechaDisplay = new Date(item.cita!.fecha + 'T00:00:00').toLocaleDateString('es-EC', {
-          weekday: 'long', day: 'numeric', month: 'long',
-        })
+        const fechaDisplay = new Date(item.cita!.fecha + 'T00:00:00').toLocaleDateString('es-EC', { weekday: 'long', day: 'numeric', month: 'long' })
         const horaDisplay = item.cita!.hora_inicio.slice(0, 5)
-        toast.error(
-          `El horario del ${fechaDisplay} a las ${horaDisplay} ya fue reservado para "${item.nombre}". Por favor elige otro horario.`,
-          { duration: 6000 }
-        )
-        setCreandoPedido(false)
-        return
+        toast.error(`El horario del ${fechaDisplay} a las ${horaDisplay} ya fue reservado para "${item.nombre}". Por favor elige otro horario.`, { duration: 6000 })
+        return false
       }
     }
 
-    // Verificar disponibilidad de alquileres antes de crear el pedido
     for (const item of items.filter(i => i.tipo_producto === 'alquiler' && i.alquiler)) {
       const al = item.alquiler!
       const { data: dispData } = await supabase.rpc('verificar_disponibilidad_alquiler', {
@@ -328,68 +346,39 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
             : `"${item.nombre}" solo tiene ${disponible} unidad${disponible !== 1 ? 'es' : ''} disponible${disponible !== 1 ? 's' : ''} para esas fechas.`,
           { duration: 6000 }
         )
-        setCreandoPedido(false)
-        return
+        return false
       }
     }
 
-    const whatsappCompleto = codigoPais + telefono.replace(/\D/g, '')
+    return true
+  }
 
+  // --- Confirmar pedido: valida y avanza al paso de pago (sin crear nada aún) ---
+  async function confirmarPedido() {
+    if (!validarFormulario()) return
+    setCreandoPedido(true)
+    const ok = await validarDisponibilidad()
+    setCreandoPedido(false)
+    if (!ok) return
+    setPaso('pago')
+  }
+
+  // --- Iniciar pago por transferencia: crea el pedido temporal con timer ---
+  async function iniciarTransferencia() {
+    setIniciandoTransferencia(true)
     const res = await fetch('/api/pedidos/crear-temporal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tipo: tipoEnvio === 'tienda' ? 'local' : 'delivery',
-        nombres: nombres.trim(),
-        email: email.trim().toLowerCase(),
-        whatsapp: whatsappCompleto,
-        provincia: tipoEnvio === 'envio' ? provincia : null,
-        ciudad: tipoEnvio === 'envio' ? ciudad : null,
-        direccion: tipoEnvio === 'envio' ? direccion.trim() : null,
-        detalles_direccion: tipoEnvio === 'envio' && detallesDir.trim() ? detallesDir.trim() : null,
-        items: items.map(i => ({
-          producto_id:   i.producto_id,
-          nombre:        i.nombre,
-          slug:          i.slug,
-          tipo_producto: i.tipo_producto,
-          imagen_url:    i.imagen_url,
-          precio:        i.precio,
-          variante:      i.nombre_variante ?? null,
-          variante_id:   i.variante_id ?? null,
-          talla:         i.talla ?? null,
-          cantidad:      i.cantidad,
-          subtotal:      +(i.precio * (i.alquiler?.dias ?? 1) * i.cantidad).toFixed(2),
-          cita:          i.cita ?? null,
-          alquiler:      i.alquiler ?? null,
-        })),
-        simbolo_moneda:   simboloMoneda,
-        subtotal:         +subtotal.toFixed(2),
-        descuento_cupon:  +descuentoCupon.toFixed(2),
-        cupon_codigo:     cupon?.codigo ?? null,
-        costo_envio:      tipoEnvio === 'envio' && costoEnvio !== null ? +costoEnvio.toFixed(2) : 0,
-        total:            +total.toFixed(2),
-        datos_facturacion: quiereFactura ? {
-          tipo_identificacion: tipoIdFactura,
-          identificacion:      tipoIdFactura === '07' ? '9999999999999' : idFactura.replace(/\D/g,''),
-          razon_social:        tipoIdFactura === '07' ? 'CONSUMIDOR FINAL' : razonSocialFactura.trim().toUpperCase(),
-          email:               emailFactura.trim() || null,
-          direccion:           direccionFactura.trim() || null,
-          telefono:            telefonoFactura.trim() || null,
-        } : null,
-      }),
+      body: JSON.stringify(buildDatosPedido()),
     })
-
-    setCreandoPedido(false)
-
+    setIniciandoTransferencia(false)
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
       toast.error(err.error || 'Error al preparar el pedido. Intenta nuevamente.')
       return
     }
-
     const data = await res.json()
     setPedidoTemporal({ numero_temporal: data.numero_temporal, expira_en: data.expira_en })
-    setPaso('pago')
   }
 
   // --- Subir comprobante y confirmar pedido ---
@@ -520,9 +509,13 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
               Vaciar
             </button>
           )}
-          {paso !== 'carrito' && paso !== 'pago' && (
+          {paso !== 'carrito' && (paso !== 'pago' || !pedidoTemporal) && (
             <button
-              onClick={() => setPaso(paso === 'datos' ? (soloServicios ? 'carrito' : 'envio') : 'carrito')}
+              onClick={() => {
+                if (paso === 'datos') setPaso(soloServicios ? 'carrito' : 'envio')
+                else if (paso === 'pago') setPaso('datos')
+                else setPaso('carrito')
+              }}
               className="text-xs text-primary hover:underline">
               ← Volver
             </button>
@@ -1141,31 +1134,11 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
       )}
 
       {/* ═══════════════════════════════════════════════════════ */}
-      {/* PASO 4: Subir comprobante de pago                       */}
+      {/* PASO 4: Pago                                            */}
       {/* ═══════════════════════════════════════════════════════ */}
-      {paso === 'pago' && pedidoTemporal && (
+      {paso === 'pago' && (
         <div className="flex flex-col gap-4">
-          <h2 className="text-base font-bold text-foreground">Completa tu pago</h2>
-
-          {/* Temporizador */}
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
-              <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">Tiempo para subir tu comprobante</p>
-            </div>
-            <ContadorRegresivo
-              fechaFin={pedidoTemporal.expira_en}
-              className="text-2xl font-black text-amber-700 tabular-nums"
-              onExpirado={() => {
-                toast.error('El tiempo expiró. Tu reserva fue liberada. Inicia el proceso nuevamente.', { duration: 8000 })
-                setPedidoTemporal(null)
-                setPaso('carrito')
-              }}
-            />
-            <p className="text-xs text-amber-700 mt-1.5">
-              Tu reserva se liberará automáticamente si no subes el comprobante a tiempo.
-            </p>
-          </div>
+          <h2 className="text-base font-bold text-foreground">Elige tu método de pago</h2>
 
           {/* Total a pagar */}
           <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center justify-between">
@@ -1173,14 +1146,16 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
               <p className="text-[10px] text-foreground-muted uppercase tracking-wide font-semibold mb-0.5">Total a pagar</p>
               <p className="text-2xl font-black text-primary">{formatearPrecio(total, simboloMoneda)}</p>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] text-foreground-muted uppercase tracking-wide">Pedido</p>
-              <p className="text-sm font-bold text-foreground font-mono">{pedidoTemporal.numero_temporal}</p>
-            </div>
+            {pedidoTemporal && (
+              <div className="text-right">
+                <p className="text-[10px] text-foreground-muted uppercase tracking-wide">Pedido</p>
+                <p className="text-sm font-bold text-foreground font-mono">{pedidoTemporal.numero_temporal}</p>
+              </div>
+            )}
           </div>
 
-          {/* Selector de método de pago */}
-          {paypalActivo && paypalClientId && (
+          {/* Selector de método de pago (solo si no hay temporal activo) */}
+          {!pedidoTemporal && paypalActivo && paypalClientId && (
             <div className="flex rounded-2xl border border-border overflow-hidden">
               <button
                 onClick={() => setMetodoPago('transferencia')}
@@ -1208,8 +1183,8 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
             </div>
           )}
 
-          {/* ── OPCIÓN A: Transferencia bancaria ── */}
-          {metodoPago === 'transferencia' && (
+          {/* ── TRANSFERENCIA: sin temporal → mostrar cuentas y botón iniciar ── */}
+          {metodoPago === 'transferencia' && !pedidoTemporal && (
             <>
               {metodosPago.length > 0 && (
                 <div className="bg-card border border-card-border rounded-2xl overflow-hidden">
@@ -1224,35 +1199,58 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                           <p className="text-xs font-bold text-foreground">{mp.banco}</p>
                           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">{mp.tipo_cuenta}</span>
                         </div>
-                        <p className="text-xs text-foreground-muted">
-                          Cuenta: <span className="font-mono font-semibold text-foreground">{mp.numero_cuenta}</span>
-                        </p>
-                        <p className="text-xs text-foreground-muted">
-                          Titular: <span className="font-semibold text-foreground">{mp.nombre_titular}</span>
-                        </p>
-                        <p className="text-xs text-foreground-muted">
-                          Cédula: <span className="font-mono text-foreground">{mp.cedula_titular}</span>
-                        </p>
+                        <p className="text-xs text-foreground-muted">Cuenta: <span className="font-mono font-semibold text-foreground">{mp.numero_cuenta}</span></p>
+                        <p className="text-xs text-foreground-muted">Titular: <span className="font-semibold text-foreground">{mp.nombre_titular}</span></p>
+                        <p className="text-xs text-foreground-muted">Cédula: <span className="font-mono text-foreground">{mp.cedula_titular}</span></p>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
+              <button
+                onClick={iniciarTransferencia}
+                disabled={iniciandoTransferencia}
+                className="w-full h-13 rounded-2xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm shadow-primary/30 py-4">
+                {iniciandoTransferencia
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Preparando pedido…</>
+                  : <><Landmark className="w-4 h-4" /> Ya realicé la transferencia</>
+                }
+              </button>
+            </>
+          )}
 
-              {/* Subir comprobante */}
+          {/* ── TRANSFERENCIA: con temporal → timer + comprobante ── */}
+          {metodoPago === 'transferencia' && pedidoTemporal && (
+            <>
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                  <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">Tiempo para subir tu comprobante</p>
+                </div>
+                <ContadorRegresivo
+                  fechaFin={pedidoTemporal.expira_en}
+                  className="text-2xl font-black text-amber-700 tabular-nums"
+                  onExpirado={() => {
+                    toast.error('El tiempo expiró. Tu reserva fue liberada. Inicia el proceso nuevamente.', { duration: 8000 })
+                    setPedidoTemporal(null)
+                    setPaso('carrito')
+                  }}
+                />
+                <p className="text-xs text-amber-700 mt-1.5">
+                  Tu reserva se liberará automáticamente si no subes el comprobante a tiempo.
+                </p>
+              </div>
+
               <div className="bg-card border border-card-border rounded-2xl p-4 flex flex-col gap-3">
                 <p className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wide">
                   <Upload className="w-3.5 h-3.5 text-primary" /> Sube tu comprobante de pago
                 </p>
                 <p className="text-xs text-foreground-muted">
-                  Captura o foto del comprobante de transferencia. Formatos permitidos: JPG, PNG, WEBP o PDF (máx. 10 MB).
+                  Captura o foto del comprobante de transferencia. Formatos: JPG, PNG, WEBP o PDF (máx. 10 MB).
                 </p>
-
                 <label className={cn(
                   'relative flex flex-col items-center justify-center gap-2 h-28 rounded-xl border-2 border-dashed cursor-pointer transition-all',
-                  archivoComprobante
-                    ? 'border-success bg-success/5'
-                    : 'border-border hover:border-primary/60 bg-background-subtle'
+                  archivoComprobante ? 'border-success bg-success/5' : 'border-border hover:border-primary/60 bg-background-subtle'
                 )}>
                   <input
                     type="file"
@@ -1260,10 +1258,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     onChange={e => {
                       const file = e.target.files?.[0] ?? null
-                      if (file && file.size > 10 * 1024 * 1024) {
-                        toast.error('El archivo es demasiado grande. Máximo 10 MB.')
-                        return
-                      }
+                      if (file && file.size > 10 * 1024 * 1024) { toast.error('El archivo es demasiado grande. Máximo 10 MB.'); return }
                       setArchivoComprobante(file)
                     }}
                   />
@@ -1276,9 +1271,7 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                   ) : (
                     <>
                       <Upload className="w-7 h-7 text-foreground-muted/40" />
-                      <p className="text-xs text-foreground-muted text-center">
-                        Toca aquí para seleccionar<br />el comprobante
-                      </p>
+                      <p className="text-xs text-foreground-muted text-center">Toca aquí para seleccionar<br />el comprobante</p>
                     </>
                   )}
                 </label>
@@ -1296,19 +1289,20 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
             </>
           )}
 
-          {/* ── OPCIÓN B: PayPal ── */}
-          {metodoPago === 'paypal' && paypalActivo && paypalClientId && pedidoTemporal && (
+          {/* ── PAYPAL: directo, sin temporal ── */}
+          {metodoPago === 'paypal' && paypalActivo && paypalClientId && (
             <div className="bg-card border border-card-border rounded-2xl p-4 flex flex-col gap-3">
               <p className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wide">
                 Pagar con PayPal
               </p>
               <p className="text-xs text-foreground-muted">
-                Al hacer clic en el botón serás redirigido a PayPal para completar tu pago de forma segura.
+                Al hacer clic en el botón serás redirigido a PayPal para completar tu pago de forma segura. Tu pedido se confirmará automáticamente al aprobar.
               </p>
               <PayPalBotones
                 clientId={paypalClientId}
                 currency={obtenerInfoPais(pais).moneda ?? 'USD'}
-                numeroTemporal={pedidoTemporal.numero_temporal}
+                total={total}
+                datosPedido={buildDatosPedido()}
                 onSuccess={handlePayPalSuccess}
                 onError={msg => toast.error(msg, { duration: 6000 })}
               />

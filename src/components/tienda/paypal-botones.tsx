@@ -20,12 +20,14 @@ declare global {
 interface Props {
   clientId: string
   currency: string
-  numeroTemporal: string
+  total: number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  datosPedido: Record<string, any>
   onSuccess: (data: { numero_orden: string }) => void
   onError: (msg: string) => void
 }
 
-export function PayPalBotones({ clientId, currency, numeroTemporal, onSuccess, onError }: Props) {
+export function PayPalBotones({ clientId, currency, total, datosPedido, onSuccess, onError }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [cargando, setCargando] = useState(true)
   const [errorScript, setErrorScript] = useState<string | null>(null)
@@ -33,7 +35,6 @@ export function PayPalBotones({ clientId, currency, numeroTemporal, onSuccess, o
   useEffect(() => {
     if (!clientId || !containerRef.current) return
 
-    // Limpiar script anterior y container
     const anterior = document.getElementById('paypal-sdk-script')
     if (anterior) anterior.remove()
     if (containerRef.current) containerRef.current.innerHTML = ''
@@ -51,7 +52,6 @@ export function PayPalBotones({ clientId, currency, numeroTemporal, onSuccess, o
         setCargando(false)
         return
       }
-
       setCargando(false)
 
       window.paypal.Buttons({
@@ -59,7 +59,7 @@ export function PayPalBotones({ clientId, currency, numeroTemporal, onSuccess, o
           const res = await fetch('/api/pedidos/paypal/crear-orden', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ numero_temporal: numeroTemporal }),
+            body: JSON.stringify({ total }),
           })
           const data = await res.json()
           if (!res.ok) throw new Error(data.error ?? 'Error al crear orden PayPal')
@@ -71,7 +71,7 @@ export function PayPalBotones({ clientId, currency, numeroTemporal, onSuccess, o
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               paypal_order_id: data.orderID,
-              numero_temporal: numeroTemporal,
+              pedido: datosPedido,
             }),
           })
           const resData = await res.json()
@@ -84,7 +84,7 @@ export function PayPalBotones({ clientId, currency, numeroTemporal, onSuccess, o
         onError: () => {
           onError('Ocurrió un error en el pago con PayPal. Intenta nuevamente.')
         },
-        onCancel: () => { /* usuario canceló, no hacer nada */ },
+        onCancel: () => { /* usuario canceló */ },
         style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'pay' },
       }).render(containerRef.current)
     }
@@ -95,7 +95,7 @@ export function PayPalBotones({ clientId, currency, numeroTemporal, onSuccess, o
     }
 
     document.body.appendChild(script)
-  }, [clientId, currency, numeroTemporal]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clientId, currency, total]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="w-full">

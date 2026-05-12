@@ -1,12 +1,11 @@
 /**
  * POST /api/pedidos/paypal/capturar
  *
- * Recibe { paypal_order_id, numero_temporal }.
+ * Recibe { paypal_order_id, pedido: { ...datos completos del pedido } }.
  * 1. Captura el pago en PayPal
- * 2. Crea el pedido real con forma_pago='paypal'
+ * 2. Crea el pedido real con forma_pago='paypal' y estado='procesando'
  * 3. Llama a confirmar_pedido() → descuenta stock + confirma citas
- * 4. Elimina el pedido temporal
- * 5. Notifica por email y Telegram (fire-and-forget)
+ * 4. Notifica por email y Telegram (fire-and-forget)
  * Devuelve { ok, numero_orden }.
  */
 
@@ -25,30 +24,14 @@ function crearAdmin() {
 
 export async function POST(req: Request) {
   try {
-    const { paypal_order_id, numero_temporal } = await req.json()
+    const { paypal_order_id, pedido: pedidoData } = await req.json()
 
-    if (!paypal_order_id || !numero_temporal) {
+    if (!paypal_order_id || !pedidoData) {
       return NextResponse.json({ error: 'Faltan datos' }, { status: 400 })
     }
 
     const admin = crearAdmin()
 
-    // 1. Buscar el pedido temporal
-    const { data: temporal, error: errTemp } = await admin
-      .from('pedidos_temporales')
-      .select('*')
-      .eq('numero_temporal', numero_temporal)
-      .single()
-
-    if (errTemp || !temporal) {
-      return NextResponse.json({ error: 'Pedido temporal no encontrado o expirado.' }, { status: 404 })
-    }
-
-    if (new Date(temporal.expira_en) < new Date()) {
-      return NextResponse.json({ error: 'El tiempo límite expiró. Inicia el proceso nuevamente.' }, { status: 410 })
-    }
-
-    // 2. Obtener configuración PayPal
     const { data: cfg } = await admin
       .from('configuracion_tienda')
       .select('paypal_activo, paypal_client_id, paypal_secret, paypal_modo, nombre_tienda, whatsapp')
@@ -58,34 +41,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'PayPal no está configurado.' }, { status: 422 })
     }
 
-    // 3. Capturar el pago en PayPal
-    const token = await obtenerToken(cfg.paypal_client_id, cfg.paypal_secret, cfg.paypal_modo)
+    // 1. Capturar el pago en PayPal
+    const token   = await obtenerToken(cfg.paypal_client_id, cfg.paypal_secret, cfg.paypal_modo)
     const captura = await capturarOrdenPayPal({ token, modo: cfg.paypal_modo, paypalOrderId: paypal_order_id })
 
     if (captura.status !== 'COMPLETED') {
       return NextResponse.json({ error: `PayPal devolvió estado inesperado: ${captura.status}` }, { status: 422 })
     }
 
-    // 4. Crear el pedido real
+    // 2. Crear el pedido real
     const { data: pedido, error: errPedido } = await admin
       .from('pedidos')
       .insert({
-        tipo:               temporal.tipo,
-        nombres:            temporal.nombres,
-        email:              temporal.email,
-        whatsapp:           temporal.whatsapp,
-        provincia:          temporal.provincia,
-        ciudad:             temporal.ciudad,
-        direccion:          temporal.direccion,
-        detalles_direccion: temporal.detalles_direccion,
-        items:              temporal.items,
-        simbolo_moneda:     temporal.simbolo_moneda,
-        subtotal:           temporal.subtotal,
-        descuento_cupon:    temporal.descuento_cupon,
-        cupon_codigo:       temporal.cupon_codigo,
-        costo_envio:        temporal.costo_envio,
-        total:              temporal.total,
-        datos_facturacion:  temporal.datos_facturacion,
+        tipo:               pedidoData.tipo,
+        nombres:            pedidoData.nombres,
+        email:              pedidoData.email,
+        whatsapp:           pedidoData.whatsapp,
+        provincia:          pedidoData.provincia,
+        ciudad:             pedidoData.ciudad,
+        direccion:          pedidoData.direccion,
+        detalles_direccion: pedidoData.detalles_direccion,
+        items:              pedidoData.items,
+        simbolo_moneda:     pedidoData.simbolo_moneda,
+        subtotal:           pedidoData.subtotal,
+        descuento_cupon:    pedidoData.descuento_cupon,
+        cupon_codigo:       pedidoData.cupon_codigo,
+        costo_envio:        pedidoData.costo_envio,
+        total:              pedidoData.total,
+        datos_facturacion:  pedidoData.datos_facturacion ?? null,
         estado:             'pendiente_pago',
         forma_pago:         'paypal',
         paypal_order_id:    paypal_order_id,
@@ -98,42 +81,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Error al registrar el pedido.' }, { status: 500 })
     }
 
-    // 5. Vincular citas y alquileres
-    const citasIds: string[]      = temporal.citas_ids ?? []
-    const alquileresIds: string[] = temporal.alquileres_ids ?? []
-
-    if (citasIds.length > 0) {
-      await admin.from('citas').update({ pedido_id: pedido.id }).in('id', citasIds)
-    }
-    if (alquileresIds.length > 0) {
-      await admin.from('alquileres').update({ pedido_id: pedido.id }).in('id', alquileresIds)
-    }
-
-    // 6. Confirmar pedido → descuenta stock + confirma citas + estado='procesando'
+    // 3. Confirmar pedido → descuenta stock + confirma citas + estado='procesando'
     await admin.rpc('confirmar_pedido', { p_pedido_id: pedido.id })
 
-    // 7. Eliminar el pedido temporal
-    await admin.from('pedidos_temporales').delete().eq('id', temporal.id)
-
-    // 8. Incrementar uso del cupón (fire-and-forget)
-    if (temporal.cupon_codigo) {
+    // 4. Incrementar uso del cupón (fire-and-forget)
+    if (pedidoData.cupon_codigo) {
       admin.from('cupones')
         .select('usos_actuales')
-        .eq('codigo', temporal.cupon_codigo)
+        .eq('codigo', pedidoData.cupon_codigo)
         .single()
-        .then(({ data }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .then(({ data }: { data: any }) => {
           if (data) {
             admin.from('cupones')
               .update({ usos_actuales: data.usos_actuales + 1 })
-              .eq('codigo', temporal.cupon_codigo)
+              .eq('codigo', pedidoData.cupon_codigo)
               .then(() => {})
           }
         })
     }
 
-    // 9. Notificaciones (fire-and-forget)
-    notificarEmailPayPal(admin, pedido.id, pedido.numero_orden, temporal, cfg).catch(() => {})
-    notificarTelegramPayPal(pedido.numero_orden, temporal, captura.captureId).catch(() => {})
+    // 5. Notificaciones (fire-and-forget)
+    notificarEmailPayPal(admin, pedido.id, pedido.numero_orden, pedidoData, cfg).catch(() => {})
+    notificarTelegramPayPal(pedido.numero_orden, pedidoData, captura.captureId).catch(() => {})
 
     return NextResponse.json({ ok: true, numero_orden: pedido.numero_orden })
   } catch (err) {
@@ -144,23 +114,27 @@ export async function POST(req: Request) {
 
 // ─── Email al cliente ─────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function notificarEmailPayPal(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: any,
   pedidoId: string,
   numeroOrden: string,
-  temporal: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  pedidoData: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   cfgTienda: any,
 ) {
   void pedidoId
   const { data: cfgEmail } = await admin.from('configuracion_email').select('*').single()
-  if (!(cfgEmail as any)?.activo || !temporal.email) return
+  if (!(cfgEmail as ConfiguracionEmail)?.activo || !pedidoData.email) return
 
-  const sim          = temporal.simbolo_moneda ?? '$'
+  const sim          = pedidoData.simbolo_moneda ?? '$'
   const nombreTienda = cfgTienda.nombre_tienda ?? 'Nuestra tienda'
   const whatsapp     = cfgTienda.whatsapp ?? ''
-  const items        = (temporal.items ?? []) as any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const items        = (pedidoData.items ?? []) as any[]
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const filasItems = items.map((i: any) => {
     const detalle = [i.variante, i.talla].filter(Boolean).join(' · ')
     return `
@@ -181,7 +155,7 @@ async function notificarEmailPayPal(
     <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111827">
       <h2 style="margin:0 0 4px;font-size:22px">¡Pago confirmado!</h2>
       <p style="margin:0 0 24px;color:#6b7280;font-size:14px">
-        Hola ${temporal.nombres}, tu pago con PayPal fue procesado exitosamente.
+        Hola ${pedidoData.nombres}, tu pago con PayPal fue procesado exitosamente.
       </p>
       <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:14px 20px;margin-bottom:24px">
         <p style="margin:0;font-size:12px;color:#15803d;font-weight:600;text-transform:uppercase;letter-spacing:.5px">N° de pedido</p>
@@ -200,12 +174,12 @@ async function notificarEmailPayPal(
         <tbody>${filasItems}</tbody>
       </table>
       <table style="width:100%;font-size:13px;color:#374151;border-collapse:collapse;margin-bottom:24px">
-        <tr><td style="padding:4px 0;color:#6b7280">Subtotal</td><td style="padding:4px 0;text-align:right">${sim}${Number(temporal.subtotal).toFixed(2)}</td></tr>
-        ${temporal.descuento_cupon > 0 ? `<tr><td style="padding:4px 0;color:#6b7280">Descuento</td><td style="padding:4px 0;color:#16a34a;text-align:right">-${sim}${Number(temporal.descuento_cupon).toFixed(2)}</td></tr>` : ''}
-        ${temporal.costo_envio > 0 ? `<tr><td style="padding:4px 0;color:#6b7280">Envío</td><td style="padding:4px 0;text-align:right">${sim}${Number(temporal.costo_envio).toFixed(2)}</td></tr>` : ''}
+        <tr><td style="padding:4px 0;color:#6b7280">Subtotal</td><td style="padding:4px 0;text-align:right">${sim}${Number(pedidoData.subtotal).toFixed(2)}</td></tr>
+        ${pedidoData.descuento_cupon > 0 ? `<tr><td style="padding:4px 0;color:#6b7280">Descuento</td><td style="padding:4px 0;color:#16a34a;text-align:right">-${sim}${Number(pedidoData.descuento_cupon).toFixed(2)}</td></tr>` : ''}
+        ${pedidoData.costo_envio > 0 ? `<tr><td style="padding:4px 0;color:#6b7280">Envío</td><td style="padding:4px 0;text-align:right">${sim}${Number(pedidoData.costo_envio).toFixed(2)}</td></tr>` : ''}
         <tr>
           <td style="padding:10px 0 4px;font-weight:700;font-size:16px;border-top:2px solid #e5e7eb">Total pagado</td>
-          <td style="padding:10px 0 4px;font-weight:700;font-size:16px;text-align:right;border-top:2px solid #e5e7eb">${sim}${Number(temporal.total).toFixed(2)}</td>
+          <td style="padding:10px 0 4px;font-weight:700;font-size:16px;text-align:right;border-top:2px solid #e5e7eb">${sim}${Number(pedidoData.total).toFixed(2)}</td>
         </tr>
       </table>
       ${contactoWA}
@@ -216,7 +190,7 @@ async function notificarEmailPayPal(
 
   await enviarEmail({
     config:  cfgEmail as ConfiguracionEmail,
-    to:      temporal.email,
+    to:      pedidoData.email,
     subject: `Pago confirmado — Pedido #${numeroOrden} · ${nombreTienda}`,
     html,
   })
@@ -224,14 +198,17 @@ async function notificarEmailPayPal(
 
 // ─── Telegram al admin ────────────────────────────────────────────────────────
 
-async function notificarTelegramPayPal(numeroOrden: string, temporal: any, captureId: string) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function notificarTelegramPayPal(numeroOrden: string, pedidoData: any, captureId: string) {
   const token  = process.env.TELEGRAM_BOT_TOKEN
   const chatId = process.env.TELEGRAM_CHAT_ID
   if (!token || !chatId) return
 
-  const sim   = temporal.simbolo_moneda ?? '$'
-  const items = (temporal.items ?? []) as any[]
+  const sim   = pedidoData.simbolo_moneda ?? '$'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const items = (pedidoData.items ?? []) as any[]
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const itemsLineas = items.map((i: any) =>
     `  • ${i.nombre}${i.variante ? ` (${i.variante})` : ''}${i.talla ? ` T:${i.talla}` : ''} x${i.cantidad} — ${sim}${Number(i.subtotal).toFixed(2)}`
   ).join('\n')
@@ -239,16 +216,16 @@ async function notificarTelegramPayPal(numeroOrden: string, temporal: any, captu
   const texto = [
     `💳 <b>Pago PayPal confirmado — #${numeroOrden}</b>`,
     ``,
-    `👤 <b>${temporal.nombres}</b>`,
-    `📞 ${temporal.whatsapp}`,
-    temporal.tipo === 'delivery'
-      ? `🚚 Delivery → ${[temporal.ciudad, temporal.provincia].filter(Boolean).join(', ') || '—'}`
+    `👤 <b>${pedidoData.nombres}</b>`,
+    `📞 ${pedidoData.whatsapp}`,
+    pedidoData.tipo === 'delivery'
+      ? `🚚 Delivery → ${[pedidoData.ciudad, pedidoData.provincia].filter(Boolean).join(', ') || '—'}`
       : `🏪 Retiro en tienda`,
     ``,
     `<b>Productos:</b>`,
     itemsLineas,
     ``,
-    `💰 <b>Total: ${sim}${Number(temporal.total).toFixed(2)}</b>`,
+    `💰 <b>Total: ${sim}${Number(pedidoData.total).toFixed(2)}</b>`,
     `🔖 Capture ID: <code>${captureId}</code>`,
     ``,
     `✅ <b>Pedido en procesamiento automático.</b>`,

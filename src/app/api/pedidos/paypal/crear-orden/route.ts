@@ -1,7 +1,8 @@
 /**
  * POST /api/pedidos/paypal/crear-orden
  *
- * Recibe { numero_temporal } y crea una orden en PayPal.
+ * Recibe { total } y crea una orden en PayPal.
+ * El pedido real se crea en /capturar tras la aprobación del usuario.
  * Devuelve { paypal_order_id }.
  */
 
@@ -23,30 +24,14 @@ function monedaDesde(pais: string): string {
 
 export async function POST(req: Request) {
   try {
-    const { numero_temporal } = await req.json()
+    const { total } = await req.json()
 
-    if (!numero_temporal) {
-      return NextResponse.json({ error: 'Falta numero_temporal' }, { status: 400 })
+    if (!total || Number(total) <= 0) {
+      return NextResponse.json({ error: 'Total de pedido inválido.' }, { status: 400 })
     }
 
     const admin = crearAdmin()
 
-    // 1. Buscar el pedido temporal
-    const { data: temporal, error: errTemp } = await admin
-      .from('pedidos_temporales')
-      .select('id, total, expira_en')
-      .eq('numero_temporal', numero_temporal)
-      .single()
-
-    if (errTemp || !temporal) {
-      return NextResponse.json({ error: 'Pedido temporal no encontrado o expirado.' }, { status: 404 })
-    }
-
-    if (new Date(temporal.expira_en) < new Date()) {
-      return NextResponse.json({ error: 'El tiempo límite expiró. Inicia el proceso nuevamente.' }, { status: 410 })
-    }
-
-    // 2. Obtener configuración PayPal
     const { data: cfg } = await admin
       .from('configuracion_tienda')
       .select('paypal_activo, paypal_client_id, paypal_secret, paypal_modo, pais')
@@ -56,16 +41,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'PayPal no está configurado en esta tienda.' }, { status: 422 })
     }
 
-    const moneda = monedaDesde(cfg.pais ?? 'EC')
+    const moneda     = monedaDesde(cfg.pais ?? 'EC')
+    const referencia = `PP-${Date.now()}`
 
-    // 3. Crear orden en PayPal
     const token = await obtenerToken(cfg.paypal_client_id, cfg.paypal_secret, cfg.paypal_modo)
     const orden = await crearOrdenPayPal({
       token,
-      modo:      cfg.paypal_modo,
-      total:     Number(temporal.total),
+      modo:       cfg.paypal_modo,
+      total:      Number(total),
       moneda,
-      referencia: numero_temporal,
+      referencia,
     })
 
     return NextResponse.json({ paypal_order_id: orden.id })
