@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { CarritoCliente } from './carrito-cliente'
 
