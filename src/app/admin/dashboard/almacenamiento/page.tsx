@@ -107,14 +107,15 @@ export default async function PáginaAlmacenamiento() {
                     <div className="text-right">
                       <p className="text-sm font-black text-foreground">{formatearBytes(bucket.bytes)}</p>
                       <p className="text-xs text-foreground-muted">
-                        {bucket.porcentaje.toFixed(1)}% del total
+                        {bucket.porcentaje.toFixed(1)}% del espacio usado
                       </p>
                     </div>
                   </div>
+                  {/* Barra proporcional al espacio del límite total, no solo del usado */}
                   <div className="h-2 rounded-full bg-background-subtle overflow-hidden">
                     <div
                       className="h-full rounded-full bg-primary/70"
-                      style={{ width: `${bucket.porcentaje}%` }}
+                      style={{ width: `${(bucket.bytes / LIMITE_STORAGE_BYTES) * 100}%` }}
                     />
                   </div>
                 </div>
