@@ -43,14 +43,18 @@ export default async function PáginaPedidoDetalle({ params }: { params: Promise
 
   if (!pedido) notFound()
 
-  // Generar URL firmada del comprobante (1 hora de validez)
+  // Generar URLs firmadas del comprobante (1 hora de validez)
   let comprobanteSignedUrl: string | null = null
+  let comprobanteDownloadUrl: string | null = null
   if (pedido.comprobante_url) {
     const admin = crearAdmin()
-    const { data: signed } = await admin.storage
-      .from('comprobantes')
-      .createSignedUrl(pedido.comprobante_url, 3600)
+    const nombreArchivo = pedido.comprobante_url.split('/').pop() ?? 'comprobante'
+    const [{ data: signed }, { data: signedDl }] = await Promise.all([
+      admin.storage.from('comprobantes').createSignedUrl(pedido.comprobante_url, 3600),
+      admin.storage.from('comprobantes').createSignedUrl(pedido.comprobante_url, 3600, { download: nombreArchivo }),
+    ])
     comprobanteSignedUrl = signed?.signedUrl ?? null
+    comprobanteDownloadUrl = signedDl?.signedUrl ?? null
   }
 
   const esImagen = pedido.comprobante_url
@@ -116,12 +120,9 @@ export default async function PáginaPedidoDetalle({ params }: { params: Promise
               <FileText className="w-4 h-4 text-primary" />
               <p className="text-sm font-bold text-foreground">Comprobante de pago</p>
             </div>
-            {comprobanteSignedUrl && (
+            {comprobanteDownloadUrl && (
               <a
-                href={comprobanteSignedUrl}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
+                href={comprobanteDownloadUrl}
                 className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-all"
               >
                 <Download className="w-3.5 h-3.5" />
