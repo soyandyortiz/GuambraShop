@@ -63,7 +63,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   const paleta = obtenerPaleta(config?.color_primario)
   const tema   = obtenerTema(config?.tema_id)
-  const faviconUrl = config?.favicon_url ?? '/favicon-blank.png'
+  const faviconUrl = config?.favicon_url ?? '/favicon-default.svg'
 
   return (
     <html lang="es" suppressHydrationWarning data-scroll-behavior="smooth"

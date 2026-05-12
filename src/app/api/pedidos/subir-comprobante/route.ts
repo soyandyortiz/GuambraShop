@@ -130,21 +130,9 @@ export async function POST(req: Request) {
     // 5. Eliminar el pedido temporal (ya no se necesita)
     await admin.from('pedidos_temporales').delete().eq('id', temporal.id)
 
-    // 6. Incrementar uso del cupón (si aplica)
+    // 6. Incrementar uso del cupón de forma atómica (evita race conditions)
     if (temporal.cupon_codigo) {
-      admin
-        .from('cupones')
-        .select('usos_actuales')
-        .eq('codigo', temporal.cupon_codigo)
-        .single()
-        .then(({ data }) => {
-          if (data) {
-            admin.from('cupones')
-              .update({ usos_actuales: data.usos_actuales + 1 })
-              .eq('codigo', temporal.cupon_codigo)
-              .then(() => {})
-          }
-        })
+      admin.rpc('incrementar_uso_cupon', { p_codigo: temporal.cupon_codigo }).then(() => {})
     }
 
     // 7a. Email al cliente (fire-and-forget)

@@ -271,12 +271,24 @@ export function HeaderTienda({ nombreTienda, logoUrl }: Props) {
             <Link href="/" className="flex items-center gap-2 flex-1 min-w-0">
               {logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt={nombreTienda} className="h-8 w-auto max-w-[140px] object-contain" />
-              ) : (
-                <div className="h-7 px-2.5 bg-white/20 rounded-lg flex items-center min-w-0">
-                  <span className="text-white font-bold text-xs truncate">{nombreTienda}</span>
-                </div>
-              )}
+                <img
+                  src={logoUrl}
+                  alt={nombreTienda}
+                  className="h-8 w-auto max-w-[140px] object-contain"
+                  onError={e => {
+                    const target = e.currentTarget
+                    target.style.display = 'none'
+                    const fallback = target.nextElementSibling as HTMLElement | null
+                    if (fallback) fallback.style.display = 'flex'
+                  }}
+                />
+              ) : null}
+              <div
+                className="h-7 px-2.5 bg-white/20 rounded-lg items-center min-w-0"
+                style={{ display: logoUrl ? 'none' : 'flex' }}
+              >
+                <span className="text-white font-bold text-xs truncate">{nombreTienda}</span>
+              </div>
             </Link>
 
             {/* Icono búsqueda */}

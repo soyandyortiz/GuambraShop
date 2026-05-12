@@ -33,6 +33,39 @@ export async function POST(req: Request) {
 
     const admin = crearAdmin()
 
+    // Validación del cupón en servidor (re-verifica antes de guardar el pedido)
+    let descuentoValidado = 0
+    if (cupon_codigo) {
+      const { data: cupon } = await admin
+        .from('cupones')
+        .select('tipo_descuento, valor_descuento, compra_minima, max_usos, usos_actuales, esta_activo, inicia_en, vence_en')
+        .eq('codigo', cupon_codigo)
+        .eq('esta_activo', true)
+        .single()
+
+      if (!cupon) {
+        return NextResponse.json({ error: 'Cupón no válido' }, { status: 422 })
+      }
+      const ahora = new Date()
+      if (cupon.inicia_en && new Date(cupon.inicia_en) > ahora) {
+        return NextResponse.json({ error: 'Cupón no disponible aún' }, { status: 422 })
+      }
+      if (cupon.vence_en && new Date(cupon.vence_en) < ahora) {
+        return NextResponse.json({ error: 'Cupón vencido' }, { status: 422 })
+      }
+      if (cupon.max_usos && cupon.usos_actuales >= cupon.max_usos) {
+        return NextResponse.json({ error: 'Cupón agotado' }, { status: 422 })
+      }
+      const sub = Number(subtotal)
+      if (cupon.compra_minima && sub < cupon.compra_minima) {
+        return NextResponse.json({ error: `Compra mínima requerida: ${cupon.compra_minima}` }, { status: 422 })
+      }
+      // Recalcular descuento en el servidor
+      descuentoValidado = cupon.tipo_descuento === 'porcentaje'
+        ? +(sub * cupon.valor_descuento / 100).toFixed(2)
+        : +Math.min(cupon.valor_descuento, sub).toFixed(2)
+    }
+
     // 1. Crear el pedido temporal (el trigger genera numero_temporal)
     const { data: temporal, error: errTemporal } = await admin
       .from('pedidos_temporales')
@@ -44,11 +77,11 @@ export async function POST(req: Request) {
         detalles_direccion: detalles_direccion ?? null,
         items,
         simbolo_moneda: simbolo_moneda ?? '$',
-        subtotal: +Number(subtotal).toFixed(2),
-        descuento_cupon: +Number(descuento_cupon).toFixed(2),
-        cupon_codigo: cupon_codigo ?? null,
-        costo_envio: +Number(costo_envio).toFixed(2),
-        total: +Number(total).toFixed(2),
+        subtotal:        +Number(subtotal).toFixed(2),
+        descuento_cupon: descuentoValidado,
+        cupon_codigo:    cupon_codigo ?? null,
+        costo_envio:     +Number(costo_envio).toFixed(2),
+        total:           +(Number(subtotal) - descuentoValidado + Number(costo_envio ?? 0)).toFixed(2),
         datos_facturacion: datos_facturacion ?? null,
       })
       .select('id, numero_temporal, expira_en')

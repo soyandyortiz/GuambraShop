@@ -29,6 +29,7 @@ export default async function LayoutTienda({ children }: { children: React.React
     supabase.from('cupones')
       .select('codigo, tipo_descuento, valor_descuento, vence_en')
       .eq('esta_activo', true)
+      .or(`inicia_en.is.null,inicia_en.lte.${ahora}`)
       .or(`vence_en.is.null,vence_en.gt.${ahora}`)
       .order('vence_en', { ascending: true, nullsFirst: false })
       .limit(1)

@@ -84,21 +84,9 @@ export async function POST(req: Request) {
     // 3. Confirmar pedido → descuenta stock + confirma citas + estado='procesando'
     await admin.rpc('confirmar_pedido', { p_pedido_id: pedido.id })
 
-    // 4. Incrementar uso del cupón (fire-and-forget)
+    // 4. Incrementar uso del cupón de forma atómica (fire-and-forget)
     if (pedidoData.cupon_codigo) {
-      admin.from('cupones')
-        .select('usos_actuales')
-        .eq('codigo', pedidoData.cupon_codigo)
-        .single()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .then(({ data }: { data: any }) => {
-          if (data) {
-            admin.from('cupones')
-              .update({ usos_actuales: data.usos_actuales + 1 })
-              .eq('codigo', pedidoData.cupon_codigo)
-              .then(() => {})
-          }
-        })
+      admin.rpc('incrementar_uso_cupon', { p_codigo: pedidoData.cupon_codigo }).then(() => {})
     }
 
     // 5. Notificaciones (fire-and-forget)

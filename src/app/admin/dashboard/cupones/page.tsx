@@ -8,7 +8,7 @@ export default async function PáginaCupones() {
 
   const { data: cupones } = await supabase
     .from('cupones')
-    .select('id, codigo, tipo_descuento, valor_descuento, compra_minima, max_usos, usos_actuales, esta_activo, vence_en')
+    .select('id, codigo, tipo_descuento, valor_descuento, compra_minima, max_usos, usos_actuales, esta_activo, inicia_en, vence_en')
     .order('creado_en', { ascending: false })
 
   return (

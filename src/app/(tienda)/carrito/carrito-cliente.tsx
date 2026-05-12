@@ -38,12 +38,13 @@ interface Props {
 }
 
 interface Cupon {
-  codigo: string
-  tipo_descuento: 'porcentaje' | 'fijo'
+  codigo:          string
+  tipo_descuento:  'porcentaje' | 'fijo'
   valor_descuento: number
-  compra_minima: number | null
-  usos_actuales: number
-  vence_en: string | null
+  compra_minima:   number | null
+  usos_actuales:   number
+  inicia_en:       string | null
+  vence_en:        string | null
 }
 
 interface PedidoTemporal {
@@ -146,14 +147,19 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
     const supabase = crearClienteSupabase()
     const { data } = await supabase
       .from('cupones')
-      .select('codigo, tipo_descuento, valor_descuento, compra_minima, max_usos, usos_actuales, esta_activo, vence_en')
+      .select('codigo, tipo_descuento, valor_descuento, compra_minima, max_usos, usos_actuales, esta_activo, inicia_en, vence_en')
       .eq('codigo', codigoCupon.trim().toUpperCase())
       .eq('esta_activo', true)
       .single()
 
     setValidandoCupon(false)
     if (!data) { toast.error('Cupón no válido'); return }
-    if (data.vence_en && new Date(data.vence_en) < new Date()) { toast.error('Cupón vencido'); return }
+    const ahora = new Date()
+    if (data.inicia_en && new Date(data.inicia_en) > ahora) {
+      toast.error(`Cupón disponible desde el ${new Date(data.inicia_en).toLocaleDateString('es-EC', { day: '2-digit', month: 'long' })}`)
+      return
+    }
+    if (data.vence_en && new Date(data.vence_en) < ahora) { toast.error('Cupón vencido'); return }
     if (data.max_usos && data.usos_actuales >= data.max_usos) { toast.error('Cupón agotado'); return }
     if (data.compra_minima && subtotal < data.compra_minima) {
       toast.error(`Compra mínima: ${formatearPrecio(data.compra_minima, simboloMoneda)}`); return
