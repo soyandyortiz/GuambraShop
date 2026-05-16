@@ -5,6 +5,7 @@ import { obtenerUsoStorage, formatearBytes, LIMITE_STORAGE_BYTES } from '@/lib/s
 import { cn } from '@/lib/utils'
 import { BotonMigrarImagenes } from '@/components/admin/boton-migrar-imagenes'
 import { BotonActualizarStorage } from '@/components/admin/boton-actualizar-storage'
+import { BotonLimpiarComprobantes } from '@/components/admin/boton-limpiar-comprobantes'
 
 export default async function PáginaAlmacenamiento() {
   const uso = await obtenerUsoStorage()
@@ -151,6 +152,9 @@ export default async function PáginaAlmacenamiento() {
           ))}
         </div>
       </div>
+
+      {/* Limpiar comprobantes de pago */}
+      <BotonLimpiarComprobantes />
 
       {/* CTA upgrade */}
       {uso.nivel !== 'ok' && (
