@@ -6,7 +6,7 @@ import {
   Search, ChevronDown, Users, ShoppingBag, MapPin, Mail, Phone,
   MessageCircle, ArrowUpDown, Package, Clock, CheckCircle2,
   RotateCcw, Send, XCircle, Pencil, Trash2, UserPlus, FileText,
-  Receipt, CreditCard, Globe, Download, Loader2, Eye, ExternalLink,
+  Receipt, CreditCard, Globe, Eye, ExternalLink,
   ShieldCheck, UserCheck, TrendingUp, Calendar
 } from 'lucide-react'
 import { cn, formatearPrecio } from '@/lib/utils'
@@ -80,17 +80,16 @@ const ETIQUETAS_ESTADO: Record<EstadoPedido, string> = {
 
 export function TablaClientes({ clientes, simboloMoneda, pais = 'EC' }: Props) {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
   const [busqueda, setBusqueda]           = useState('')
   const [orden, setOrden]                 = useState<OrdenSort>('reciente')
   const [modalAbierto, setModalAbierto]   = useState(false)
   const [clienteEditar, setClienteEditar] = useState<Cliente | undefined>()
-  const [importando, setImportando]       = useState(false)
   const [detallesId, setDetallesId]       = useState<string | null>(null)
 
   const filtrados = useMemo(() => {
     const texto = busqueda.toLowerCase().trim()
-    let result = clientes.filter(c => {
+    const result = clientes.filter(c => {
       if (!texto) return true
       return (
         c.razon_social.toLowerCase().includes(texto) ||
@@ -113,22 +112,6 @@ export function TablaClientes({ clientes, simboloMoneda, pais = 'EC' }: Props) {
       }
     })
   }, [clientes, busqueda, orden])
-
-  async function importarDesdePedidos() {
-    if (!confirm('Se crearán clientes a partir de los pedidos existentes y se vincularán automáticamente. ¿Continuar?')) return
-    setImportando(true)
-    try {
-      const res  = await fetch('/api/admin/importar-clientes', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) { toast.error(data.error ?? 'Error al importar'); return }
-      toast.success(`Importación completa: ${data.creados} creados, ${data.vinculados} vinculados`)
-      startTransition(() => router.refresh())
-    } catch {
-      toast.error('Error de conexión')
-    } finally {
-      setImportando(false)
-    }
-  }
 
   function abrirNuevo() {
     setClienteEditar(undefined)
@@ -181,14 +164,6 @@ export function TablaClientes({ clientes, simboloMoneda, pais = 'EC' }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={importarDesdePedidos}
-            disabled={importando}
-            className="h-10 px-4 rounded-xl border border-border bg-card text-xs font-bold flex items-center gap-2 hover:bg-background-subtle transition-all disabled:opacity-50"
-          >
-            {importando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            <span className="hidden lg:inline">Sincronizar Pedidos</span>
-          </button>
           <button
             onClick={abrirNuevo}
             className="h-10 px-6 rounded-xl bg-primary text-white text-sm font-bold shadow-md shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2"
