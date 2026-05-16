@@ -3,19 +3,14 @@ export const dynamic = 'force-dynamic'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { FormularioNuevaProforma } from '@/components/admin/proformas/formulario-nueva-proforma'
 import { redirect } from 'next/navigation'
-import type { Cliente, Producto } from '@/types'
+import type { Producto } from '@/types'
 
 export default async function PáginaNuevaProforma() {
   const supabase = await crearClienteServidor()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/admin')
 
-  const [{ data: clientes }, { data: productos }, { data: tienda }] = await Promise.all([
-    supabase
-      .from('clientes')
-      .select('id, razon_social, email, telefono')
-      .not('email', 'is', null)
-      .order('razon_social', { ascending: true }),
+  const [{ data: productos }, { data: tienda }] = await Promise.all([
     supabase
       .from('productos')
       .select('id, nombre, precio, precio_descuento, esta_activo, tipo_producto, tarifa_iva')
@@ -36,7 +31,6 @@ export default async function PáginaNuevaProforma() {
         </p>
       </div>
       <FormularioNuevaProforma
-        clientesIniciales={(clientes ?? []) as Cliente[]}
         productos={(productos ?? []) as Producto[]}
         simboloMoneda={tienda?.simbolo_moneda ?? '$'}
       />

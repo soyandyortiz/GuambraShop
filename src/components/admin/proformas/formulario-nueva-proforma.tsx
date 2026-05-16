@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Search, Plus, Trash2, UserPlus, ChevronDown, Percent, DollarSign } from 'lucide-react'
+import { Search, Plus, Trash2, UserPlus, ChevronDown, Percent, DollarSign, Loader2 } from 'lucide-react'
 import { formatearPrecio } from '@/lib/utils'
+import { crearClienteSupabase } from '@/lib/supabase/cliente'
 import type { Cliente, Producto, ItemProforma } from '@/types'
 
 interface Props {
-  clientesIniciales: Cliente[]
   productos: Producto[]
   simboloMoneda: string
 }
@@ -21,7 +21,7 @@ type ModoCliente = 'buscar' | 'nuevo'
 
 const IVA_DEFAULT = 15
 
-export function FormularioNuevaProforma({ clientesIniciales, productos, simboloMoneda }: Props) {
+export function FormularioNuevaProforma({ productos, simboloMoneda }: Props) {
   const router = useRouter()
   const sym = simboloMoneda || '$'
 
@@ -30,19 +30,40 @@ export function FormularioNuevaProforma({ clientesIniciales, productos, simboloM
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null)
   const [mostrarDropCliente, setMostrarDropCliente] = useState(false)
+  const [clientesFiltrados, setClientesFiltrados] = useState<Cliente[]>([])
+  const [buscandoCliente, setBuscandoCliente] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [nuevoNombre, setNuevoNombre] = useState('')
   const [nuevoEmail, setNuevoEmail] = useState('')
   const [nuevoTelefono, setNuevoTelefono] = useState('')
 
-  const clientesFiltrados = useMemo(() => {
-    if (!busquedaCliente || busquedaCliente.length < 2) return []
-    const q = busquedaCliente.toLowerCase()
-    return clientesIniciales.filter(c =>
-      c.razon_social.toLowerCase().includes(q) ||
-      (c.email ?? '').toLowerCase().includes(q)
-    ).slice(0, 8)
-  }, [busquedaCliente, clientesIniciales])
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!busquedaCliente || busquedaCliente.length < 2) {
+      setClientesFiltrados([])
+      return
+    }
+    setBuscandoCliente(true)
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const supabase = crearClienteSupabase()
+        const q = busquedaCliente.trim()
+        const { data } = await supabase
+          .from('clientes')
+          .select('id, razon_social, email, telefono')
+          .or(`razon_social.ilike.%${q}%,email.ilike.%${q}%`)
+          .not('email', 'is', null)
+          .order('razon_social', { ascending: true })
+          .limit(8)
+        setClientesFiltrados((data ?? []) as Cliente[])
+      } catch {
+        setClientesFiltrados([])
+      } finally {
+        setBuscandoCliente(false)
+      }
+    }, 300)
+  }, [busquedaCliente])
 
   // ── Productos / ítems ──────────────────────────────────────────────────────
   const [busquedaProducto, setBusquedaProducto] = useState('')
@@ -211,7 +232,10 @@ export function FormularioNuevaProforma({ clientesIniciales, productos, simboloM
         {modoCliente === 'buscar' ? (
           <div className="space-y-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
+              {buscandoCliente
+                ? <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted animate-spin" />
+                : <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
+              }
               <input
                 type="text"
                 placeholder="Buscar por nombre o email..."
