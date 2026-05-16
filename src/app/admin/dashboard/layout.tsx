@@ -6,7 +6,7 @@ import { TopbarAdmin } from '@/components/admin/topbar-admin'
 import { ModalMensajes } from '@/components/admin/mensajes/modal-mensajes'
 import { BannerDemo } from '@/components/admin/banner-demo'
 import { DemoProvider } from '@/components/providers/demo-provider'
-import { StorageWidgetSidebar } from '@/components/admin/storage-widget-sidebar'
+import { FooterSidebar } from '@/components/admin/footer-sidebar'
 import { BannerAlmacenamiento } from '@/components/admin/banner-almacenamiento'
 
 const EMAIL_DEMO = 'demo@tiendademo.local'
@@ -37,7 +37,7 @@ export default async function LayoutDashboard({ children }: { children: React.Re
         {esDemo && <BannerDemo />}
 
         {/* Sidebar + Topbar: ambos fixed, topbar ancho completo z-50, sidebar top-11 z-40 */}
-        <Sidebar nombre={nombre} rol={rol} fotoPerfil={fotoPerfil} faviconUrl={faviconUrl} footer={<StorageWidgetSidebar />} />
+        <Sidebar nombre={nombre} rol={rol} fotoPerfil={fotoPerfil} faviconUrl={faviconUrl} footer={<FooterSidebar />} />
         <TopbarAdmin nombre={nombre} email={email} rol={rol} fotoPerfil={fotoPerfil} />
 
         {/* Contenido: desplazado por sidebar (ml-60) y topbar (pt-11) en desktop */}
