@@ -447,6 +447,42 @@ export interface Cliente {
   actualizado_en: string
 }
 
+// ── Proformas ─────────────────────────────────────────────────────────────────
+
+export interface ItemProforma {
+  producto_id: string | null
+  nombre: string
+  cantidad: number
+  precio_unitario: number
+  subtotal: number
+}
+
+export interface Proforma {
+  id: string
+  numero: string
+  cliente_id: string | null
+  cliente_nombre: string
+  cliente_email: string
+  cliente_telefono: string | null
+  items: ItemProforma[]
+  subtotal: number
+  descuento_tipo: 'porcentaje' | 'fijo' | null
+  descuento_valor: number
+  descuento_monto: number
+  base_imponible: number
+  iva_porcentaje: number
+  iva_monto: number
+  total: number
+  vigencia_horas: number | null
+  vence_en: string | null
+  email_enviado: boolean
+  email_enviado_en: string | null
+  nota: string | null
+  creado_por: string | null
+  creado_en: string
+  actualizado_en: string
+}
+
 export interface Factura {
   id: string
   pedido_id: string | null
