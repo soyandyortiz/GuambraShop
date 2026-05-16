@@ -186,7 +186,11 @@ export function FormularioNuevaProforma({ productos, simboloMoneda }: Props) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
 
-      toast.success(`Proforma ${data.proforma.numero} creada y enviada por email`)
+      if (data.email_no_enviado) {
+        toast.warning(`Proforma ${data.proforma.numero} creada, pero el email NO se envió: ${data.motivo_email}`)
+      } else {
+        toast.success(`Proforma ${data.proforma.numero} creada y enviada por email`)
+      }
       router.push('/admin/dashboard/proformas')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al crear la proforma')

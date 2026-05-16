@@ -8,6 +8,7 @@ import { BannerDemo } from '@/components/admin/banner-demo'
 import { DemoProvider } from '@/components/providers/demo-provider'
 import { FooterSidebar } from '@/components/admin/footer-sidebar'
 import { BannerAlmacenamiento } from '@/components/admin/banner-almacenamiento'
+import { BannerEmailLimite } from '@/components/admin/banner-email-limite'
 
 const EMAIL_DEMO = 'demo@tiendademo.local'
 
@@ -48,6 +49,7 @@ export default async function LayoutDashboard({ children }: { children: React.Re
           <main className="flex-1 min-w-0 overflow-x-clip">
             <div className="p-4 md:p-6 max-w-6xl mx-auto w-full">
               <BannerAlmacenamiento />
+              <BannerEmailLimite />
               {children}
             </div>
           </main>

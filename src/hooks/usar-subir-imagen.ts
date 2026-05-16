@@ -63,6 +63,20 @@ export function usarSubirImagen(carpeta: 'productos' | 'categorias' | 'promocion
       return null
     }
 
+    // Verificar si el almacenamiento está lleno antes de intentar subir
+    try {
+      const res = await fetch('/api/storage/nivel')
+      if (res.ok) {
+        const nivel = await res.json()
+        if (nivel.lleno) {
+          setError('El almacenamiento está lleno (100%). Elimina archivos en la sección Almacenamiento para poder subir imágenes.')
+          return null
+        }
+      }
+    } catch {
+      // Si falla el chequeo, continuamos — mejor intentar que bloquear sin certeza
+    }
+
     setSubiendo(true)
     try {
       // Convertir a WebP antes de subir

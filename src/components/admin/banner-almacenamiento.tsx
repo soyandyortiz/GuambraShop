@@ -33,9 +33,11 @@ export async function BannerAlmacenamiento() {
         </p>
         <p className={`text-xs mt-0.5 ${esCritico ? 'text-red-600' : 'text-amber-600'}`}>
           {formatearBytes(uso.totalBytes)} usados de {formatearBytes(LIMITE_STORAGE_BYTES)} disponibles en el plan gratuito.
-          {esCritico
-            ? ' La tienda podría dejar de aceptar nuevas imágenes y archivos.'
-            : ' Considera actualizar a Supabase Pro para escalar sin límites.'
+          {uso.porcentaje >= 100
+            ? ' La subida de imágenes está bloqueada. Elimina archivos en la sección Almacenamiento para continuar.'
+            : esCritico
+              ? ' La tienda podría dejar de aceptar nuevas imágenes. Elimina archivos para liberar espacio.'
+              : ' Considera actualizar a Supabase Pro para escalar sin límites.'
           }
         </p>
       </div>

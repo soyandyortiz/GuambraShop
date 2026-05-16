@@ -153,7 +153,14 @@ export async function POST(req: NextRequest) {
         .eq('id', proforma.id)
     }
 
-    return NextResponse.json({ ok: true, proforma })
+    const emailNoEnviado = cfgEmail?.activo && !limite.permitido
+
+    return NextResponse.json({
+      ok: true,
+      proforma,
+      email_no_enviado: emailNoEnviado,
+      motivo_email: emailNoEnviado ? limite.motivo : null,
+    })
   } catch (err) {
     console.error('[proformas] POST error:', err)
     return NextResponse.json(
