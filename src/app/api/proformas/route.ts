@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { enviarEmail } from '@/lib/email/enviar'
+import { verificarLimiteEmail } from '@/lib/email/verificar-limite'
 import { generarProformaBuffer } from '@/lib/proforma-pdf'
 import type { ItemProforma, Proforma } from '@/types'
 
@@ -111,8 +112,11 @@ export async function POST(req: NextRequest) {
       tienda?.logo_url ?? null,
     )
 
-    // Enviar email si hay configuración activa
-    if (cfgEmail?.activo) {
+    // Verificar límite de emails antes de enviar
+    const limite = await verificarLimiteEmail()
+
+    // Enviar email si hay configuración activa y no se alcanzó el límite
+    if (cfgEmail?.activo && limite.permitido) {
       const htmlEmail = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #111;">
           <h2 style="color: #16a34a;">Proforma ${proforma.numero}</h2>

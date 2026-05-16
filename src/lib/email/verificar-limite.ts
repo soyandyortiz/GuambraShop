@@ -50,13 +50,20 @@ export async function verificarLimiteEmail(): Promise<ResultadoVerificacion> {
   const hoy       = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).toISOString()
   const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString()
 
-  const [{ count: countHoy }, { count: countMes }] = await Promise.all([
+  const [
+    { count: facturasHoy },
+    { count: facturasMes },
+    { count: proformasHoy },
+    { count: proformasMes },
+  ] = await Promise.all([
     admin.from('facturas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', hoy),
     admin.from('facturas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', inicioMes),
+    admin.from('proformas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', hoy),
+    admin.from('proformas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', inicioMes),
   ])
 
-  const enviosHoy = countHoy ?? 0
-  const enviosMes = countMes ?? 0
+  const enviosHoy = (facturasHoy ?? 0) + (proformasHoy ?? 0)
+  const enviosMes = (facturasMes ?? 0) + (proformasMes ?? 0)
 
   if (enviosHoy >= limiteDia) {
     return {

@@ -27,6 +27,8 @@ export default async function PáginaFacturacion() {
     { data: cfgTienda },
     { count: countHoy },
     { count: countMes },
+    { count: countProformasHoy },
+    { count: countProformasMes },
   ] = await Promise.all([
     supabase.from('facturas').select('*').order('creado_en', { ascending: false }).limit(100),
     supabase.from('configuracion_facturacion').select('*').maybeSingle(),
@@ -34,10 +36,12 @@ export default async function PáginaFacturacion() {
     supabase.from('configuracion_tienda').select('nombre_tienda, simbolo_moneda, ticket_ancho_papel, ticket_linea_1, ticket_linea_2, ticket_linea_3, ticket_linea_4, ticket_texto_pie, ticket_pie_2, ticket_mostrar_precio_unit').single(),
     supabase.from('facturas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', hoy),
     supabase.from('facturas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', inicioMes),
+    supabase.from('proformas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', hoy),
+    supabase.from('proformas').select('*', { count: 'exact', head: true }).gte('email_enviado_en', inicioMes),
   ])
 
-  const enviosHoy = countHoy ?? 0
-  const enviosMes = countMes ?? 0
+  const enviosHoy = (countHoy ?? 0) + (countProformasHoy ?? 0)
+  const enviosMes = (countMes ?? 0) + (countProformasMes ?? 0)
 
   const configActiva = config as ConfiguracionFacturacion | null
 
