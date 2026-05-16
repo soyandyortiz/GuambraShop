@@ -215,7 +215,7 @@ export function FormularioPerfil({ config, direcciones: dirInic, redes: redesIni
         {tab === 'general'     && <TabGeneral config={config} />}
         {tab === 'horario'     && <TabHorario config={config} />}
         {tab === 'citas'       && <TabCitas config={config} empleadosInic={empleadosInic} />}
-        {tab === 'pagos'       && <TabMetodosPago metodosPagoInic={metodosPagoInic} configId={config.id} paypalConfigInic={{ activo: config.paypal_activo ?? false, client_id: config.paypal_client_id ?? null, secret: config.paypal_secret ?? null, modo: config.paypal_modo ?? 'sandbox' }} esSuperAdmin={rol === 'superadmin'} />}
+        {tab === 'pagos'       && <TabMetodosPago metodosPagoInic={metodosPagoInic} configId={config.id} paypalConfigInic={{ activo: config.paypal_activo ?? false, client_id: config.paypal_client_id ?? null, secret: config.paypal_secret ?? null, modo: config.paypal_modo ?? 'sandbox' }} payphoneConfigInic={{ activo: (config as any).payphone_activo ?? false, token: (config as any).payphone_token ?? null, store_id: (config as any).payphone_store_id ?? null }} esSuperAdmin={rol === 'superadmin'} />}
         {tab === 'imagenes'    && <TabImagenes config={config} />}
         {tab === 'colores'     && <TabColores config={config} />}
         {tab === 'direcciones' && <TabDirecciones direccionesInic={dirInic} />}
@@ -1513,11 +1513,13 @@ function SeccionPassword() {
 
 // ─── Tab Métodos de Pago ──────────────────────────────────────
 interface PaypalConfig { activo: boolean; client_id: string | null; secret: string | null; modo: string | null }
+interface PayphoneConfig { activo: boolean; token: string | null; store_id: string | null }
 
-function TabMetodosPago({ metodosPagoInic, configId, paypalConfigInic, esSuperAdmin }: {
+function TabMetodosPago({ metodosPagoInic, configId, paypalConfigInic, payphoneConfigInic, esSuperAdmin }: {
   metodosPagoInic: MetodoPago[]
   configId: string
   paypalConfigInic: PaypalConfig
+  payphoneConfigInic: PayphoneConfig
   esSuperAdmin: boolean
 }) {
   const [metodos, setMetodos] = useState<MetodoPago[]>(metodosPagoInic)
@@ -1530,6 +1532,11 @@ function TabMetodosPago({ metodosPagoInic, configId, paypalConfigInic, esSuperAd
   const [paypal, setPaypal] = useState<PaypalConfig>(paypalConfigInic)
   const [guardandoPaypal, setGuardandoPaypal] = useState(false)
   const [mostrarSecret, setMostrarSecret] = useState(false)
+
+  // Payphone config
+  const [payphone, setPayphone] = useState<PayphoneConfig>(payphoneConfigInic)
+  const [guardandoPayphone, setGuardandoPayphone] = useState(false)
+  const [mostrarToken, setMostrarToken] = useState(false)
 
   async function guardarPaypal() {
     setGuardandoPaypal(true)
@@ -1544,6 +1551,20 @@ function TabMetodosPago({ metodosPagoInic, configId, paypalConfigInic, esSuperAd
     setGuardandoPaypal(false)
     if (error) { toast.error('Error al guardar configuración PayPal'); return }
     toast.success('Configuración PayPal guardada')
+  }
+
+  async function guardarPayphone() {
+    setGuardandoPayphone(true)
+    const supabase = crearClienteSupabase()
+    const upd: Record<string, unknown> = {
+      payphone_activo:   payphone.activo,
+      payphone_store_id: payphone.store_id?.trim() || null,
+    }
+    if (payphone.token !== null) upd.payphone_token = payphone.token.trim() || null
+    const { error } = await supabase.from('configuracion_tienda').update(upd).eq('id', configId)
+    setGuardandoPayphone(false)
+    if (error) { toast.error('Error al guardar configuración Payphone'); return }
+    toast.success('Configuración Payphone guardada')
   }
 
   const vacío: Omit<MetodoPago, 'id' | 'orden'> = {
@@ -1720,8 +1741,9 @@ function TabMetodosPago({ metodosPagoInic, configId, paypalConfigInic, esSuperAd
         </div>
       )}
 
-      {/* ── Sección PayPal (solo superadmin) ── */}
+      {/* ── Secciones PayPal y Payphone (solo superadmin) ── */}
       {esSuperAdmin && (
+        <>
         <div className="mt-6 pt-5 border-t border-border flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <div>
@@ -1805,6 +1827,75 @@ function TabMetodosPago({ metodosPagoInic, configId, paypalConfigInic, esSuperAd
             Guardar PayPal
           </button>
         </div>
+
+        {/* ── Sección Payphone ── */}
+        <div className="mt-5 pt-5 border-t border-border flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-[#00b1eb] text-white text-xs font-black">P</span>
+                Payphone
+              </h3>
+              <p className="text-xs text-foreground-muted mt-0.5">Cobros en línea con tarjeta · Solo Ecuador (USD)</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPayphone(p => ({ ...p, activo: !p.activo }))}
+              className={cn('w-11 h-6 rounded-full transition-colors flex-shrink-0 relative', payphone.activo ? 'bg-primary' : 'bg-border')}
+            >
+              <span className={cn('absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all', payphone.activo ? 'left-[22px]' : 'left-0.5')} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2 flex flex-col gap-1">
+              <label className="text-xs font-medium text-foreground-muted">Token de acceso</label>
+              <div className="relative">
+                <input
+                  type={mostrarToken ? 'text' : 'password'}
+                  value={payphone.token ?? ''}
+                  onChange={e => setPayphone(p => ({ ...p, token: e.target.value }))}
+                  placeholder="Bearer token de tu cuenta Payphone"
+                  className={inputP + ' font-mono text-[11px] pr-10'}
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarToken(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground"
+                >
+                  {mostrarToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-foreground-muted">Store ID <span className="text-foreground-muted/60">(opcional)</span></label>
+              <input
+                type="text"
+                value={payphone.store_id ?? ''}
+                onChange={e => setPayphone(p => ({ ...p, store_id: e.target.value }))}
+                placeholder="ID de tu tienda en Payphone"
+                className={inputP + ' font-mono text-[11px]'}
+              />
+            </div>
+          </div>
+
+          <p className="text-[11px] text-foreground-muted bg-background-subtle border border-border rounded-xl px-3 py-2">
+            Obtén el token en <strong>pay.payphone.app → Mi cuenta → Configuración → Token de acceso</strong>.
+            El pago es procesado en la página de Payphone y el cliente regresa automáticamente con el pedido confirmado.
+          </p>
+
+          <button
+            type="button"
+            onClick={guardarPayphone}
+            disabled={guardandoPayphone}
+            className="self-end flex items-center gap-2 h-9 px-4 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-all"
+          >
+            {guardandoPayphone ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            Guardar Payphone
+          </button>
+        </div>
+        </>
       )}
     </div>
   )

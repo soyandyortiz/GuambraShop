@@ -35,6 +35,7 @@ interface Props {
   metodosPago: MetodoPago[]
   paypalActivo?: boolean
   paypalClientId?: string
+  payphoneActivo?: boolean
 }
 
 interface Cupon {
@@ -63,7 +64,7 @@ type Paso = 'carrito' | 'envio' | 'datos' | 'pago'
 const INPUT_BASE =
   'w-full h-11 px-3 rounded-xl border border-input-border bg-input-bg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all'
 
-export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = 'EC', metodosPago, paypalActivo = false, paypalClientId = '' }: Props) {
+export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = 'EC', metodosPago, paypalActivo = false, paypalClientId = '', payphoneActivo = false }: Props) {
   const { items, quitar, actualizarCantidad, limpiar, subtotal, hidratado } = usarCarrito()
 
   const soloServicios  = items.length > 0 && items.every(i => i.tipo_producto === 'servicio')
@@ -81,7 +82,8 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
   const [archivoComprobante, setArchivoComprobante] = useState<File | null>(null)
   const [subiendoComprobante, setSubiendoComprobante] = useState(false)
   const [iniciandoTransferencia, setIniciandoTransferencia] = useState(false)
-  const [metodoPago, setMetodoPago] = useState<'transferencia' | 'paypal'>('transferencia')
+  const [metodoPago, setMetodoPago] = useState<'transferencia' | 'paypal' | 'payphone'>('transferencia')
+  const [pagandoPayphone, setPagandoPayphone] = useState(false)
 
   // Datos del cliente
   const [nombres, setNombres] = useState('')
@@ -474,6 +476,29 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
     setCupon(null)
     setPedidoTemporal(null)
     setPedidoConfirmado({ numero_orden: data.numero_orden, whatsappUrl: urlWhatsApp, formaPago: 'paypal' })
+  }
+
+  // --- Pago con Payphone: llama a crear-orden y redirige ---
+  async function pagarConPayphone() {
+    setPagandoPayphone(true)
+    try {
+      const res = await fetch('/api/pedidos/payphone/crear-orden', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildDatosPedido()),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Error al iniciar el pago con Payphone.')
+        return
+      }
+      const data = await res.json()
+      window.location.href = data.payWithCard
+    } catch {
+      toast.error('Error al conectar con Payphone. Intenta nuevamente.')
+    } finally {
+      setPagandoPayphone(false)
+    }
   }
 
   // --- Loading / carrito vacío ---
@@ -1160,8 +1185,8 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
             )}
           </div>
 
-          {/* Selector de método de pago (solo si no hay temporal activo) */}
-          {!pedidoTemporal && paypalActivo && paypalClientId && (
+          {/* Selector de método de pago (solo si no hay temporal activo y hay opciones extra) */}
+          {!pedidoTemporal && (paypalActivo && paypalClientId || payphoneActivo) && (
             <div className="flex rounded-2xl border border-border overflow-hidden">
               <button
                 onClick={() => setMetodoPago('transferencia')}
@@ -1173,19 +1198,37 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                 )}>
                 <Landmark className="w-3.5 h-3.5" /> Transferencia
               </button>
-              <button
-                onClick={() => setMetodoPago('paypal')}
-                className={cn(
-                  'flex-1 flex items-center justify-center gap-2 py-3 text-xs font-semibold transition-all border-l border-border',
-                  metodoPago === 'paypal'
-                    ? 'bg-[#0070ba] text-white'
-                    : 'bg-card text-foreground-muted hover:text-foreground'
-                )}>
-                <svg className="w-14 h-5" viewBox="0 0 101 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="PayPal">
-                  <path d="M12.237 2.347H6.433c-.393 0-.728.285-.79.673L3.378 19.047c-.046.29.178.554.473.554h2.847c.393 0 .728-.285.79-.673l.63-3.982c.062-.388.396-.673.79-.673h1.813c3.77 0 5.947-1.823 6.52-5.44.256-1.582.01-2.826-.73-3.697-.813-.96-2.256-1.489-4.274-1.489zm.66 5.363c-.313 1.978-1.882 1.978-3.401 1.978h-.864l.606-3.832c.036-.228.235-.396.466-.396h.396c1.033 0 2.01 0 2.512.589.301.352.393.874.285 1.661zM29.89 7.633h-2.856c-.231 0-.43.168-.466.396l-.12.757-.19-.275c-.587-.852-1.895-1.137-3.202-1.137-2.997 0-5.557 2.27-6.057 5.455-.26 1.59.11 3.11 1.013 4.169.829.972 2.014 1.377 3.426 1.377 2.415 0 3.754-1.552 3.754-1.552l-.121.75c-.046.29.178.554.473.554h2.572c.393 0 .728-.285.79-.673l1.543-9.773c.046-.288-.178-.548-.559-.048zm-3.983 5.278c-.262 1.552-1.49 2.594-3.06 2.594-.786 0-1.415-.252-1.82-.73-.4-.473-.552-1.148-.425-1.898.245-1.538 1.49-2.614 3.037-2.614.768 0 1.393.256 1.806.738.415.487.581 1.165.462 1.91zM45.634 7.633H42.76c-.259 0-.503.128-.648.341l-3.741 5.508-1.586-5.296c-.099-.33-.401-.553-.744-.553h-2.808c-.327 0-.555.321-.448.628l2.987 8.768-2.81 3.964c-.224.316 0 .754.384.754h2.872c.256 0 .498-.126.644-.337l9.024-13.024c.219-.316-.006-.753-.252-.753z" fill={metodoPago === 'paypal' ? 'white' : '#253B80'}/>
-                  <path d="M53.512 2.347h-5.804c-.393 0-.728.285-.79.673L44.653 19.047c-.046.29.178.554.473.554h3.057c.275 0 .509-.2.552-.472l.658-4.183c.062-.388.396-.673.79-.673h1.812c3.77 0 5.947-1.823 6.52-5.44.256-1.582.01-2.826-.73-3.697-.812-.96-2.254-1.489-4.273-1.489zm.659 5.363c-.313 1.978-1.882 1.978-3.4 1.978h-.865l.606-3.832c.036-.228.235-.396.466-.396h.397c1.032 0 2.009 0 2.511.589.302.352.394.874.285 1.661zM71.164 7.633H68.31c-.231 0-.43.168-.466.396l-.12.757-.19-.275c-.587-.852-1.895-1.137-3.201-1.137-2.997 0-5.557 2.27-6.057 5.455-.26 1.59.109 3.11 1.013 4.169.828.972 2.013 1.377 3.425 1.377 2.415 0 3.754-1.552 3.754-1.552l-.121.75c-.046.29.178.554.473.554h2.572c.393 0 .728-.285.79-.673l1.543-9.773c.045-.288-.18-.548-.561-.048zm-3.983 5.278c-.262 1.552-1.49 2.594-3.06 2.594-.786 0-1.415-.252-1.82-.73-.4-.473-.552-1.148-.425-1.898.245-1.538 1.49-2.614 3.037-2.614.768 0 1.392.256 1.806.738.415.487.581 1.165.462 1.91zM74.734 2.711l-2.293 14.593c-.046.29.178.554.473.554h2.459c.393 0 .728-.285.79-.673L78.428 2.16c.046-.29-.178-.554-.473-.554h-2.748a.476.476 0 00-.473.405v.7z" fill={metodoPago === 'paypal' ? 'white' : '#179BD7'}/>
-                </svg>
-              </button>
+              {paypalActivo && paypalClientId && (
+                <button
+                  onClick={() => setMetodoPago('paypal')}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-2 py-3 text-xs font-semibold transition-all border-l border-border',
+                    metodoPago === 'paypal'
+                      ? 'bg-[#0070ba] text-white'
+                      : 'bg-card text-foreground-muted hover:text-foreground'
+                  )}>
+                  <svg className="w-14 h-5" viewBox="0 0 101 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="PayPal">
+                    <path d="M12.237 2.347H6.433c-.393 0-.728.285-.79.673L3.378 19.047c-.046.29.178.554.473.554h2.847c.393 0 .728-.285.79-.673l.63-3.982c.062-.388.396-.673.79-.673h1.813c3.77 0 5.947-1.823 6.52-5.44.256-1.582.01-2.826-.73-3.697-.813-.96-2.256-1.489-4.274-1.489zm.66 5.363c-.313 1.978-1.882 1.978-3.401 1.978h-.864l.606-3.832c.036-.228.235-.396.466-.396h.396c1.033 0 2.01 0 2.512.589.301.352.393.874.285 1.661zM29.89 7.633h-2.856c-.231 0-.43.168-.466.396l-.12.757-.19-.275c-.587-.852-1.895-1.137-3.202-1.137-2.997 0-5.557 2.27-6.057 5.455-.26 1.59.11 3.11 1.013 4.169.829.972 2.014 1.377 3.426 1.377 2.415 0 3.754-1.552 3.754-1.552l-.121.75c-.046.29.178.554.473.554h2.572c.393 0 .728-.285.79-.673l1.543-9.773c.046-.288-.178-.548-.559-.048zm-3.983 5.278c-.262 1.552-1.49 2.594-3.06 2.594-.786 0-1.415-.252-1.82-.73-.4-.473-.552-1.148-.425-1.898.245-1.538 1.49-2.614 3.037-2.614.768 0 1.393.256 1.806.738.415.487.581 1.165.462 1.91zM45.634 7.633H42.76c-.259 0-.503.128-.648.341l-3.741 5.508-1.586-5.296c-.099-.33-.401-.553-.744-.553h-2.808c-.327 0-.555.321-.448.628l2.987 8.768-2.81 3.964c-.224.316 0 .754.384.754h2.872c.256 0 .498-.126.644-.337l9.024-13.024c.219-.316-.006-.753-.252-.753z" fill={metodoPago === 'paypal' ? 'white' : '#253B80'}/>
+                    <path d="M53.512 2.347h-5.804c-.393 0-.728.285-.79.673L44.653 19.047c-.046.29.178.554.473.554h3.057c.275 0 .509-.2.552-.472l.658-4.183c.062-.388.396-.673.79-.673h1.812c3.77 0 5.947-1.823 6.52-5.44.256-1.582.01-2.826-.73-3.697-.812-.96-2.254-1.489-4.273-1.489zm.659 5.363c-.313 1.978-1.882 1.978-3.4 1.978h-.865l.606-3.832c.036-.228.235-.396.466-.396h.397c1.032 0 2.009 0 2.511.589.302.352.394.874.285 1.661zM71.164 7.633H68.31c-.231 0-.43.168-.466.396l-.12.757-.19-.275c-.587-.852-1.895-1.137-3.201-1.137-2.997 0-5.557 2.27-6.057 5.455-.26 1.59.109 3.11 1.013 4.169.828.972 2.013 1.377 3.425 1.377 2.415 0 3.754-1.552 3.754-1.552l-.121.75c-.046.29.178.554.473.554h2.572c.393 0 .728-.285.79-.673l1.543-9.773c.045-.288-.18-.548-.561-.048zm-3.983 5.278c-.262 1.552-1.49 2.594-3.06 2.594-.786 0-1.415-.252-1.82-.73-.4-.473-.552-1.148-.425-1.898.245-1.538 1.49-2.614 3.037-2.614.768 0 1.392.256 1.806.738.415.487.581 1.165.462 1.91zM74.734 2.711l-2.293 14.593c-.046.29.178.554.473.554h2.459c.393 0 .728-.285.79-.673L78.428 2.16c.046-.29-.178-.554-.473-.554h-2.748a.476.476 0 00-.473.405v.7z" fill={metodoPago === 'paypal' ? 'white' : '#179BD7'}/>
+                  </svg>
+                </button>
+              )}
+              {payphoneActivo && (
+                <button
+                  onClick={() => setMetodoPago('payphone')}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold transition-all border-l border-border',
+                    metodoPago === 'payphone'
+                      ? 'bg-[#00b1eb] text-white'
+                      : 'bg-card text-foreground-muted hover:text-foreground'
+                  )}>
+                  <span className={cn(
+                    'inline-flex items-center justify-center w-5 h-5 rounded text-xs font-black',
+                    metodoPago === 'payphone' ? 'bg-white text-[#00b1eb]' : 'bg-[#00b1eb] text-white'
+                  )}>P</span>
+                  Payphone
+                </button>
+              )}
             </div>
           )}
 
@@ -1312,6 +1355,36 @@ export function CarritoCliente({ whatsapp, nombreTienda, simboloMoneda, pais = '
                 onSuccess={handlePayPalSuccess}
                 onError={msg => toast.error(msg, { duration: 6000 })}
               />
+            </div>
+          )}
+
+          {/* ── PAYPHONE: redirige a la página de pago ── */}
+          {metodoPago === 'payphone' && payphoneActivo && (
+            <div className="bg-card border border-card-border rounded-2xl p-4 flex flex-col gap-3">
+              <p className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wide">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-[#00b1eb] text-white text-xs font-black">P</span>
+                Pagar con Payphone
+              </p>
+              <p className="text-xs text-foreground-muted">
+                Serás redirigido a la página segura de Payphone para pagar con tarjeta de débito o crédito. Tu pedido se confirmará automáticamente.
+              </p>
+              <div className="flex items-center gap-2 bg-background-subtle rounded-xl px-3 py-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <p className="text-xs text-foreground-muted">Acepta Visa y Mastercard · Pago 100% seguro · Encriptación SSL</p>
+              </div>
+              <button
+                onClick={pagarConPayphone}
+                disabled={pagandoPayphone}
+                className="w-full h-12 rounded-2xl bg-[#00b1eb] hover:bg-[#009ad0] text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60 transition-colors"
+              >
+                {pagandoPayphone
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirigiendo…</>
+                  : <>
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-white text-[#00b1eb] text-xs font-black">P</span>
+                      Pagar {formatearPrecio(total, simboloMoneda)} con Payphone
+                    </>
+                }
+              </button>
             </div>
           )}
         </div>
