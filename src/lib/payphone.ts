@@ -1,4 +1,4 @@
-const PAYPHONE_BASE = 'https://pay.payphone.app/api/button'
+const PAYPHONE_BASE = 'https://pay.payphonetodoesposible.com/api/button'
 
 export async function crearTransaccionPayphone(opts: {
   token: string
@@ -10,7 +10,7 @@ export async function crearTransaccionPayphone(opts: {
   reference?: string
 }) {
   const cents = Math.round(opts.amount * 100)
-  const res = await fetch(`${PAYPHONE_BASE}/Payments/pay`, {
+  const res = await fetch(`${PAYPHONE_BASE}/Prepare`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${opts.token}`,
@@ -27,7 +27,7 @@ export async function crearTransaccionPayphone(opts: {
       clientTransactionId: opts.clientTransactionId,
       responseUrl:        opts.responseUrl,
       cancellationUrl:    opts.cancellationUrl,
-      storeId:            opts.storeId ?? undefined,
+      ...(opts.storeId ? { storeId: opts.storeId } : {}),
       reference:          opts.reference ?? 'Pedido',
     }),
   })
@@ -43,14 +43,14 @@ export async function verificarPagoPayphone(opts: {
   id: number | string
   clientTransactionId: string
 }) {
-  const res = await fetch(`${PAYPHONE_BASE}/Payments/confirm`, {
+  const res = await fetch(`${PAYPHONE_BASE}/V2/Confirm`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${opts.token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      id: Number(opts.id),
+      id:                  Number(opts.id),
       clientTransactionId: opts.clientTransactionId,
     }),
   })
