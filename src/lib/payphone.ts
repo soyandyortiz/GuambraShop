@@ -1,4 +1,4 @@
-const PAYPHONE_BASE = 'https://pay.payphonetodoesposible.com/api/button'
+const PAYPHONE_BASE = 'https://pay.payphone.app/api/button'
 
 export async function crearTransaccionPayphone(opts: {
   token: string
